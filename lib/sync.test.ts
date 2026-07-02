@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { openDb } from './db';
-import { setSetting } from './settings-repo';
+import { setSetting, getSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import { listItems } from './items-repo';
 
@@ -66,5 +66,32 @@ describe('runSync', () => {
     const ado = outcomes.find((o) => o.source === 'ado')!;
     expect(github.error).toBeNull();
     expect(ado.error).toBe('Azure DevOps API error 401');
+  });
+
+  it('persists the synced sprint iteration to settings', async () => {
+    setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
+    setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
+    setSetting(db, SETTINGS_KEYS.adoProject, 'project');
+    (fetchGithubItems as any).mockResolvedValue([]);
+    (fetchAdoData as any).mockResolvedValue({
+      items: [],
+      iteration: { name: 'Sprint 7', startDate: '2026-07-01', endDate: '2026-07-14' },
+    });
+
+    await runSync(db);
+
+    expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Sprint 7');
+    expect(getSetting(db, SETTINGS_KEYS.sprintStart)).toBe('2026-07-01');
+    expect(getSetting(db, SETTINGS_KEYS.sprintEnd)).toBe('2026-07-14');
+  });
+
+  it('writes a sync_log row per source on every run', async () => {
+    (fetchGithubItems as any).mockResolvedValue([]);
+    (fetchAdoData as any).mockResolvedValue({ items: [], iteration: null });
+
+    await runSync(db);
+
+    const { count } = db.prepare('SELECT COUNT(*) as count FROM sync_log').get() as { count: number };
+    expect(count).toBe(2);
   });
 });

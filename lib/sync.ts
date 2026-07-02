@@ -28,7 +28,8 @@ async function syncGithub(db: Database.Database): Promise<SyncOutcome> {
     return { source: 'github', itemCount: 0, error };
   }
 
-  const staleDays = Number(getSetting(db, SETTINGS_KEYS.staleDays) ?? DEFAULT_STALE_DAYS);
+  const parsedStaleDays = Number(getSetting(db, SETTINGS_KEYS.staleDays) ?? DEFAULT_STALE_DAYS);
+  const staleDays = Number.isNaN(parsedStaleDays) ? DEFAULT_STALE_DAYS : parsedStaleDays;
   try {
     const items = await fetchGithubItems({ pat, staleDays });
     for (const item of items) upsertSyncedItem(db, item);
