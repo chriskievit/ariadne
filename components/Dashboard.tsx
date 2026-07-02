@@ -6,6 +6,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
+import QuickAddForm from './QuickAddForm';
 import {
   fetchDashboardData,
   triggerSync,
@@ -105,6 +106,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           </Accordion>
         </CardContent>
       </Card>
+      <QuickAddForm onSubmit={handleQuickAdd} />
     </main>
   );
 }
