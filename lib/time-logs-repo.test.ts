@@ -40,8 +40,10 @@ describe('startTimer / completeTimer', () => {
     expect(completed.durationMinutes).toBeLessThanOrEqual(11);
   });
 
-  it('throws when there is no open log to complete', () => {
-    expect(() => completeTimer(db, itemId)).toThrow('No open time log for item');
+  it('creates an already-closed log when there is no open timer', () => {
+    const completed = completeTimer(db, itemId, { durationMinutes: 5 });
+    expect(completed.durationMinutes).toBe(5);
+    expect(completed.endedAt).not.toBeNull();
   });
 });
 

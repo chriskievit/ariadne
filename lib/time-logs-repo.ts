@@ -26,10 +26,17 @@ export function completeTimer(
   const openLog = db
     .prepare('SELECT * FROM time_logs WHERE item_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1')
     .get(itemId) as any;
-  if (!openLog) {
-    throw new Error(`No open time log for item ${itemId}`);
-  }
   const now = new Date().toISOString();
+
+  if (!openLog) {
+    // No open timer (e.g. the item was never Started) — record an
+    // already-closed log instead of failing the completion.
+    const result = db
+      .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_minutes, note) VALUES (?, ?, ?, ?, ?)')
+      .run(itemId, now, now, options.durationMinutes ?? 0, options.note ?? null);
+    return rowToLog(db.prepare('SELECT * FROM time_logs WHERE id = ?').get(result.lastInsertRowid));
+  }
+
   const duration =
     options.durationMinutes ??
     Math.round((new Date(now).getTime() - new Date(openLog.started_at).getTime()) / 60_000);
