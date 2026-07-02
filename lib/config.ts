@@ -1,0 +1,14 @@
+export const SETTINGS_KEYS = {
+  githubPat: 'github.pat',
+  adoPat: 'ado.pat',
+  adoOrg: 'ado.org',
+  adoProject: 'ado.project',
+  adoTeam: 'ado.team',
+  staleDays: 'github.staleDays',
+  sprintName: 'sprint.name',
+  sprintStart: 'sprint.start',
+  sprintEnd: 'sprint.end',
+} as const;
+
+export const DEFAULT_STALE_DAYS = 3;
+export const NEEDS_ATTENTION_THRESHOLD = 25;
