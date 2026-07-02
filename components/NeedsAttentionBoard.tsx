@@ -29,7 +29,7 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete }: Prop
           const groupItems = items.filter((item) => item.source === group.source);
           const Icon = SOURCE_ICON[group.source];
           return (
-            <Card key={group.source}>
+            <Card key={group.source} className="min-w-0">
               <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-4">
                 <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 <CardTitle className="text-sm">{group.label}</CardTitle>

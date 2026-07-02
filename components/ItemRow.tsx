@@ -96,11 +96,16 @@ export default function ItemRow({ item, onStart, onComplete, showTier = false }:
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
           {item.url ? (
-            <a href={item.url} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block truncate font-medium hover:underline"
+            >
               {item.title}
             </a>
           ) : (
-            <span className="truncate font-medium">{item.title}</span>
+            <span className="block truncate font-medium">{item.title}</span>
           )}
           {showTier ? (
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
