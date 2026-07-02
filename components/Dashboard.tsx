@@ -6,6 +6,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
+import NeedsAttentionBoard from './NeedsAttentionBoard';
 import QuickAddForm from './QuickAddForm';
 import {
   fetchDashboardData,
@@ -75,19 +76,12 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
+    <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
+      <NeedsAttentionBoard items={data.needsAttention} onStart={handleStart} onComplete={handleComplete} />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={['needs-attention', 'in-progress']}>
-            <ItemSection
-              value="needs-attention"
-              title="Needs attention"
-              items={data.needsAttention}
-              emptyMessage="You're all caught up."
-              onStart={handleStart}
-              onComplete={handleComplete}
-            />
+          <Accordion type="multiple" defaultValue={['in-progress']}>
             <ItemSection
               value="in-progress"
               title="In progress"
