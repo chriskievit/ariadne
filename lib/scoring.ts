@@ -46,3 +46,14 @@ export function sortByUrgency<T extends ScorableItem>(items: T[], now: Date): (T
       return b.score - a.score;
     });
 }
+
+export type PriorityTier = 'low' | 'medium' | 'high' | 'critical';
+
+// Boundaries line up with NEEDS_ATTENTION_THRESHOLD (25) in lib/config.ts —
+// 'low' never appears in the Needs Attention UI, only medium/high/critical do.
+export function getPriorityTier(score: number): PriorityTier {
+  if (score >= 60) return 'critical';
+  if (score >= 40) return 'high';
+  if (score >= 25) return 'medium';
+  return 'low';
+}

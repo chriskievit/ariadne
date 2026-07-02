@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreItem, sortByUrgency } from './scoring';
+import { scoreItem, sortByUrgency, getPriorityTier } from './scoring';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
 
@@ -77,5 +77,26 @@ describe('sortByUrgency', () => {
     const items = [baseItem({ reason: 'manual' }), baseItem({ reason: 'approved_unmerged' }), baseItem({ reason: 'mention' })];
     const sorted = sortByUrgency(items, NOW);
     expect(sorted.map((i) => i.reason)).toEqual(['approved_unmerged', 'mention', 'manual']);
+  });
+});
+
+describe('getPriorityTier', () => {
+  it('returns low below the needs-attention threshold', () => {
+    expect(getPriorityTier(24)).toBe('low');
+  });
+
+  it('returns medium from 25 up to 39', () => {
+    expect(getPriorityTier(25)).toBe('medium');
+    expect(getPriorityTier(39)).toBe('medium');
+  });
+
+  it('returns high from 40 up to 59', () => {
+    expect(getPriorityTier(40)).toBe('high');
+    expect(getPriorityTier(59)).toBe('high');
+  });
+
+  it('returns critical at 60 and above', () => {
+    expect(getPriorityTier(60)).toBe('critical');
+    expect(getPriorityTier(85)).toBe('critical');
   });
 });
