@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from '@/components/ui/sonner';
+import SprintProgressHeader from './SprintProgressHeader';
 import {
   fetchDashboardData,
   triggerSync,
@@ -71,7 +72,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <p className="text-sm text-muted-foreground">Dashboard shell — sections added in Tasks 18-20.</p>
+      <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
     </main>
   );
 }
