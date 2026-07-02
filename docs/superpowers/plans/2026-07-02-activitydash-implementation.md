@@ -1117,7 +1117,9 @@ describe('getSprintProgress', () => {
   });
 
   it('counts an ad-hoc item created within the sprint window even without an iteration tag', () => {
-    createAdhocItem(db, { title: 'Reply to Sarah' });
+    const item = createAdhocItem(db, { title: 'Reply to Sarah' });
+    db.prepare('UPDATE items SET created_at = ? WHERE id = ?').run('2026-07-05T00:00:00.000Z', item.id);
+
     const progress = getSprintProgress(db);
     expect(progress.totalCount).toBe(1);
     expect(progress.completedCount).toBe(0);
