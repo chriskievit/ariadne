@@ -10,12 +10,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from '@/lib/config';
 
+// react-hook-form treats dots in a field `name` as a nested-path separator
+// (e.g. "ado.org" is stored as { ado: { org } }), so SETTINGS_KEYS' dotted
+// SQL key names can't be used directly as form field names. These local,
+// dot-free names are mapped to the real settings keys only when reading
+// initialSettings and when building the POST body.
 const settingsSchema = z.object({
-  [SETTINGS_KEYS.githubPat]: z.string().optional(),
-  [SETTINGS_KEYS.adoPat]: z.string().optional(),
-  [SETTINGS_KEYS.adoOrg]: z.string().optional(),
-  [SETTINGS_KEYS.adoProject]: z.string().optional(),
-  [SETTINGS_KEYS.staleDays]: z.string().optional(),
+  githubPat: z.string().optional(),
+  adoPat: z.string().optional(),
+  adoOrg: z.string().optional(),
+  adoProject: z.string().optional(),
+  staleDays: z.string().optional(),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -29,16 +34,25 @@ export default function SettingsForm({ initialSettings }: Props) {
   const form = useForm<SettingsValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      [SETTINGS_KEYS.githubPat]: initialSettings[SETTINGS_KEYS.githubPat] ?? '',
-      [SETTINGS_KEYS.adoPat]: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
-      [SETTINGS_KEYS.adoOrg]: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
-      [SETTINGS_KEYS.adoProject]: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
-      [SETTINGS_KEYS.staleDays]: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
+      githubPat: initialSettings[SETTINGS_KEYS.githubPat] ?? '',
+      adoPat: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
+      adoOrg: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
+      adoProject: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
+      staleDays: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
     },
   });
 
   async function handleSubmit(values: SettingsValues) {
-    await fetch('/api/settings', { method: 'POST', body: JSON.stringify(values) });
+    await fetch('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({
+        [SETTINGS_KEYS.githubPat]: values.githubPat ?? '',
+        [SETTINGS_KEYS.adoPat]: values.adoPat ?? '',
+        [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
+        [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
+        [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
+      }),
+    });
     setSaved(true);
   }
 
@@ -49,7 +63,7 @@ export default function SettingsForm({ initialSettings }: Props) {
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name={SETTINGS_KEYS.githubPat}
+              name="githubPat"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>GitHub personal access token</FormLabel>
@@ -62,7 +76,7 @@ export default function SettingsForm({ initialSettings }: Props) {
             />
             <FormField
               control={form.control}
-              name={SETTINGS_KEYS.adoPat}
+              name="adoPat"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Azure DevOps personal access token</FormLabel>
@@ -75,7 +89,7 @@ export default function SettingsForm({ initialSettings }: Props) {
             />
             <FormField
               control={form.control}
-              name={SETTINGS_KEYS.adoOrg}
+              name="adoOrg"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Azure DevOps organization</FormLabel>
@@ -88,7 +102,7 @@ export default function SettingsForm({ initialSettings }: Props) {
             />
             <FormField
               control={form.control}
-              name={SETTINGS_KEYS.adoProject}
+              name="adoProject"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Azure DevOps project</FormLabel>
@@ -101,7 +115,7 @@ export default function SettingsForm({ initialSettings }: Props) {
             />
             <FormField
               control={form.control}
-              name={SETTINGS_KEYS.staleDays}
+              name="staleDays"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Stale PR threshold (days)</FormLabel>

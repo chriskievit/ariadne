@@ -3404,3 +3404,28 @@ the integration/production level. Fixes applied:
 9. **Minor — test coverage gaps in `lib/sync.test.ts`.** Added a test
    asserting a successful ADO sync persists `sprint.name`/`start`/`end` via
    `setSetting`, and a test asserting `sync_log` rows are actually written.
+
+---
+
+## Post-Merge Fix — SettingsForm dotted field names
+
+Discovered via user bug report after merge: saving Settings appeared to
+succeed (200 response, "Saved." shown), but the persisted values were empty
+except `github.staleDays`. Root cause: `react-hook-form` interprets dots in
+a field's `name` as a nested-path separator (e.g. `name="ado.org"` is
+internally stored as `{ ado: { org } }`), so using `SETTINGS_KEYS`' dotted
+SQL key names (`github.pat`, `ado.org`, etc.) directly as form field names
+caused every typed value to be captured under a nested path that the flat
+`zod` schema/submit body never read — only the untouched flat defaults were
+ever submitted, which is why `staleDays` (whose flat default is the
+`DEFAULT_STALE_DAYS` constant) appeared to work while the rest didn't.
+
+Fix: `components/SettingsForm.tsx` now uses local, dot-free field names
+(`githubPat`, `adoPat`, `adoOrg`, `adoProject`, `staleDays`) for the
+react-hook-form schema/fields, mapping to the real `SETTINGS_KEYS` only when
+reading `initialSettings` (building `defaultValues`) and when building the
+`POST /api/settings` body. Also fixed in the same pass: `app/settings/page.tsx`
+was still statically prerendered (missing the `force-dynamic` export applied
+to `/` and `/api/sprint` earlier) — same bug class, would have caused this
+exact "blank after refresh" symptom again under `next build && next start`
+regardless of the form fix.
