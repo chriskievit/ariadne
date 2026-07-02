@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { toast } from '@/components/ui/sonner';
+import { Accordion } from '@/components/ui/accordion';
+import { Card, CardContent } from '@/components/ui/card';
 import SprintProgressHeader from './SprintProgressHeader';
+import ItemSection from './ItemSection';
 import {
   fetchDashboardData,
   triggerSync,
@@ -73,6 +76,35 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
+      <Card>
+        <CardContent className="pt-6">
+          <Accordion type="multiple" defaultValue={['needs-attention', 'in-progress']}>
+            <ItemSection
+              value="needs-attention"
+              title="Needs attention"
+              items={data.needsAttention}
+              emptyMessage="You're all caught up."
+              onStart={handleStart}
+              onComplete={handleComplete}
+            />
+            <ItemSection
+              value="in-progress"
+              title="In progress"
+              items={data.inProgress}
+              emptyMessage="Nothing in progress — start something above."
+              onComplete={handleComplete}
+            />
+            <ItemSection
+              value="everything-else"
+              title="Everything else"
+              items={data.everythingElse}
+              emptyMessage="Nothing else queued."
+              onStart={handleStart}
+              onComplete={handleComplete}
+            />
+          </Accordion>
+        </CardContent>
+      </Card>
     </main>
   );
 }
