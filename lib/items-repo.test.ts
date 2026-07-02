@@ -54,6 +54,34 @@ describe('upsertSyncedItem', () => {
     expect(updated.reason).toBe('approved_unmerged');
     expect(updated.status).toBe('in_progress');
   });
+
+  it('preserves completed_at on re-sync', () => {
+    const first = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-2',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+    });
+    setStatus(db, first.id, 'done', '2026-07-01T12:00:00.000Z');
+
+    const updated = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-2',
+      title: 'Fix bug',
+      url: null,
+      reason: 'mention',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+    });
+
+    expect(updated.status).toBe('done');
+    expect(updated.completedAt).toBe('2026-07-01T12:00:00.000Z');
+  });
 });
 
 describe('createAdhocItem', () => {
