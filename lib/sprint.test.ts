@@ -59,4 +59,40 @@ describe('getSprintProgress', () => {
 
     expect(getSprintProgress(db).totalCount).toBe(0);
   });
+
+  it('counts an ADO item whose iteration is a full path ending in the sprint name', () => {
+    upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '202',
+      title: 'Full path iteration',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: 'Project\\Sprint 42',
+      rawUpdatedAt: null,
+    });
+
+    expect(getSprintProgress(db).totalCount).toBe(1);
+  });
+
+  it('reports lastSyncedAt as the most recent sync_log entry', () => {
+    db.prepare('INSERT INTO sync_log (source, ran_at, item_count, error) VALUES (?, ?, ?, ?)').run(
+      'github',
+      '2026-07-01T00:00:00.000Z',
+      1,
+      null
+    );
+    db.prepare('INSERT INTO sync_log (source, ran_at, item_count, error) VALUES (?, ?, ?, ?)').run(
+      'ado',
+      '2026-07-02T12:00:00.000Z',
+      2,
+      null
+    );
+
+    expect(getSprintProgress(db).lastSyncedAt).toBe('2026-07-02T12:00:00.000Z');
+  });
+
+  it('reports lastSyncedAt as null when there is no sync history', () => {
+    expect(getSprintProgress(db).lastSyncedAt).toBeNull();
+  });
 });

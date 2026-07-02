@@ -9,16 +9,21 @@ export interface SprintProgress {
   endDate: string | null;
   totalCount: number;
   completedCount: number;
+  lastSyncedAt: string | null;
 }
 
 export function getSprintProgress(db: Database.Database): SprintProgress {
   const name = getSetting(db, SETTINGS_KEYS.sprintName);
   const startDate = getSetting(db, SETTINGS_KEYS.sprintStart);
   const endDate = getSetting(db, SETTINGS_KEYS.sprintEnd);
+  const lastSyncedAt = (
+    db.prepare('SELECT MAX(ran_at) as lastSyncedAt FROM sync_log').get() as { lastSyncedAt: string | null }
+  ).lastSyncedAt;
 
   const items = listItems(db);
   const inSprint = items.filter((item) => {
-    if (name && item.sprintIteration === name) return true;
+    if (name && item.sprintIteration && (item.sprintIteration === name || item.sprintIteration.endsWith('\\' + name)))
+      return true;
     if (startDate && endDate) return item.createdAt >= startDate && item.createdAt <= endDate;
     return false;
   });
@@ -29,5 +34,6 @@ export function getSprintProgress(db: Database.Database): SprintProgress {
     endDate,
     totalCount: inSprint.length,
     completedCount: inSprint.filter((i) => i.status === 'done').length,
+    lastSyncedAt,
   };
 }

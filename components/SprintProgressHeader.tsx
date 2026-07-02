@@ -20,6 +20,12 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
     ? Math.max(0, Math.ceil((new Date(sprint.endDate).getTime() - Date.now()) / 86_400_000))
     : null;
   const percent = sprint.totalCount > 0 ? Math.round((sprint.completedCount / sprint.totalCount) * 100) : 0;
+  const lastSyncedLabel = sprint.lastSyncedAt
+    ? (() => {
+        const minutesAgo = Math.round((Date.now() - new Date(sprint.lastSyncedAt as string).getTime()) / 60_000);
+        return `Last synced: ${minutesAgo === 0 ? 'just now' : `${minutesAgo} min ago`}`;
+      })()
+    : 'Never synced';
 
   return (
     <Card>
@@ -46,6 +52,7 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
           </div>
         </div>
         <Progress value={percent} />
+        <p className="text-xs text-muted-foreground">{lastSyncedLabel}</p>
         {errors.length > 0 && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
             {errors.map((error) => (

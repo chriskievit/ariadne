@@ -10,7 +10,7 @@ interface Props {
   items: (Item & { score: number })[];
   emptyMessage: string;
   onStart?: (id: number) => void;
-  onComplete: (id: number, durationMinutes?: number) => void;
+  onComplete: (id: number, durationMinutes?: number, note?: string) => void;
 }
 
 export default function ItemSection({ value, title, items, emptyMessage, onStart, onComplete }: Props) {

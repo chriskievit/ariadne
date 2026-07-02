@@ -1,8 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { Github, ClipboardList, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type { Item } from '@/lib/types';
 
 const REASON_LABEL: Record<Item['reason'], string> = {
@@ -34,11 +44,21 @@ const SOURCE_ICON = {
 interface Props {
   item: Item & { score: number };
   onStart?: (id: number) => void;
-  onComplete: (id: number, durationMinutes?: number) => void;
+  onComplete: (id: number, durationMinutes?: number, note?: string) => void;
 }
 
 export default function ItemRow({ item, onStart, onComplete }: Props) {
   const Icon = SOURCE_ICON[item.source];
+  const [open, setOpen] = useState(false);
+  const [duration, setDuration] = useState('');
+  const [note, setNote] = useState('');
+
+  function handleCompleteSubmit() {
+    onComplete(item.id, duration ? Number(duration) : undefined, note || undefined);
+    setOpen(false);
+    setDuration('');
+    setNote('');
+  }
 
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3 last:border-0">
@@ -63,10 +83,40 @@ export default function ItemRow({ item, onStart, onComplete }: Props) {
             Start
           </Button>
         )}
-        <Button type="button" size="sm" onClick={() => onComplete(item.id)}>
+        <Button type="button" size="sm" onClick={() => setOpen(true)}>
           Mark complete
         </Button>
       </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark complete</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor={`duration-${item.id}`}>Minutes spent (optional)</Label>
+              <Input
+                id={`duration-${item.id}`}
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor={`note-${item.id}`}>Note (optional)</Label>
+              <Input id={`note-${item.id}`} value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleCompleteSubmit}>
+              Complete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
