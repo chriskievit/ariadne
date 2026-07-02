@@ -43,13 +43,16 @@ async function fetchCurrentIteration(config: AdoConfig): Promise<AdoSyncResult['
 }
 
 async function fetchAssignedWorkItemIds(config: AdoConfig): Promise<number[]> {
+  // @CurrentIteration resolves relative to the team in the URL; omitting it
+  // resolves against the project's default team, which can be a different sprint.
+  const team = config.team ?? config.project;
   const wiql = {
     query:
       "SELECT [System.Id] FROM WorkItems WHERE [System.AssignedTo] = @Me AND [System.IterationPath] = @CurrentIteration AND [System.State] <> 'Closed'",
   };
   const result = await adoFetch(
     config,
-    `https://dev.azure.com/${config.org}/${config.project}/_apis/wit/wiql?api-version=7.1`,
+    `https://dev.azure.com/${config.org}/${config.project}/${team}/_apis/wit/wiql?api-version=7.1`,
     { method: 'POST', body: JSON.stringify(wiql) }
   );
   return (result.workItems ?? []).map((wi: any) => wi.id);
@@ -57,7 +60,10 @@ async function fetchAssignedWorkItemIds(config: AdoConfig): Promise<number[]> {
 
 async function fetchWorkItemDetails(config: AdoConfig, ids: number[]): Promise<NewSyncedItemInput[]> {
   if (ids.length === 0) return [];
-  const data = await adoFetch(config, `https://dev.azure.com/${config.org}/_apis/wit/workitems?ids=${ids.join(',')}&api-version=7.1`);
+  const data = await adoFetch(
+    config,
+    `https://dev.azure.com/${config.org}/_apis/wit/workitems?ids=${ids.join(',')}&$expand=all&api-version=7.1`
+  );
   return data.value.map((wi: any) => ({
     source: 'ado_workitem' as const,
     externalId: String(wi.id),
