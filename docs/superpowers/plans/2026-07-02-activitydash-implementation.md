@@ -1230,7 +1230,7 @@ describe('fetchGithubItems', () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
-      if (url.includes('author:chris')) {
+      if (url.includes('author%3Achris')) {
         return jsonResponse({
           items: [
             {
@@ -1244,8 +1244,8 @@ describe('fetchGithubItems', () => {
         });
       }
       if (url.includes('/pulls/42/reviews')) return jsonResponse([{ state: 'APPROVED' }]);
-      if (url.includes('review-requested:chris')) return jsonResponse({ items: [] });
-      if (url.includes('mentions:chris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -1259,7 +1259,7 @@ describe('fetchGithubItems', () => {
     const staleDate = new Date(Date.now() - 10 * 86_400_000).toISOString();
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
-      if (url.includes('author:chris')) {
+      if (url.includes('author%3Achris')) {
         return jsonResponse({
           items: [
             {
@@ -1273,8 +1273,8 @@ describe('fetchGithubItems', () => {
         });
       }
       if (url.includes('/pulls/7/reviews')) return jsonResponse([]);
-      if (url.includes('review-requested:chris')) return jsonResponse({ items: [] });
-      if (url.includes('mentions:chris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -1293,9 +1293,9 @@ describe('fetchGithubItems', () => {
     };
     fetchMock.mockImplementation(async (url: string) => {
       if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
-      if (url.includes('author:chris')) return jsonResponse({ items: [] });
-      if (url.includes('review-requested:chris')) return jsonResponse({ items: [prPayload] });
-      if (url.includes('mentions:chris')) return jsonResponse({ items: [prPayload] });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [prPayload] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [prPayload] });
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -1305,6 +1305,8 @@ describe('fetchGithubItems', () => {
   });
 });
 ```
+
+The mock predicates match `%3A` rather than `:` because the client's `encodeURIComponent` call on the search query encodes colons — matching the literal `:` here would never fire and every test would fall through to the `throw new Error('Unexpected URL...')` branch.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
