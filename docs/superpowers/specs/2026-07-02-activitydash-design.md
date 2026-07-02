@@ -29,8 +29,8 @@ pick a "currently working on" item and log time against it.
 Single full-stack **Next.js (App Router, TypeScript)** app, run locally via
 `npm run dev` and used at `localhost`.
 
-- **Frontend:** React (Next.js pages/components), Tailwind CSS. One primary
-  dashboard route, plus a `/settings` route.
+- **Frontend:** React (Next.js pages/components), Tailwind CSS, Lucide icons.
+  One primary dashboard route, plus a `/settings` route.
 - **Backend:** Next.js API routes handle (a) the manual sync trigger that
   calls the GitHub and Azure DevOps REST APIs, and (b) CRUD for ad-hoc items,
   current-task selection, completion, and time logging.
@@ -138,24 +138,41 @@ regardless of score, since the user has already committed to them.
 
 ## UI Layout
 
+Visual language: one icon set throughout (Lucide), no emoji as structural
+icons. Both light and dark mode are built from the start (dark mode is the
+likely default given the tool stays open all day alongside an editor/
+terminal) using Tailwind's semantic color tokens rather than one-off hex
+values, so contrast is verified in both themes rather than assumed from one.
+
 Single dashboard page:
 
 1. **Header bar** — sprint progress widget (iteration name, days remaining,
    completion blending ADO work items done + GitHub PRs merged + ad-hoc items
-   completed within the iteration window), "Last synced: X min ago",
+   completed within the iteration window). The completion figure is always
+   shown as text/number (e.g. "7/12 done") alongside any bar or ring visual —
+   never conveyed by fill color alone. Also: "Last synced: X min ago",
    **Refresh** button, **Settings** link.
 2. **Needs attention** — items scoring above a threshold (e.g. 25). Each row:
    source icon, title (links out to GitHub/ADO), a badge explaining the
    reason ("Ready to merge," "Mentioned you," "Stale — no reviews," "Due
-   tomorrow"), and actions **Start** / **Mark complete**.
+   tomorrow"), and actions **Start** / **Mark complete**. When empty, shows
+   "You're all caught up" instead of a blank section.
 3. **In progress** — items the user has clicked **Start** on. **Mark
    complete** prompts for optional time (defaults to elapsed time since
    Start, editable, or a manually typed duration) and writes a `time_logs`
-   row, setting `status = done`.
+   row, setting `status = done`. No confirmation dialog — completion is a
+   frequent, low-stakes action — instead a short-lived toast offers **Undo**
+   (reverts `status` and removes the `time_logs` row) rather than blocking
+   with a dialog. When empty, shows a neutral placeholder (e.g. "Nothing in
+   progress — start something above").
 4. **Everything else** — collapsed by default; same row format, for
    lower-scored items.
 5. **Quick-add** — persistent control to log an ad-hoc item (title, category,
    optional due date).
+
+**Refresh loading state:** while the sync API call is in flight, the
+**Refresh** button shows a spinner and is disabled to prevent duplicate
+syncs; per-source results (success/error) appear once the call resolves.
 
 **Settings page** (`/settings`): GitHub PAT, Azure DevOps PAT + org/project,
 stale-PR threshold — masked inputs, stored in `settings`.
