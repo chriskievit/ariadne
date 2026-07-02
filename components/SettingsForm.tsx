@@ -20,6 +20,7 @@ const settingsSchema = z.object({
   adoPat: z.string().optional(),
   adoOrg: z.string().optional(),
   adoProject: z.string().optional(),
+  adoTeam: z.string().optional(),
   staleDays: z.string().optional(),
 });
 
@@ -38,6 +39,7 @@ export default function SettingsForm({ initialSettings }: Props) {
       adoPat: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
       adoOrg: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
       adoProject: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
+      adoTeam: initialSettings[SETTINGS_KEYS.adoTeam] ?? '',
       staleDays: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
     },
   });
@@ -50,6 +52,7 @@ export default function SettingsForm({ initialSettings }: Props) {
         [SETTINGS_KEYS.adoPat]: values.adoPat ?? '',
         [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
         [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
+        [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
         [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
       }),
     });
@@ -108,6 +111,19 @@ export default function SettingsForm({ initialSettings }: Props) {
                   <FormLabel>Azure DevOps project</FormLabel>
                   <FormControl>
                     <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="adoTeam"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Azure DevOps team (optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Defaults to the project name if left blank" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

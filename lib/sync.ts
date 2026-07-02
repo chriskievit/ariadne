@@ -53,7 +53,7 @@ async function syncAdo(db: Database.Database): Promise<SyncOutcome> {
   }
 
   try {
-    const team = getSetting(db, SETTINGS_KEYS.adoTeam) ?? undefined;
+    const team = getSetting(db, SETTINGS_KEYS.adoTeam) || undefined;
     const { items, iteration } = await fetchAdoData({ pat, org, project, team });
     for (const item of items) upsertSyncedItem(db, item);
     if (iteration) {
