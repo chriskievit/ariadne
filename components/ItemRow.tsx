@@ -122,11 +122,16 @@ export default function ItemRow({ item, onStart, onComplete, showTier = false }:
     return (
       <div className={cn('border-b py-3 last:border-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
         {item.url ? (
-          <a href={item.url} target="_blank" rel="noreferrer" className="line-clamp-2 font-medium hover:underline">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            className="line-clamp-2 break-words font-medium hover:underline"
+          >
             {item.title}
           </a>
         ) : (
-          <span className="line-clamp-2 font-medium">{item.title}</span>
+          <span className="line-clamp-2 break-words font-medium">{item.title}</span>
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
