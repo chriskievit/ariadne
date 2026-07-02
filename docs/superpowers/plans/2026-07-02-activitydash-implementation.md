@@ -3350,3 +3350,57 @@ Confirm the dashboard loads in dark mode by default (Inter font, indigo accent o
 - [ ] **Step 8: Final commit**
 
 If any fixes were needed during manual verification, commit them individually with descriptive messages before considering the plan complete.
+
+---
+
+## Post-Implementation Fixes (final whole-branch review)
+
+After all 21 tasks were built and individually reviewed, a final whole-branch
+review (most capable model, full-branch diff) found issues only visible at
+the integration/production level. Fixes applied:
+
+1. **Critical — Mark Complete 500 on never-started items.** `ItemRow`
+   unconditionally renders "Mark complete" (matching the spec's Needs
+   Attention row actions), but `completeTimer` threw when there was no open
+   time log, so completing an item that was never Started returned a 500
+   after already flipping `status` to `done` — silent data corruption with
+   no undo. Fix: `completeTimer` no longer throws when there's no open log;
+   it creates an already-closed log with `duration_minutes = options.durationMinutes ?? 0`
+   instead. The "throws when there is no open log" test is replaced with a
+   test asserting this graceful behavior.
+2. **Important — statically-prerendered GET routes.** Any GET route handler
+   with no dynamic API usage can be statically baked at build time. `/api/sprint`
+   (and any other affected GET-only routes) need `export const dynamic = 'force-dynamic'`,
+   the same fix already applied to `app/page.tsx` in Task 17 — this is
+   invisible in `next dev` and only surfaces under `next build && next start`.
+3. **Important — PATs reachable over the LAN.** `next dev`/`next start` bind
+   to `0.0.0.0` by default; combined with `GET /api/settings` returning PATs
+   in cleartext, any machine on the same network could read them. Fix:
+   `package.json`'s `dev`/`start` scripts bind explicitly to `127.0.0.1`,
+   matching the spec's "localhost-only" trust model.
+4. **Important (scope addition) — editable completion duration.** The spec
+   requires "optional time... editable, or manually typed duration" when
+   marking an item complete; the implementation always sent
+   `durationMinutes: undefined` with no UI to override it. Fix: a small
+   shadcn `Dialog` on "Mark complete" lets the user optionally enter a
+   duration (minutes) and note before submitting; leaving it blank preserves
+   the existing auto-elapsed-time behavior.
+5. **Important (scope addition) — "Last synced" indicator.** The spec's UI
+   Layout section requires a "Last synced: X min ago" indicator; it was
+   never wired up. Fix: `getSprintProgress` also reads `MAX(ran_at)` from
+   `sync_log` as `lastSyncedAt`, and `SprintProgressHeader` renders it.
+6. **Minor — invalid `staleDays` silently disables stale-PR detection.**
+   `Number(getSetting(...))` on a non-numeric settings value produces `NaN`,
+   and `ageDays > NaN` is always `false`. Fix: fall back to
+   `DEFAULT_STALE_DAYS` when the parsed value is `NaN`.
+7. **Minor — sprint iteration matching misses ADO's full path.** ADO stores
+   `System.IterationPath` as a full path (e.g. `Project\Sprint 5`) while the
+   current iteration's `name` is just the leaf (`Sprint 5`), so the exact-match
+   branch never fired for ADO items. Fix: also match when
+   `sprintIteration` ends with `\<name>`.
+8. **Minor — dangling `time_logs` rows on unknown item ids.** `PRAGMA foreign_keys`
+   was never enabled, so `time_logs.item_id` wasn't enforced. Fix: enable it
+   in `openDb`.
+9. **Minor — test coverage gaps in `lib/sync.test.ts`.** Added a test
+   asserting a successful ADO sync persists `sprint.name`/`start`/`end` via
+   `setSetting`, and a test asserting `sync_log` rows are actually written.
