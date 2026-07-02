@@ -23,7 +23,8 @@
 - Empty sections show a specific message ("You're all caught up", "Nothing in progress — start something above") rather than blank space (spec: UI Layout, UX review).
 - Refresh button shows a loading/disabled state while syncing (spec: UI Layout, UX review).
 - One icon set (Lucide) throughout, no emoji as structural icons (UX review).
-- Light and dark mode are both built in from the start using Tailwind semantic classes, not retrofitted (UX review).
+- UI is built on **shadcn/ui** (Radix primitives + Tailwind, generated via the shadcn CLI) rather than hand-rolled components — gets accessible focus/keyboard handling, consistent theming via CSS variables, and a real Toast (Sonner) for free (per user direction + ui-ux-pro-max shadcn stack guidance).
+- Visual direction: Inter font, dark-mode-first ("premium developer tool" aesthetic — deep neutral surfaces, hairline borders, a single indigo accent color), with light mode still fully supported via a manual toggle — not the default, per ui-ux-pro-max's dark-mode-first guidance for developer tools (UX review, `--design-system` query).
 - Sprint completion is always shown as text/number (e.g. "7/12 done"), never by fill color alone (UX review).
 
 ---
@@ -2298,7 +2299,146 @@ git commit -m "Add /api/sprint route"
 
 ---
 
-## Task 16: App Shell & Dashboard Wiring
+## Task 16: shadcn/ui Setup & Theming
+
+**Files:**
+- Create/Modify (via CLI): `components.json`, `lib/utils.ts`, `app/globals.css`, `tailwind.config.ts`
+- Create (via CLI): `components/ui/button.tsx`, `components/ui/card.tsx`, `components/ui/badge.tsx`, `components/ui/input.tsx`, `components/ui/label.tsx`, `components/ui/progress.tsx`, `components/ui/accordion.tsx`, `components/ui/sonner.tsx`, `components/ui/form.tsx`
+- Create: `components/theme-provider.tsx`, `components/theme-toggle.tsx`
+- Modify: `app/layout.tsx`
+
+**Interfaces:**
+- Produces: `Button`, `buttonVariants` (variants: `default`, `outline`, `secondary`, `ghost`, `link`; sizes: `default`, `sm`, `lg`, `icon`) from `@/components/ui/button`; `Card`, `CardHeader`, `CardTitle`, `CardContent` from `@/components/ui/card`; `Badge`, `badgeVariants` (variants: `default`, `secondary`, `destructive`, `outline`) from `@/components/ui/badge`; `Input`, `Label` from `@/components/ui/input` and `@/components/ui/label`; `Progress` from `@/components/ui/progress`; `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` from `@/components/ui/accordion`; `Toaster`, `toast` (re-exported from `sonner`) from `@/components/ui/sonner`; `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage` from `@/components/ui/form`; `cn(...)` from `@/lib/utils`; `ThemeProvider` from `components/theme-provider.tsx`; `ThemeToggle` from `components/theme-toggle.tsx`.
+
+This task has no automated test — it is tooling/setup, verified by a successful build and a visual check.
+
+- [ ] **Step 1: Run the shadcn CLI init**
+
+Run: `npx shadcn@latest init`
+
+Answer the prompts:
+- TypeScript: yes
+- Style: **New York**
+- Base color: **Zinc**
+- CSS variables for colors: **yes**
+
+This overwrites `tailwind.config.ts`'s `darkMode` (changes from `'media'` to `'class'`, since theme switching is now controlled by `next-themes` rather than the OS preference alone) and rewrites `app/globals.css` with `:root`/`.dark` CSS variable blocks (`--background`, `--foreground`, `--card`, `--primary`, `--border`, `--radius`, etc.). It also creates `components.json` and `lib/utils.ts` (exporting `cn()`). This is expected — do not revert these files to their Task 1 state.
+
+- [ ] **Step 2: Add the required shadcn components**
+
+Run: `npx shadcn@latest add button card badge input label progress accordion sonner form`
+Expected: creates the nine files listed under Files above, and installs their dependencies (`@radix-ui/react-progress`, `@radix-ui/react-accordion`, `@radix-ui/react-label`, `sonner`, `react-hook-form`, `@hookform/resolvers`, `zod`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`) into `package.json`.
+
+- [ ] **Step 3: Set the indigo accent color**
+
+The default Zinc theme is monochrome. Open `app/globals.css` and change the `--primary` / `--primary-foreground` variables in both the `:root` and `.dark` blocks to an indigo accent (all other generated variables stay as the CLI produced them):
+
+```css
+:root {
+  /* ...existing generated variables above... */
+  --primary: 243 75% 59%;
+  --primary-foreground: 0 0% 100%;
+}
+
+.dark {
+  /* ...existing generated variables above... */
+  --primary: 243 75% 65%;
+  --primary-foreground: 0 0% 100%;
+}
+```
+
+Because every generated component (`Button`, `Progress`, focus rings, etc.) reads `bg-primary` / `text-primary-foreground` / `ring-primary` rather than a hardcoded color, this one change gives the whole app a consistent indigo accent — matching the shadcn theming guideline to use CSS variables, not hardcoded hex values, in components.
+
+- [ ] **Step 4: Install next-themes and add the Inter font**
+
+Run: `npm install next-themes`
+
+`components/theme-provider.tsx`:
+```tsx
+'use client';
+
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import type { ComponentProps } from 'react';
+
+export function ThemeProvider({ children, ...props }: ComponentProps<typeof NextThemesProvider>) {
+  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+}
+```
+
+`components/theme-toggle.tsx`:
+```tsx
+'use client';
+
+import { Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { Button } from '@/components/ui/button';
+
+export function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      aria-label="Toggle theme"
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </Button>
+  );
+}
+```
+
+- [ ] **Step 5: Update `app/layout.tsx`**
+
+```tsx
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/sonner';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+
+export const metadata: Metadata = {
+  title: 'ActivityDash',
+  description: 'Personal attention-triage dashboard',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} bg-background font-sans text-foreground antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          {children}
+          <Toaster />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+`defaultTheme="dark"` with `enableSystem={false}` makes dark the fixed starting point (matching the "avoid light mode default" guidance for developer tools) while `ThemeToggle` (wired into the header in Task 18) still lets the user switch to light — both themes stay fully supported, just not equally weighted by default.
+
+- [ ] **Step 6: Verify the build and visual baseline**
+
+Run: `npm run build`
+Expected: build succeeds with no type errors.
+Run: `npm run dev`, open `http://localhost:3000`
+Expected: page renders in dark mode with the Inter font applied and no console errors (the page content itself is still the Task 1/16 placeholder until Task 17 replaces it).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "Set up shadcn/ui, next-themes dark-mode-first theming, and Inter font"
+```
+
+---
+
+## Task 17: App Shell & Dashboard Wiring
 
 **Files:**
 - Create: `lib/api-client.ts`
@@ -2306,10 +2446,10 @@ git commit -m "Add /api/sprint route"
 - Create: `components/Dashboard.tsx`
 
 **Interfaces:**
-- Consumes: `listItems` from `lib/items-repo.ts`; `getSprintProgress` from `lib/sprint.ts`; `sortByUrgency` from `lib/scoring.ts`; `SETTINGS_KEYS`, `NEEDS_ATTENTION_THRESHOLD` from `lib/config.ts`; `db` from `lib/db-instance.ts`.
+- Consumes: `listItems` from `lib/items-repo.ts`; `getSprintProgress` from `lib/sprint.ts`; `sortByUrgency` from `lib/scoring.ts`; `NEEDS_ATTENTION_THRESHOLD` from `lib/config.ts`; `db` from `lib/db-instance.ts`.
 - Produces: `fetchDashboardData()`, `triggerSync()`, `startItem(id)`, `completeItem(id, options)`, `undoItem(id)`, `createAdhocItemRequest(input)` from `lib/api-client.ts`; `<Dashboard initialData={...} />` component consumed by `app/page.tsx`. `DashboardData` shape: `{ needsAttention, inProgress, everythingElse: (Item & { score: number })[]; sprint: SprintProgress }`.
 
-This task has no automated test — it is UI wiring, verified manually in Task 21 per the spec's testing approach (pure logic gets unit tests; UI is manually verified).
+This task has no automated test — it is UI wiring, verified manually in Task 22.
 
 - [ ] **Step 1: Create the client-side API helper**
 
@@ -2378,6 +2518,7 @@ export default function Page() {
 'use client';
 
 import { useState } from 'react';
+import { toast } from '@/components/ui/sonner';
 import {
   fetchDashboardData,
   triggerSync,
@@ -2402,7 +2543,6 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
-  const [undoItemId, setUndoItemId] = useState<number | null>(null);
 
   async function refresh() {
     const fresh = await fetchDashboardData();
@@ -2428,15 +2568,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   async function handleComplete(id: number, durationMinutes?: number) {
     await completeItem(id, { durationMinutes });
-    setUndoItemId(id);
-    setTimeout(() => setUndoItemId((current) => (current === id ? null : current)), 5000);
     await refresh();
-  }
-
-  async function handleUndo(id: number) {
-    await undoItem(id);
-    setUndoItemId(null);
-    await refresh();
+    toast('Marked complete.', {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await undoItem(id);
+          await refresh();
+        },
+      },
+    });
   }
 
   async function handleQuickAdd(input: { title: string; category?: string; dueDate?: string }) {
@@ -2446,48 +2588,55 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <p className="text-sm text-slate-500">Dashboard shell — sections added in Tasks 17-19.</p>
+      <p className="text-sm text-muted-foreground">Dashboard shell — sections added in Tasks 18-20.</p>
     </main>
   );
 }
 ```
 
-This placeholder body is intentionally minimal — Task 17 adds `SprintProgressHeader`, Task 18 adds the item sections, and Task 19 adds quick-add and the undo toast, each wired to the handlers already defined here.
+Using Sonner's `toast(...)` with an `action` button replaces the hand-rolled undo state/timeout entirely — Sonner owns the 5-second auto-dismiss and the Undo click target, per the shadcn Toast guideline to prefer Sonner over a custom implementation.
+
+This placeholder body is intentionally minimal — Task 18 adds `SprintProgressHeader`, Task 19 adds the item sections, and Task 20 adds quick-add, each wired to the handlers already defined here.
 
 - [ ] **Step 4: Verify it compiles and renders**
 
 Run: `npm run build`
 Expected: build succeeds with no type errors.
 Run: `npm run dev`, open `http://localhost:3000`
-Expected: page renders "Dashboard shell — sections added in Tasks 17-19." with no console errors.
+Expected: page renders "Dashboard shell — sections added in Tasks 18-20." in dark mode with no console errors.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add lib/api-client.ts app/page.tsx components/Dashboard.tsx
-git commit -m "Wire dashboard page: server-fetched initial data + client shell"
+git commit -m "Wire dashboard page: server-fetched initial data + client shell with Sonner toast"
 ```
 
 ---
 
-## Task 17: Sprint Progress Header
+## Task 18: Sprint Progress Header
 
 **Files:**
 - Create: `components/SprintProgressHeader.tsx`
-- Modify: `components/Dashboard.tsx:` render `<SprintProgressHeader>` inside the returned JSX, replacing the placeholder paragraph.
+- Modify: `components/Dashboard.tsx`: render `<SprintProgressHeader>` inside the returned JSX, replacing the placeholder paragraph.
 
 **Interfaces:**
-- Consumes: `SprintProgress` from `lib/sprint.ts`.
+- Consumes: `SprintProgress` from `lib/sprint.ts`; `Card`, `CardContent` from `@/components/ui/card`; `Button` from `@/components/ui/button`; `Progress` from `@/components/ui/progress`; `ThemeToggle` from `@/components/theme-toggle`.
 - Produces: `<SprintProgressHeader sprint={SprintProgress} onRefresh={() => void} syncing={boolean} errors={string[]} />`.
 
-No automated test — visual component, verified manually in Task 21.
+No automated test — visual component, verified manually in Task 22.
 
 - [ ] **Step 1: Create `components/SprintProgressHeader.tsx`**
 
 ```tsx
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, RefreshCw, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { ThemeToggle } from '@/components/theme-toggle';
 import type { SprintProgress } from '@/lib/sprint';
 
 interface Props {
@@ -2504,41 +2653,44 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
   const percent = sprint.totalCount > 0 ? Math.round((sprint.completedCount / sprint.totalCount) * 100) : 0;
 
   return (
-    <header className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{sprint.name ?? 'No active sprint'}</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {sprint.completedCount}/{sprint.totalCount} done
-            {daysRemaining !== null ? ` · ${daysRemaining} days remaining` : ''}
-          </p>
+    <Card>
+      <CardContent className="flex flex-col gap-3 pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">{sprint.name ?? 'No active sprint'}</h1>
+            <p className="text-sm text-muted-foreground">
+              {sprint.completedCount}/{sprint.totalCount} done
+              {daysRemaining !== null ? ` · ${daysRemaining} days remaining` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button type="button" onClick={onRefresh} disabled={syncing}>
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {syncing ? 'Syncing…' : 'Refresh'}
+            </Button>
+            <Button type="button" variant="ghost" size="icon" asChild aria-label="Settings">
+              <Link href="/settings">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={syncing}
-          className="flex cursor-pointer items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <RefreshCw className={syncing ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} aria-hidden="true" />
-          {syncing ? 'Syncing…' : 'Refresh'}
-        </button>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-        <div className="h-full rounded-full bg-blue-600" style={{ width: `${percent}%` }} />
-      </div>
-      {errors.length > 0 && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {errors.map((error) => (
-            <p key={error}>{error}</p>
-          ))}
-        </div>
-      )}
-    </header>
+        <Progress value={percent} />
+        {errors.length > 0 && (
+          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            {errors.map((error) => (
+              <p key={error}>{error}</p>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 ```
 
-The percentage bar is a supplementary visual — the "N/M done" text above it is always present regardless of whether `totalCount` is 0, satisfying the no-color-alone requirement from the spec's UI Layout section.
+The "N/M done" text sits directly above the `Progress` bar and is always rendered regardless of `totalCount`, so completion is never conveyed by the bar's fill color alone. `Button`'s built-in `disabled:opacity-50 disabled:pointer-events-none` styling (from the shadcn component) handles the loading/disabled state without any custom CSS.
 
 - [ ] **Step 2: Wire it into `components/Dashboard.tsx`**
 
@@ -2555,29 +2707,29 @@ import SprintProgressHeader from './SprintProgressHeader';
 - [ ] **Step 3: Verify manually**
 
 Run: `npm run dev`, open `http://localhost:3000`
-Expected: header renders with "0/0 done" (no data yet), Refresh button clickable, no console errors.
+Expected: header renders as a card with "0/0 done", an empty progress bar, a working Refresh button (spinner + "Syncing…" while disabled), a Settings icon button linking to `/settings`, and a theme toggle that switches the whole page to light mode and back.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add components/SprintProgressHeader.tsx components/Dashboard.tsx
-git commit -m "Add sprint progress header with text-labeled completion and loading state"
+git commit -m "Add sprint progress header using shadcn Card/Progress/Button and theme toggle"
 ```
 
 ---
 
-## Task 18: Item Section & Item Row
+## Task 19: Item Section & Item Row
 
 **Files:**
 - Create: `components/ItemRow.tsx`
 - Create: `components/ItemSection.tsx`
-- Modify: `components/Dashboard.tsx`: render three `<ItemSection>`s in place of the placeholder paragraph (alongside the header from Task 17).
+- Modify: `components/Dashboard.tsx`: render three `<ItemSection>`s after the header from Task 18.
 
 **Interfaces:**
-- Consumes: `Item` from `lib/types.ts`.
-- Produces: `<ItemRow item={Item & { score: number }} onStart?={(id) => void} onComplete={(id, durationMinutes?) => void} />`; `<ItemSection title={string} items={(Item & { score: number })[]} emptyMessage={string} collapsedByDefault?={boolean} onStart?={...} onComplete={...} />`.
+- Consumes: `Item` from `lib/types.ts`; `Badge` from `@/components/ui/badge`; `Button` from `@/components/ui/button`; `Card`, `CardContent` from `@/components/ui/card`; `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` from `@/components/ui/accordion`.
+- Produces: `<ItemRow item={Item & { score: number }} onStart?={(id) => void} onComplete={(id, durationMinutes?) => void} />`; `<ItemSection value={string} title={string} items={(Item & { score: number })[]} emptyMessage={string} onStart?={...} onComplete={...} />` (an `AccordionItem` — must be rendered inside a parent `<Accordion>`).
 
-No automated test — visual components, verified manually in Task 21.
+No automated test — visual components, verified manually in Task 22.
 
 - [ ] **Step 1: Create `components/ItemRow.tsx`**
 
@@ -2585,6 +2737,8 @@ No automated test — visual components, verified manually in Task 21.
 'use client';
 
 import { Github, ClipboardList, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { Item } from '@/lib/types';
 
 const REASON_LABEL: Record<Item['reason'], string> = {
@@ -2595,6 +2749,16 @@ const REASON_LABEL: Record<Item['reason'], string> = {
   assigned: 'Assigned to you',
   authored: 'Your PR',
   manual: 'Ad-hoc',
+};
+
+const REASON_VARIANT: Record<Item['reason'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  approved_unmerged: 'default',
+  mention: 'secondary',
+  review_requested: 'secondary',
+  stale_own_pr: 'destructive',
+  assigned: 'outline',
+  authored: 'outline',
+  manual: 'outline',
 };
 
 const SOURCE_ICON = {
@@ -2613,9 +2777,9 @@ export default function ItemRow({ item, onStart, onComplete }: Props) {
   const Icon = SOURCE_ICON[item.source];
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-slate-100 py-3 last:border-0 dark:border-slate-800">
+    <div className="flex items-center justify-between gap-3 border-b py-3 last:border-0">
       <div className="flex min-w-0 items-center gap-3">
-        <Icon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
           {item.url ? (
             <a href={item.url} target="_blank" rel="noreferrer" className="truncate font-medium hover:underline">
@@ -2624,148 +2788,164 @@ export default function ItemRow({ item, onStart, onComplete }: Props) {
           ) : (
             <span className="truncate font-medium">{item.title}</span>
           )}
-          <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <Badge variant={REASON_VARIANT[item.reason]} className="ml-2">
             {REASON_LABEL[item.reason]}
-          </span>
+          </Badge>
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
         {item.status !== 'in_progress' && onStart && (
-          <button
-            type="button"
-            onClick={() => onStart(item.id)}
-            className="cursor-pointer rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={() => onStart(item.id)}>
             Start
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          onClick={() => onComplete(item.id)}
-          className="cursor-pointer rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
-        >
+        <Button type="button" size="sm" onClick={() => onComplete(item.id)}>
           Mark complete
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 ```
 
+Mapping `approved_unmerged` to the `default` (primary/indigo) badge variant and `stale_own_pr` to `destructive` gives the highest- and needs-nudging items a visually distinct look that reinforces the urgency score — while the label text is always present, so meaning is never carried by color alone.
+
 - [ ] **Step 2: Create `components/ItemSection.tsx`**
 
 ```tsx
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ItemRow from './ItemRow';
 import type { Item } from '@/lib/types';
 
 interface Props {
+  value: string;
   title: string;
   items: (Item & { score: number })[];
   emptyMessage: string;
-  collapsedByDefault?: boolean;
   onStart?: (id: number) => void;
   onComplete: (id: number, durationMinutes?: number) => void;
 }
 
-export default function ItemSection({ title, items, emptyMessage, collapsedByDefault, onStart, onComplete }: Props) {
-  const [collapsed, setCollapsed] = useState(Boolean(collapsedByDefault));
-
+export default function ItemSection({ value, title, items, emptyMessage, onStart, onComplete }: Props) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <button
-        type="button"
-        onClick={() => setCollapsed((value) => !value)}
-        className="flex w-full cursor-pointer items-center justify-between rounded-md text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
-      >
-        <h2 className="font-semibold">
-          {title} <span className="text-sm font-normal text-slate-400">({items.length})</span>
-        </h2>
-        {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
-      </button>
-      {!collapsed &&
-        (items.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{emptyMessage}</p>
+    <AccordionItem value={value}>
+      <AccordionTrigger>
+        {title} <span className="text-sm font-normal text-muted-foreground">({items.length})</span>
+      </AccordionTrigger>
+      <AccordionContent>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <div className="mt-3">
+          <div>
             {items.map((item) => (
               <ItemRow key={item.id} item={item} onStart={onStart} onComplete={onComplete} />
             ))}
           </div>
-        ))}
-    </section>
+        )}
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 ```
 
+`AccordionTrigger` already renders and rotates its own chevron on open/close, so there's no manual `ChevronDown`/`ChevronRight` state to wire up — matching the shadcn guideline to prefer `Accordion` over a custom collapse implementation for grouped expandable sections.
+
 - [ ] **Step 3: Wire both into `components/Dashboard.tsx`**
 
-Add the import:
+Add the imports:
 ```tsx
+import { Accordion } from '@/components/ui/accordion';
+import { Card, CardContent } from '@/components/ui/card';
 import ItemSection from './ItemSection';
 ```
 
 Insert after `<SprintProgressHeader ... />`:
 ```tsx
-      <ItemSection
-        title="Needs attention"
-        items={data.needsAttention}
-        emptyMessage="You're all caught up."
-        onStart={handleStart}
-        onComplete={handleComplete}
-      />
-      <ItemSection
-        title="In progress"
-        items={data.inProgress}
-        emptyMessage="Nothing in progress — start something above."
-        onComplete={handleComplete}
-      />
-      <ItemSection
-        title="Everything else"
-        items={data.everythingElse}
-        emptyMessage="Nothing else queued."
-        collapsedByDefault
-        onStart={handleStart}
-        onComplete={handleComplete}
-      />
+      <Card>
+        <CardContent className="pt-6">
+          <Accordion type="multiple" defaultValue={['needs-attention', 'in-progress']}>
+            <ItemSection
+              value="needs-attention"
+              title="Needs attention"
+              items={data.needsAttention}
+              emptyMessage="You're all caught up."
+              onStart={handleStart}
+              onComplete={handleComplete}
+            />
+            <ItemSection
+              value="in-progress"
+              title="In progress"
+              items={data.inProgress}
+              emptyMessage="Nothing in progress — start something above."
+              onComplete={handleComplete}
+            />
+            <ItemSection
+              value="everything-else"
+              title="Everything else"
+              items={data.everythingElse}
+              emptyMessage="Nothing else queued."
+              onStart={handleStart}
+              onComplete={handleComplete}
+            />
+          </Accordion>
+        </CardContent>
+      </Card>
 ```
+
+`type="multiple"` lets "Needs attention" and "In progress" both start open (via `defaultValue`) while "Everything else" starts collapsed, and any combination can be open at once — unlike `type="single"`, which would force closing one section to open another.
 
 - [ ] **Step 4: Verify manually**
 
 Run: `npm run dev`, open `http://localhost:3000`
-Expected: three sections render, each showing its empty-state message since the database is empty; "Everything else" starts collapsed.
+Expected: one card renders containing all three sections; "Needs attention" and "In progress" start expanded showing their empty-state messages, "Everything else" starts collapsed; clicking a trigger smoothly expands/collapses with the chevron rotating; focus rings are visible when tabbing through triggers and Start/Mark complete buttons.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add components/ItemRow.tsx components/ItemSection.tsx components/Dashboard.tsx
-git commit -m "Add item section/row components with reason badges and empty states"
+git commit -m "Add item section/row components using shadcn Card/Badge/Accordion"
 ```
 
 ---
 
-## Task 19: Quick-Add Form & Undo Toast
+## Task 20: Quick-Add Form & Settings Page
 
 **Files:**
 - Create: `components/QuickAddForm.tsx`
-- Modify: `components/Dashboard.tsx`: render `<QuickAddForm>` after the three sections, and render the undo toast when `undoItemId` is set.
+- Create: `app/settings/page.tsx`
+- Create: `components/SettingsForm.tsx`
+- Modify: `components/Dashboard.tsx`: render `<QuickAddForm>` after the three sections.
 
 **Interfaces:**
-- Consumes: none beyond React.
-- Produces: `<QuickAddForm onSubmit={(input: { title: string; category?: string; dueDate?: string }) => void} />`.
+- Consumes: `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormMessage` from `@/components/ui/form`; `Input` from `@/components/ui/input`; `Button` from `@/components/ui/button`; `Card`, `CardContent` from `@/components/ui/card`; `getAllSettings` from `lib/settings-repo.ts`; `SETTINGS_KEYS`, `DEFAULT_STALE_DAYS` from `lib/config.ts`; `db` from `lib/db-instance.ts`.
+- Produces: `<QuickAddForm onSubmit={(input: { title: string; category?: string; dueDate?: string }) => void} />`; `<SettingsForm initialSettings={Record<string, string>} />` consumed by `app/settings/page.tsx`.
 
-No automated test — visual components, verified manually in Task 21.
+No automated test — visual components, verified manually in Task 22.
 
 - [ ] **Step 1: Create `components/QuickAddForm.tsx`**
 
 ```tsx
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+
+const quickAddSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  category: z.string().optional(),
+  dueDate: z.string().optional(),
+});
+
+type QuickAddValues = z.infer<typeof quickAddSchema>;
 
 interface Props {
   onSubmit: (input: { title: string; category?: string; dueDate?: string }) => void;
@@ -2773,138 +2953,98 @@ interface Props {
 
 export default function QuickAddForm({ onSubmit }: Props) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const form = useForm<QuickAddValues>({
+    resolver: zodResolver(quickAddSchema),
+    defaultValues: { title: '', category: '', dueDate: '' },
+  });
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!title.trim()) return;
-    onSubmit({ title: title.trim(), category: category || undefined, dueDate: dueDate || undefined });
-    setTitle('');
-    setCategory('');
-    setDueDate('');
+  function handleSubmit(values: QuickAddValues) {
+    onSubmit({ title: values.title, category: values.category || undefined, dueDate: values.dueDate || undefined });
+    form.reset();
     setOpen(false);
   }
 
   if (!open) {
     return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" /> Add ad-hoc item
-      </button>
+      <Button type="button" variant="outline" className="border-dashed" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4" /> Add ad-hoc item
+      </Button>
     );
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div>
-        <label htmlFor="quick-add-title" className="block text-sm font-medium">
-          Title
-        </label>
-        <input
-          id="quick-add-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-        />
-      </div>
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label htmlFor="quick-add-category" className="block text-sm font-medium">
-            Category
-          </label>
-          <input
-            id="quick-add-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-          />
-        </div>
-        <div className="flex-1">
-          <label htmlFor="quick-add-due" className="block text-sm font-medium">
-            Due date (optional)
-          </label>
-          <input
-            id="quick-add-due"
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-          />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <button type="submit" className="cursor-pointer rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          Add
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="cursor-pointer rounded-md border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+    <Card>
+      <CardContent className="pt-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Title</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex gap-3">
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel>Category</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel>Due date (optional)</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit">Add</Button>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 }
 ```
 
-- [ ] **Step 2: Wire the form and the undo toast into `components/Dashboard.tsx`**
+- [ ] **Step 2: Wire the form into `components/Dashboard.tsx`**
 
 Add the import:
 ```tsx
 import QuickAddForm from './QuickAddForm';
 ```
 
-Insert after the three `<ItemSection>` elements, replacing nothing else:
+Insert after the three `<ItemSection>` elements:
 ```tsx
       <QuickAddForm onSubmit={handleQuickAdd} />
-      {undoItemId !== null && (
-        <div className="fixed bottom-6 right-6 flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900">
-          Marked complete.
-          <button type="button" className="cursor-pointer font-semibold underline" onClick={() => handleUndo(undoItemId)}>
-            Undo
-          </button>
-        </div>
-      )}
 ```
 
-- [ ] **Step 3: Verify manually**
-
-Run: `npm run dev`, open `http://localhost:3000`
-Expected: clicking "Add ad-hoc item" reveals the form; submitting a title adds it to "Needs attention" or "Everything else" depending on score, and clears the form. Clicking "Mark complete" on any item shows the undo toast for 5 seconds; clicking "Undo" within that window reverts the item to "In progress".
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add components/QuickAddForm.tsx components/Dashboard.tsx
-git commit -m "Add quick-add form and undo-over-confirm toast for completions"
-```
-
----
-
-## Task 20: Settings Page
-
-**Files:**
-- Create: `app/settings/page.tsx`
-- Create: `components/SettingsForm.tsx`
-
-**Interfaces:**
-- Consumes: `getAllSettings` from `lib/settings-repo.ts`; `db` from `lib/db-instance.ts`; `SETTINGS_KEYS`, `DEFAULT_STALE_DAYS` from `lib/config.ts`.
-- Produces: `<SettingsForm initialSettings={Record<string, string>} />` consumed by `app/settings/page.tsx`.
-
-No automated test — visual component, verified manually in Task 21.
-
-- [ ] **Step 1: Create `app/settings/page.tsx`**
+- [ ] **Step 3: Create `app/settings/page.tsx`**
 
 ```tsx
 import SettingsForm from '@/components/SettingsForm';
@@ -2922,105 +3062,145 @@ export default function SettingsPage() {
 }
 ```
 
-- [ ] **Step 2: Create `components/SettingsForm.tsx`**
+- [ ] **Step 4: Create `components/SettingsForm.tsx`**
 
 ```tsx
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from '@/lib/config';
+
+const settingsSchema = z.object({
+  [SETTINGS_KEYS.githubPat]: z.string().optional(),
+  [SETTINGS_KEYS.adoPat]: z.string().optional(),
+  [SETTINGS_KEYS.adoOrg]: z.string().optional(),
+  [SETTINGS_KEYS.adoProject]: z.string().optional(),
+  [SETTINGS_KEYS.staleDays]: z.string().optional(),
+});
+
+type SettingsValues = z.infer<typeof settingsSchema>;
 
 interface Props {
   initialSettings: Record<string, string>;
 }
 
 export default function SettingsForm({ initialSettings }: Props) {
-  const [values, setValues] = useState<Record<string, string>>({
-    [SETTINGS_KEYS.githubPat]: initialSettings[SETTINGS_KEYS.githubPat] ?? '',
-    [SETTINGS_KEYS.adoPat]: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
-    [SETTINGS_KEYS.adoOrg]: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
-    [SETTINGS_KEYS.adoProject]: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
-    [SETTINGS_KEYS.staleDays]: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
-  });
   const [saved, setSaved] = useState(false);
+  const form = useForm<SettingsValues>({
+    resolver: zodResolver(settingsSchema),
+    defaultValues: {
+      [SETTINGS_KEYS.githubPat]: initialSettings[SETTINGS_KEYS.githubPat] ?? '',
+      [SETTINGS_KEYS.adoPat]: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
+      [SETTINGS_KEYS.adoOrg]: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
+      [SETTINGS_KEYS.adoProject]: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
+      [SETTINGS_KEYS.staleDays]: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
+    },
+  });
 
-  function update(key: string, value: string) {
-    setValues((current) => ({ ...current, [key]: value }));
-    setSaved(false);
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  async function handleSubmit(values: SettingsValues) {
     await fetch('/api/settings', { method: 'POST', body: JSON.stringify(values) });
     setSaved(true);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="GitHub personal access token" value={values[SETTINGS_KEYS.githubPat]} onChange={(v) => update(SETTINGS_KEYS.githubPat, v)} masked />
-      <Field label="Azure DevOps personal access token" value={values[SETTINGS_KEYS.adoPat]} onChange={(v) => update(SETTINGS_KEYS.adoPat, v)} masked />
-      <Field label="Azure DevOps organization" value={values[SETTINGS_KEYS.adoOrg]} onChange={(v) => update(SETTINGS_KEYS.adoOrg, v)} />
-      <Field label="Azure DevOps project" value={values[SETTINGS_KEYS.adoProject]} onChange={(v) => update(SETTINGS_KEYS.adoProject, v)} />
-      <Field label="Stale PR threshold (days)" value={values[SETTINGS_KEYS.staleDays]} onChange={(v) => update(SETTINGS_KEYS.staleDays, v)} type="number" />
-      <div className="flex items-center gap-3">
-        <button type="submit" className="cursor-pointer rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
-          Save
-        </button>
-        {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved.</span>}
-      </div>
-    </form>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  masked,
-  type = 'text',
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  masked?: boolean;
-  type?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium">{label}</label>
-      <input
-        type={masked ? 'password' : type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-      />
-    </div>
+    <Card>
+      <CardContent className="pt-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name={SETTINGS_KEYS.githubPat}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>GitHub personal access token</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={SETTINGS_KEYS.adoPat}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Azure DevOps personal access token</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={SETTINGS_KEYS.adoOrg}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Azure DevOps organization</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={SETTINGS_KEYS.adoProject}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Azure DevOps project</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={SETTINGS_KEYS.staleDays}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Stale PR threshold (days)</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex items-center gap-3">
+              <Button type="submit">Save</Button>
+              {saved && <span className="text-sm text-muted-foreground">Saved.</span>}
+            </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
   );
 }
 ```
 
-- [ ] **Step 3: Add a Settings link to the dashboard header**
+- [ ] **Step 5: Verify manually**
 
-In `components/SprintProgressHeader.tsx`, add next to the Refresh button (inside the same flex container, after the `<button>`):
-```tsx
-        <a
-          href="/settings"
-          className="ml-2 text-sm text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-        >
-          Settings
-        </a>
-```
+Run: `npm run dev`, open `http://localhost:3000`
+Expected: clicking "Add ad-hoc item" reveals the form in a card; submitting an empty title shows the Zod validation message inline instead of submitting; a valid submission adds the item and closes the form. Open `http://localhost:3000/settings`: form renders with masked PAT fields and default stale-days value; saving shows "Saved." and persists across reload.
 
-- [ ] **Step 4: Verify manually**
-
-Run: `npm run dev`, open `http://localhost:3000/settings`
-Expected: form renders with empty/default fields; entering values and clicking Save shows "Saved."; reloading the page shows the saved values persisted (PAT fields masked). Clicking "Settings" from the dashboard header navigates here.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add app/settings/page.tsx components/SettingsForm.tsx components/SprintProgressHeader.tsx
-git commit -m "Add settings page for GitHub/Azure DevOps configuration"
+git add components/QuickAddForm.tsx components/Dashboard.tsx app/settings/page.tsx components/SettingsForm.tsx
+git commit -m "Add quick-add and settings forms using shadcn Form + zod validation"
 ```
 
 ---
@@ -3047,22 +3227,21 @@ Run: `npm run dev`, open `http://localhost:3000/settings`, enter a real GitHub P
 
 On the dashboard, click **Refresh**. Confirm:
 - The button shows a spinner and is disabled while syncing.
-- Items from GitHub (mentions, review requests, your own approved/stale PRs) and Azure DevOps (assigned work items, mentions) appear, grouped and ordered by urgency.
-- The sprint header shows the real iteration name, "N/M done", and days remaining.
+- Items from GitHub (mentions, review requests, your own approved/stale PRs) and Azure DevOps (assigned work items, mentions) appear, grouped and ordered by urgency, with badges reflecting the reason (indigo "Ready to merge" badge, red/destructive "Stale — no reviews" badge, etc.).
+- The sprint header shows the real iteration name, "N/M done" text, and a matching progress bar.
 
 - [ ] **Step 5: Exercise item actions**
 
-Click **Start** on an item — confirm it moves to "In progress". Click **Mark complete** — confirm it disappears from view, the undo toast appears, and clicking **Undo** within 5 seconds restores it to "In progress". Add an ad-hoc item via the quick-add form and confirm it appears in the correct section based on its score.
+Click **Start** on an item — confirm it moves to "In progress". Click **Mark complete** — confirm it disappears from view and a Sonner toast appears with an **Undo** action; clicking it within 5 seconds restores the item to "In progress". Add an ad-hoc item via the quick-add form and confirm it appears in the correct section based on its score.
 
 - [ ] **Step 6: Exercise error handling**
 
 Temporarily set an invalid value for the GitHub PAT in Settings, click **Refresh**, and confirm the GitHub error banner appears while Azure DevOps items still load successfully (independent per-source failure, per the spec's Error Handling section).
 
-- [ ] **Step 7: Verify dark mode**
+- [ ] **Step 7: Verify theming and accessibility**
 
-Toggle the OS/browser color scheme to dark and confirm the dashboard and settings page both render with adequate contrast (no unreadable text, borders still visible) — this is the built-in `media` dark mode strategy from Task 1, not a runtime toggle.
+Confirm the dashboard loads in dark mode by default (Inter font, indigo accent on primary buttons/badges/progress bar) and that the theme toggle in the header switches to a fully readable light mode and back. Tab through the page with the keyboard and confirm every interactive element (buttons, form fields, collapsible triggers) shows a visible focus ring — this comes from the Radix/shadcn primitives by default, so its absence would indicate a regression (e.g. a custom `outline-none` override).
 
 - [ ] **Step 8: Final commit**
 
 If any fixes were needed during manual verification, commit them individually with descriptive messages before considering the plan complete.
-
