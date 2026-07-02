@@ -42,9 +42,40 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
+function sleepSync(ms: number): void {
+  const sab = new SharedArrayBuffer(4);
+  Atomics.wait(new Int32Array(sab), 0, 0, ms);
+}
+
+function isSqliteBusy(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'SQLITE_BUSY';
+}
+
+// Opening a brand-new database file and switching it to WAL mode is not fully
+// covered by `busy_timeout` when multiple processes race to initialize the
+// same file concurrently (e.g. Next.js's parallel build-time page-data
+// collection, which imports every API route module, and therefore this
+// module, at once). Retry the one-time setup on SQLITE_BUSY so cold starts
+// are reliable regardless of how many processes open the file simultaneously.
 export function openDb(path: string): Database.Database {
-  const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.exec(SCHEMA_SQL);
-  return db;
+  const maxAttempts = 10;
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const db = new Database(path);
+      db.pragma('busy_timeout = 5000');
+      db.pragma('journal_mode = WAL');
+      db.exec(SCHEMA_SQL);
+      return db;
+    } catch (err) {
+      lastError = err;
+      if (!isSqliteBusy(err) || attempt === maxAttempts) {
+        throw err;
+      }
+      sleepSync(25 * attempt);
+    }
+  }
+
+  throw lastError;
 }
