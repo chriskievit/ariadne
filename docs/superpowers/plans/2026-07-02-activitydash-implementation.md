@@ -1974,17 +1974,116 @@ git commit -m "Add /api/sync route"
 
 ---
 
-## Task 13: API Route — `/api/items` (list + create)
+## Task 13: Grouped Items & API Route — `/api/items` (list + create)
 
 **Files:**
+- Create: `lib/dashboard.ts`
+- Test: `lib/dashboard.test.ts`
 - Create: `app/api/items/route.ts`
 - Test: `app/api/items/route.test.ts`
 
 **Interfaces:**
 - Consumes: `listItems`, `createAdhocItem` from `lib/items-repo.ts`; `getSetting` from `lib/settings-repo.ts`; `sortByUrgency` from `lib/scoring.ts`; `SETTINGS_KEYS`, `NEEDS_ATTENTION_THRESHOLD` from `lib/config.ts`; `db` from `lib/db-instance.ts`.
-- Produces: `GET(): Promise<Response>` returns `{ needsAttention, inProgress, everythingElse }` (each an array of `Item & { score: number }`); `POST(request: Request): Promise<Response>` creates an ad-hoc item, returns it with status 201.
+- Produces: `GroupedItems` interface `{ needsAttention, inProgress, everythingElse: (Item & { score: number })[] }`; `getGroupedItems(db, now: Date): GroupedItems` from `lib/dashboard.ts` — the single source of the needs-attention/in-progress/everything-else split, consumed by both this route and the Server Component in Task 17 so the grouping logic exists in exactly one place. `GET(): Promise<Response>` returns a `GroupedItems` JSON object; `POST(request: Request): Promise<Response>` creates an ad-hoc item, returns it with status 201.
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write the failing test for the grouping logic**
+
+`lib/dashboard.test.ts`:
+```ts
+import { describe, it, expect, beforeEach } from 'vitest';
+import Database from 'better-sqlite3';
+import { openDb } from './db';
+import { upsertSyncedItem, setStatus } from './items-repo';
+import { getGroupedItems } from './dashboard';
+
+let db: Database.Database;
+
+beforeEach(() => {
+  db = openDb(':memory:');
+});
+
+describe('getGroupedItems', () => {
+  it('splits items into needsAttention, inProgress, and everythingElse', () => {
+    const urgent = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '1@a/b',
+      title: 'Ready to merge',
+      url: null,
+      reason: 'approved_unmerged',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+    });
+    const low = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '101',
+      title: 'Backlog item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+    });
+    const active = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '102',
+      title: 'In flight',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+    });
+    setStatus(db, active.id, 'in_progress');
+
+    const grouped = getGroupedItems(db, new Date());
+    expect(grouped.needsAttention.map((i) => i.id)).toEqual([urgent.id]);
+    expect(grouped.inProgress.map((i) => i.id)).toEqual([active.id]);
+    expect(grouped.everythingElse.map((i) => i.id)).toEqual([low.id]);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm test -- lib/dashboard.test.ts`
+Expected: FAIL — module doesn't exist.
+
+- [ ] **Step 3: Implement `lib/dashboard.ts`**
+
+```ts
+import type Database from 'better-sqlite3';
+import { listItems } from './items-repo';
+import { getSetting } from './settings-repo';
+import { sortByUrgency } from './scoring';
+import { SETTINGS_KEYS, NEEDS_ATTENTION_THRESHOLD } from './config';
+import type { Item } from './types';
+
+export interface GroupedItems {
+  needsAttention: (Item & { score: number })[];
+  inProgress: (Item & { score: number })[];
+  everythingElse: (Item & { score: number })[];
+}
+
+export function getGroupedItems(db: Database.Database, now: Date): GroupedItems {
+  const items = listItems(db);
+  const sprintEnd = getSetting(db, SETTINGS_KEYS.sprintEnd);
+  const scored = sortByUrgency(items.map((item) => ({ ...item, sprintEnd })), now);
+
+  return {
+    needsAttention: scored.filter((i) => i.status === 'inbox' && i.score >= NEEDS_ATTENTION_THRESHOLD),
+    inProgress: scored.filter((i) => i.status === 'in_progress'),
+    everythingElse: scored.filter((i) => i.status === 'inbox' && i.score < NEEDS_ATTENTION_THRESHOLD),
+  };
+}
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `npm test -- lib/dashboard.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Write the failing route tests**
 
 `app/api/items/route.test.ts`:
 ```ts
@@ -2002,7 +2101,7 @@ beforeEach(() => {
 });
 
 describe('GET /api/items', () => {
-  it('groups items into needsAttention, inProgress, and everythingElse', async () => {
+  it('returns the grouped items from getGroupedItems', async () => {
     const urgent = upsertSyncedItem(testDb, {
       source: 'github_pr',
       externalId: '1@a/b',
@@ -2013,33 +2112,12 @@ describe('GET /api/items', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
     });
-    const low = upsertSyncedItem(testDb, {
-      source: 'ado_workitem',
-      externalId: '101',
-      title: 'Backlog item',
-      url: null,
-      reason: 'assigned',
-      dueDate: null,
-      sprintIteration: null,
-      rawUpdatedAt: null,
-    });
-    const active = upsertSyncedItem(testDb, {
-      source: 'ado_workitem',
-      externalId: '102',
-      title: 'In flight',
-      url: null,
-      reason: 'assigned',
-      dueDate: null,
-      sprintIteration: null,
-      rawUpdatedAt: null,
-    });
-    setStatus(testDb, active.id, 'in_progress');
 
     const res = await GET();
     const body = await res.json();
     expect(body.needsAttention.map((i: any) => i.id)).toEqual([urgent.id]);
-    expect(body.inProgress.map((i: any) => i.id)).toEqual([active.id]);
-    expect(body.everythingElse.map((i: any) => i.id)).toEqual([low.id]);
+    expect(body.inProgress).toEqual([]);
+    expect(body.everythingElse).toEqual([]);
   });
 });
 
@@ -2059,31 +2137,23 @@ describe('POST /api/items', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+This route test intentionally does not re-verify the needsAttention/inProgress/everythingElse split in detail — that behavior is already fully covered by `lib/dashboard.test.ts`; here it only confirms the route wires `getGroupedItems` to a JSON response.
+
+- [ ] **Step 6: Run tests to verify they fail**
 
 Run: `npm test -- app/api/items/route.test.ts`
 Expected: FAIL — module doesn't exist.
 
-- [ ] **Step 3: Implement `app/api/items/route.ts`**
+- [ ] **Step 7: Implement `app/api/items/route.ts`**
 
 ```ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db-instance';
-import { listItems, createAdhocItem } from '@/lib/items-repo';
-import { getSetting } from '@/lib/settings-repo';
-import { SETTINGS_KEYS, NEEDS_ATTENTION_THRESHOLD } from '@/lib/config';
-import { sortByUrgency } from '@/lib/scoring';
+import { createAdhocItem } from '@/lib/items-repo';
+import { getGroupedItems } from '@/lib/dashboard';
 
 export async function GET() {
-  const items = listItems(db);
-  const sprintEnd = getSetting(db, SETTINGS_KEYS.sprintEnd);
-  const scored = sortByUrgency(items.map((item) => ({ ...item, sprintEnd })), new Date());
-
-  const needsAttention = scored.filter((i) => i.status === 'inbox' && i.score >= NEEDS_ATTENTION_THRESHOLD);
-  const inProgress = scored.filter((i) => i.status === 'in_progress');
-  const everythingElse = scored.filter((i) => i.status === 'inbox' && i.score < NEEDS_ATTENTION_THRESHOLD);
-
-  return NextResponse.json({ needsAttention, inProgress, everythingElse });
+  return NextResponse.json(getGroupedItems(db, new Date()));
 }
 
 export async function POST(request: Request) {
@@ -2093,16 +2163,16 @@ export async function POST(request: Request) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [ ] **Step 8: Run tests to verify they pass**
 
 Run: `npm test -- app/api/items/route.test.ts`
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add app/api/items/route.ts app/api/items/route.test.ts
-git commit -m "Add /api/items route with scored grouping and ad-hoc creation"
+git add lib/dashboard.ts lib/dashboard.test.ts app/api/items/route.ts app/api/items/route.test.ts
+git commit -m "Add getGroupedItems helper and /api/items route with ad-hoc creation"
 ```
 
 ---
@@ -2314,13 +2384,17 @@ This task has no automated test — it is tooling/setup, verified by a successfu
 
 - [ ] **Step 1: Run the shadcn CLI init**
 
-Run: `npx shadcn@latest init`
+Prefer the non-interactive form so this step is scriptable: run `npx shadcn@latest init --help` first to confirm the installed version's flags, then run something equivalent to:
 
-Answer the prompts:
+Run: `npx shadcn@latest init -y -b zinc --css-variables`
+
+(`-y`/`--yes` skips prompts using defaults, `-b zinc` sets the base color to Zinc, `--css-variables` requests CSS-variable-based theming.) If the installed CLI version does not support these flags, fall back to running `npx shadcn@latest init` interactively and answer:
 - TypeScript: yes
 - Style: **New York**
 - Base color: **Zinc**
 - CSS variables for colors: **yes**
+
+Either way, after it completes, confirm `app/globals.css` contains `.dark` and `:root` blocks and `components.json` has `"baseColor": "zinc"` — if the base color differs, it's safe to proceed since Step 3 below overrides the accent color explicitly regardless of base color.
 
 This overwrites `tailwind.config.ts`'s `darkMode` (changes from `'media'` to `'class'`, since theme switching is now controlled by `next-themes` rather than the OS preference alone) and rewrites `app/globals.css` with `:root`/`.dark` CSS variable blocks (`--background`, `--foreground`, `--card`, `--primary`, `--border`, `--radius`, etc.). It also creates `components.json` and `lib/utils.ts` (exporting `cn()`). This is expected — do not revert these files to their Task 1 state.
 
@@ -2446,7 +2520,7 @@ git commit -m "Set up shadcn/ui, next-themes dark-mode-first theming, and Inter 
 - Create: `components/Dashboard.tsx`
 
 **Interfaces:**
-- Consumes: `listItems` from `lib/items-repo.ts`; `getSprintProgress` from `lib/sprint.ts`; `sortByUrgency` from `lib/scoring.ts`; `NEEDS_ATTENTION_THRESHOLD` from `lib/config.ts`; `db` from `lib/db-instance.ts`.
+- Consumes: `getGroupedItems` from `lib/dashboard.ts`; `getSprintProgress` from `lib/sprint.ts`; `db` from `lib/db-instance.ts`.
 - Produces: `fetchDashboardData()`, `triggerSync()`, `startItem(id)`, `completeItem(id, options)`, `undoItem(id)`, `createAdhocItemRequest(input)` from `lib/api-client.ts`; `<Dashboard initialData={...} />` component consumed by `app/page.tsx`. `DashboardData` shape: `{ needsAttention, inProgress, everythingElse: (Item & { score: number })[]; sprint: SprintProgress }`.
 
 This task has no automated test — it is UI wiring, verified manually in Task 22.
@@ -2490,26 +2564,18 @@ export async function createAdhocItemRequest(input: { title: string; category?: 
 ```tsx
 import Dashboard from '@/components/Dashboard';
 import { db } from '@/lib/db-instance';
-import { listItems } from '@/lib/items-repo';
+import { getGroupedItems } from '@/lib/dashboard';
 import { getSprintProgress } from '@/lib/sprint';
-import { NEEDS_ATTENTION_THRESHOLD } from '@/lib/config';
-import { sortByUrgency } from '@/lib/scoring';
 
 export default function Page() {
-  const items = listItems(db);
+  const grouped = getGroupedItems(db, new Date());
   const sprint = getSprintProgress(db);
-  const scored = sortByUrgency(items.map((item) => ({ ...item, sprintEnd: sprint.endDate })), new Date());
 
-  const initialData = {
-    needsAttention: scored.filter((i) => i.status === 'inbox' && i.score >= NEEDS_ATTENTION_THRESHOLD),
-    inProgress: scored.filter((i) => i.status === 'in_progress'),
-    everythingElse: scored.filter((i) => i.status === 'inbox' && i.score < NEEDS_ATTENTION_THRESHOLD),
-    sprint,
-  };
-
-  return <Dashboard initialData={initialData} />;
+  return <Dashboard initialData={{ ...grouped, sprint }} />;
 }
 ```
+
+This reuses the exact grouping logic from `/api/items` (Task 13) instead of recomputing it — `getGroupedItems` is the single source of truth for the needs-attention/in-progress/everything-else split.
 
 - [ ] **Step 3: Create the Client Component shell**
 
