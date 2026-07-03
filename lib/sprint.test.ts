@@ -16,7 +16,45 @@ beforeEach(() => {
 });
 
 describe('getSprintProgress', () => {
-  it('counts an ADO item tagged with the current iteration', () => {
+  it('counts an ADO item as complete when its synced status is Done', () => {
+    upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '101',
+      title: 'Fix login bug',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: 'Sprint 42',
+      rawUpdatedAt: null,
+      adoStatus: 'Done',
+    });
+
+    const progress = getSprintProgress(db);
+    expect(progress.name).toBe('Sprint 42');
+    expect(progress.totalCount).toBe(1);
+    expect(progress.completedCount).toBe(1);
+  });
+
+  it.each(['Ready for Validation', 'Ready for Test', 'READY FOR TEST'])(
+    'counts an ADO item as complete for synced status %s',
+    (adoStatus) => {
+      upsertSyncedItem(db, {
+        source: 'ado_workitem',
+        externalId: '101',
+        title: 'Fix login bug',
+        url: null,
+        reason: 'assigned',
+        dueDate: null,
+        sprintIteration: 'Sprint 42',
+        rawUpdatedAt: null,
+        adoStatus,
+      });
+
+      expect(getSprintProgress(db).completedCount).toBe(1);
+    }
+  );
+
+  it('does not count an ADO item as complete for a non-terminal synced status, even if manually marked done', () => {
     const item = upsertSyncedItem(db, {
       source: 'ado_workitem',
       externalId: '101',
@@ -26,13 +64,11 @@ describe('getSprintProgress', () => {
       dueDate: null,
       sprintIteration: 'Sprint 42',
       rawUpdatedAt: null,
+      adoStatus: 'Active',
     });
     setStatus(db, item.id, 'done', '2026-07-01T00:00:00.000Z');
 
-    const progress = getSprintProgress(db);
-    expect(progress.name).toBe('Sprint 42');
-    expect(progress.totalCount).toBe(1);
-    expect(progress.completedCount).toBe(1);
+    expect(getSprintProgress(db).completedCount).toBe(0);
   });
 
   it('counts an ad-hoc item created within the sprint window even without an iteration tag', () => {
@@ -42,6 +78,14 @@ describe('getSprintProgress', () => {
     const progress = getSprintProgress(db);
     expect(progress.totalCount).toBe(1);
     expect(progress.completedCount).toBe(0);
+  });
+
+  it('counts an ad-hoc item as complete via the manual done toggle', () => {
+    const item = createAdhocItem(db, { title: 'Reply to Sarah' });
+    db.prepare('UPDATE items SET created_at = ? WHERE id = ?').run('2026-07-05T00:00:00.000Z', item.id);
+    setStatus(db, item.id, 'done', '2026-07-05T00:00:00.000Z');
+
+    expect(getSprintProgress(db).completedCount).toBe(1);
   });
 
   it('excludes items outside the sprint window with no matching iteration', () => {

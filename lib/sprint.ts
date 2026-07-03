@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { getSetting } from './settings-repo';
 import { listItems } from './items-repo';
-import { SETTINGS_KEYS } from './config';
+import { SETTINGS_KEYS, SPRINT_DONE_ADO_STATES } from './config';
 
 export interface SprintProgress {
   name: string | null;
@@ -10,6 +10,13 @@ export interface SprintProgress {
   totalCount: number;
   completedCount: number;
   lastSyncedAt: string | null;
+}
+
+function isComplete(item: { source: string; status: string; adoStatus: string | null }): boolean {
+  if (item.source === 'ado_workitem') {
+    return item.adoStatus != null && SPRINT_DONE_ADO_STATES.has(item.adoStatus.toLowerCase());
+  }
+  return item.status === 'done';
 }
 
 export function getSprintProgress(db: Database.Database): SprintProgress {
@@ -33,7 +40,7 @@ export function getSprintProgress(db: Database.Database): SprintProgress {
     startDate,
     endDate,
     totalCount: inSprint.length,
-    completedCount: inSprint.filter((i) => i.status === 'done').length,
+    completedCount: inSprint.filter(isComplete).length,
     lastSyncedAt,
   };
 }

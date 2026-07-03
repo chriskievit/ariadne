@@ -12,3 +12,5 @@ export const SETTINGS_KEYS = {
 
 export const DEFAULT_STALE_DAYS = 3;
 export const NEEDS_ATTENTION_THRESHOLD = 25;
+
+export const SPRINT_DONE_ADO_STATES = new Set(['done', 'ready for validation', 'ready for test']);
