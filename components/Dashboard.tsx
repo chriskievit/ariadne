@@ -59,6 +59,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       const { outcomes } = await triggerSync();
       setSyncErrors(outcomes.filter((o: any) => o.error).map((o: any) => `${o.source}: ${o.error}`));
       await refresh();
+    } catch (err) {
+      setSyncErrors([`Sync failed: ${err instanceof Error ? err.message : 'unknown error'}`]);
     } finally {
       setSyncing(false);
       scheduleAutoSync();
