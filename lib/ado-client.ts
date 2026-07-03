@@ -73,6 +73,7 @@ async function fetchWorkItemDetails(config: AdoConfig, ids: number[]): Promise<N
     dueDate: wi.fields['Microsoft.VSTS.Scheduling.DueDate'] ?? null,
     sprintIteration: wi.fields['System.IterationPath'] ?? null,
     rawUpdatedAt: wi.fields['System.ChangedDate'],
+    adoStatus: wi.fields['System.State'] ?? null,
   }));
 }
 

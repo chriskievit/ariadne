@@ -144,4 +144,34 @@ describe('fetchAdoData', () => {
     const result = await fetchAdoData({ pat: 'x', org: 'org', project: 'project' });
     expect(result.items[0]).toMatchObject({ externalId: '101', url: 'https://dev.azure.com/org/project/_workitems/edit/101' });
   });
+
+  it('maps System.State to adoStatus', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.includes('teamsettings/iterations')) return jsonResponse({ value: [] });
+      if (url.includes('/wiql')) return jsonResponse({ workItems: [{ id: 101 }] });
+      if (url.includes('/workitems?ids=101')) {
+        return jsonResponse({
+          value: [
+            {
+              id: 101,
+              fields: {
+                'System.Title': 'Fix login bug',
+                'Microsoft.VSTS.Scheduling.DueDate': null,
+                'System.IterationPath': 'Project\\Sprint 42',
+                'System.ChangedDate': '2026-07-01T00:00:00Z',
+                'System.State': 'Ready for Test',
+              },
+              _links: { html: { href: 'https://dev.azure.com/org/project/_workitems/edit/101' } },
+            },
+          ],
+        });
+      }
+      if (url.includes('/comments')) return jsonResponse({ comments: [] });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchAdoData({ pat: 'x', org: 'org', project: 'project' });
+    expect(result.items[0].adoStatus).toBe('Ready for Test');
+  });
 });
