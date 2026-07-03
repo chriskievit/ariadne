@@ -14,19 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
-import { getPriorityTier, type PriorityTier } from '@/lib/scoring';
+import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 import type { Item } from '@/lib/types';
-
-const REASON_LABEL: Record<Item['reason'], string> = {
-  approved_unmerged: 'Ready to merge',
-  mention: 'Mentioned you',
-  review_requested: 'Review requested',
-  stale_own_pr: 'Stale — no reviews',
-  assigned: 'Assigned to you',
-  authored: 'Your PR',
-  manual: 'Ad-hoc',
-};
 
 const REASON_VARIANT: Record<Item['reason'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
   approved_unmerged: 'default',
@@ -66,7 +61,7 @@ const TIER_BORDER_CLASS: Record<PriorityTier, string> = {
 };
 
 interface Props {
-  item: Item & { score: number };
+  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[] };
   onStart?: (id: number) => void;
   onComplete: (id: number, durationMinutes?: number, note?: string) => void;
   onDelete?: (id: number) => void;
@@ -167,7 +162,27 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, showTier 
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
+            {item.scoreBreakdown ? (
+              <HoverCard openDelay={150}>
+                <HoverCardTrigger asChild>
+                  <Badge variant={TIER_BADGE_VARIANT[tier]} className="cursor-default">
+                    {TIER_LABEL[tier]}
+                  </Badge>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-56">
+                  <div className="space-y-1 text-sm">
+                    {item.scoreBreakdown.map((entry, i) => (
+                      <div key={i} className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">{entry.label}</span>
+                        <span className="font-medium tabular-nums">+{entry.points}</span>
+                      </div>
+                    ))}
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            ) : (
+              <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
+            )}
             <Badge variant="outline">{REASON_LABEL[item.reason]}</Badge>
           </div>
           <div className="flex shrink-0 gap-1.5">

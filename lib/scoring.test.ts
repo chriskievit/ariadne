@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scoreItem, sortByUrgency, getPriorityTier } from './scoring';
+import { scoreItem, scoreBreakdown, sortByUrgency, getPriorityTier } from './scoring';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
 
@@ -60,6 +60,50 @@ describe('scoreItem', () => {
       NOW
     );
     expect(score).toBe(40 + 25 + 15);
+  });
+});
+
+describe('scoreBreakdown', () => {
+  it('includes only the reason entry when there is no deadline or staleness', () => {
+    const breakdown = scoreBreakdown(baseItem({ reason: 'manual' }), NOW);
+    expect(breakdown).toEqual([{ label: 'Ad-hoc', points: 10 }]);
+  });
+
+  it('includes the deadline entry when the due date is within 2 days', () => {
+    const breakdown = scoreBreakdown(baseItem({ dueDate: '2026-07-03T12:00:00.000Z' }), NOW);
+    expect(breakdown).toEqual([
+      { label: 'Due in 1 day', points: 25 },
+      { label: 'Ad-hoc', points: 10 },
+    ]);
+  });
+
+  it('omits the deadline entry when the due date is more than 2 days out', () => {
+    const breakdown = scoreBreakdown(baseItem({ dueDate: '2026-07-10T12:00:00.000Z' }), NOW);
+    expect(breakdown).toEqual([{ label: 'Ad-hoc', points: 10 }]);
+  });
+
+  it('includes the staleness entry when rawUpdatedAt is older than 5 days', () => {
+    const breakdown = scoreBreakdown(baseItem({ rawUpdatedAt: '2026-06-20T12:00:00.000Z' }), NOW);
+    expect(breakdown).toEqual([
+      { label: 'Stale 12 days', points: 15 },
+      { label: 'Ad-hoc', points: 10 },
+    ]);
+  });
+
+  it('sorts entries descending by points when multiple are present', () => {
+    const breakdown = scoreBreakdown(
+      baseItem({
+        reason: 'review_requested',
+        dueDate: '2026-07-03T12:00:00.000Z',
+        rawUpdatedAt: '2026-06-20T12:00:00.000Z',
+      }),
+      NOW
+    );
+    expect(breakdown).toEqual([
+      { label: 'Review requested', points: 40 },
+      { label: 'Due in 1 day', points: 25 },
+      { label: 'Stale 12 days', points: 15 },
+    ]);
   });
 });
 

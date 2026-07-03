@@ -1,14 +1,16 @@
 import type Database from 'better-sqlite3';
 import { listItems } from './items-repo';
 import { getSetting } from './settings-repo';
-import { sortByUrgency } from './scoring';
+import { sortByUrgency, type ScoreBreakdownEntry } from './scoring';
 import { SETTINGS_KEYS, NEEDS_ATTENTION_THRESHOLD } from './config';
 import type { Item } from './types';
 
+type ScoredItem = Item & { score: number; scoreBreakdown: ScoreBreakdownEntry[] };
+
 export interface GroupedItems {
-  needsAttention: (Item & { score: number })[];
-  inProgress: (Item & { score: number })[];
-  everythingElse: (Item & { score: number })[];
+  needsAttention: ScoredItem[];
+  inProgress: ScoredItem[];
+  everythingElse: ScoredItem[];
 }
 
 export function getGroupedItems(db: Database.Database, now: Date): GroupedItems {
