@@ -77,6 +77,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
+      <QuickAddForm onSubmit={handleQuickAdd} />
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
       <NeedsAttentionBoard items={data.needsAttention} onStart={handleStart} onComplete={handleComplete} />
       <Card>
@@ -100,7 +101,6 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           </Accordion>
         </CardContent>
       </Card>
-      <QuickAddForm onSubmit={handleQuickAdd} />
     </main>
   );
 }

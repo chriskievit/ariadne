@@ -17,8 +17,12 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
   const scored = sortByUrgency(items.map((item) => ({ ...item, sprintEnd })), now);
 
   return {
-    needsAttention: scored.filter((i) => i.status === 'inbox' && i.score >= NEEDS_ATTENTION_THRESHOLD),
+    needsAttention: scored.filter(
+      (i) => i.status === 'inbox' && (i.source === 'adhoc' || i.score >= NEEDS_ATTENTION_THRESHOLD)
+    ),
     inProgress: scored.filter((i) => i.status === 'in_progress'),
-    everythingElse: scored.filter((i) => i.status === 'inbox' && i.score < NEEDS_ATTENTION_THRESHOLD),
+    everythingElse: scored.filter(
+      (i) => i.status === 'inbox' && i.source !== 'adhoc' && i.score < NEEDS_ATTENTION_THRESHOLD
+    ),
   };
 }

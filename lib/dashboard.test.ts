@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { upsertSyncedItem, setStatus } from './items-repo';
+import { upsertSyncedItem, createAdhocItem, setStatus } from './items-repo';
 import { getGroupedItems } from './dashboard';
 
 let db: Database.Database;
@@ -48,5 +48,13 @@ describe('getGroupedItems', () => {
     expect(grouped.needsAttention.map((i) => i.id)).toEqual([urgent.id]);
     expect(grouped.inProgress.map((i) => i.id)).toEqual([active.id]);
     expect(grouped.everythingElse.map((i) => i.id)).toEqual([low.id]);
+  });
+
+  it('always puts inbox ad-hoc items in needsAttention, regardless of score', () => {
+    const adhoc = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
+
+    const grouped = getGroupedItems(db, new Date());
+    expect(grouped.needsAttention.map((i) => i.id)).toEqual([adhoc.id]);
+    expect(grouped.everythingElse.map((i) => i.id)).toEqual([]);
   });
 });
