@@ -16,6 +16,7 @@ function rowToItem(row: any): Item {
     status: row.status,
     createdAt: row.created_at,
     completedAt: row.completed_at,
+    adoStatus: row.ado_status,
   };
 }
 
