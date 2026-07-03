@@ -82,6 +82,48 @@ describe('upsertSyncedItem', () => {
     expect(updated.status).toBe('done');
     expect(updated.completedAt).toBe('2026-07-01T12:00:00.000Z');
   });
+
+  it('stores and updates ado_status on re-sync', () => {
+    const first = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '101',
+      title: 'Fix login bug',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      adoStatus: 'Active',
+    });
+    expect(first.adoStatus).toBe('Active');
+
+    const updated = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '101',
+      title: 'Fix login bug',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      adoStatus: 'Done',
+    });
+    expect(updated.adoStatus).toBe('Done');
+  });
+
+  it('defaults ado_status to null when not provided', () => {
+    const item = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-3',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+    });
+    expect(item.adoStatus).toBeNull();
+  });
 });
 
 describe('createAdhocItem', () => {

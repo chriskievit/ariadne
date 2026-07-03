@@ -63,6 +63,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: pr.updated_at,
+      adoStatus: null,
     });
   }
   return results;
@@ -84,6 +85,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: pr.updated_at,
+      adoStatus: null,
     };
   });
 }
@@ -101,6 +103,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: issue.updated_at,
+      adoStatus: null,
     };
   });
 }

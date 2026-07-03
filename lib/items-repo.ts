@@ -23,16 +23,17 @@ function rowToItem(row: any): Item {
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, status, created_at)
-     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, 'inbox', @now)
+    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, status, created_at)
+     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, 'inbox', @now)
      ON CONFLICT(source, external_id) DO UPDATE SET
        title = excluded.title,
        url = excluded.url,
        reason = excluded.reason,
        due_date = excluded.due_date,
        sprint_iteration = excluded.sprint_iteration,
-       raw_updated_at = excluded.raw_updated_at`
-  ).run({ ...input, now });
+       raw_updated_at = excluded.raw_updated_at,
+       ado_status = excluded.ado_status`
+  ).run({ ...input, adoStatus: input.adoStatus ?? null, now });
 
   const row = db.prepare('SELECT * FROM items WHERE source = ? AND external_id = ?').get(input.source, input.externalId);
   return rowToItem(row);
