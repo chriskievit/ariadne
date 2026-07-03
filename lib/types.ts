@@ -23,6 +23,7 @@ export interface Item {
   status: Status;
   createdAt: string;
   completedAt: string | null;
+  adoStatus: string | null;
 }
 
 export interface NewSyncedItemInput {
@@ -34,6 +35,7 @@ export interface NewSyncedItemInput {
   dueDate: string | null;
   sprintIteration: string | null;
   rawUpdatedAt: string | null;
+  adoStatus?: string | null;
 }
 
 export interface NewAdhocItemInput {

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS items (
   status TEXT NOT NULL DEFAULT 'inbox' CHECK (status IN ('inbox','in_progress','done')),
   created_at TEXT NOT NULL,
   completed_at TEXT,
+  ado_status TEXT,
   UNIQUE(source, external_id)
 );
 
@@ -68,6 +69,14 @@ export function openDb(path: string): Database.Database {
       db.pragma('journal_mode = WAL');
       db.pragma('foreign_keys = ON');
       db.exec(SCHEMA_SQL);
+
+      const hasAdoStatus = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).some(
+        (col) => col.name === 'ado_status'
+      );
+      if (!hasAdoStatus) {
+        db.exec('ALTER TABLE items ADD COLUMN ado_status TEXT');
+      }
+
       return db;
     } catch (err) {
       lastError = err;
