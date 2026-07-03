@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,8 @@ import {
 import type { Item } from '@/lib/types';
 import type { SprintProgress } from '@/lib/sprint';
 
+const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
 type ScoredItem = Item & { score: number };
 
 interface DashboardData {
@@ -33,6 +35,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
+
+  const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function scheduleAutoSync() {
+    if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
+    autoSyncTimeoutRef.current = setTimeout(() => {
+      handleRefresh();
+    }, AUTO_SYNC_INTERVAL_MS);
+  }
 
   async function refresh() {
     const fresh = await fetchDashboardData();
@@ -48,6 +59,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       await refresh();
     } finally {
       setSyncing(false);
+      scheduleAutoSync();
     }
   }
 
@@ -80,6 +92,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await deleteAdhocItem(id);
     await refresh();
   }
+
+  useEffect(() => {
+    scheduleAutoSync();
+    return () => {
+      if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
