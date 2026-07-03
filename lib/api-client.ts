@@ -26,3 +26,7 @@ export async function undoItem(id: number) {
 export async function createAdhocItemRequest(input: { title: string; category?: string; dueDate?: string }) {
   await fetch('/api/items', { method: 'POST', body: JSON.stringify(input) });
 }
+
+export async function deleteAdhocItem(id: number) {
+  await fetch(`/api/items/${id}`, { method: 'DELETE' });
+}

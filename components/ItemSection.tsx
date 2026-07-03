@@ -11,9 +11,10 @@ interface Props {
   emptyMessage: string;
   onStart?: (id: number) => void;
   onComplete: (id: number, durationMinutes?: number, note?: string) => void;
+  onDelete?: (id: number) => void;
 }
 
-export default function ItemSection({ value, title, items, emptyMessage, onStart, onComplete }: Props) {
+export default function ItemSection({ value, title, items, emptyMessage, onStart, onComplete, onDelete }: Props) {
   return (
     <AccordionItem value={value}>
       <AccordionTrigger>
@@ -25,7 +26,7 @@ export default function ItemSection({ value, title, items, emptyMessage, onStart
         ) : (
           <div>
             {items.map((item) => (
-              <ItemRow key={item.id} item={item} onStart={onStart} onComplete={onComplete} />
+              <ItemRow key={item.id} item={item} onStart={onStart} onComplete={onComplete} onDelete={onDelete} />
             ))}
           </div>
         )}

@@ -62,3 +62,7 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
   db.prepare('UPDATE items SET status = ?, completed_at = ? WHERE id = ?').run(status, completedAt, id);
 }
+
+export function deleteItem(db: Database.Database, id: number): void {
+  db.prepare('DELETE FROM items WHERE id = ?').run(id);
+}

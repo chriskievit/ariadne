@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Check } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Play, Check, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -68,15 +69,18 @@ interface Props {
   item: Item & { score: number };
   onStart?: (id: number) => void;
   onComplete: (id: number, durationMinutes?: number, note?: string) => void;
+  onDelete?: (id: number) => void;
   showTier?: boolean;
 }
 
-export default function ItemRow({ item, onStart, onComplete, showTier = false }: Props) {
+export default function ItemRow({ item, onStart, onComplete, onDelete, showTier = false }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
   const [open, setOpen] = useState(false);
   const [duration, setDuration] = useState('');
   const [note, setNote] = useState('');
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const canDelete = item.source === 'adhoc' && onDelete;
 
   function handleCompleteSubmit() {
     onComplete(item.id, duration ? Number(duration) : undefined, note || undefined);
@@ -112,6 +116,34 @@ export default function ItemRow({ item, onStart, onComplete, showTier = false }:
           </Button>
           <Button type="button" onClick={handleCompleteSubmit}>
             Complete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const deleteDialog = (
+    <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete ad-hoc item?</DialogTitle>
+          <DialogDescription>
+            &ldquo;{item.title}&rdquo; will be permanently removed. This can&apos;t be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setDeleteOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => {
+              onDelete?.(item.id);
+              setDeleteOpen(false);
+            }}
+          >
+            Delete
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -154,9 +186,22 @@ export default function ItemRow({ item, onStart, onComplete, showTier = false }:
             <Button type="button" size="icon" aria-label="Mark complete" title="Mark complete" onClick={() => setOpen(true)}>
               <Check aria-hidden="true" />
             </Button>
+            {canDelete && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                aria-label="Delete"
+                title="Delete"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 aria-hidden="true" />
+              </Button>
+            )}
           </div>
         </div>
         {completeDialog}
+        {deleteDialog}
       </div>
     );
   }
@@ -192,8 +237,14 @@ export default function ItemRow({ item, onStart, onComplete, showTier = false }:
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
           Mark complete
         </Button>
+        {canDelete && (
+          <Button type="button" variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+            Delete
+          </Button>
+        )}
       </div>
       {completeDialog}
+      {deleteDialog}
     </div>
   );
 }

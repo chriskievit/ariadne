@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { upsertSyncedItem, createAdhocItem, listItems, getItemById, setStatus } from './items-repo';
+import { upsertSyncedItem, createAdhocItem, listItems, getItemById, setStatus, deleteItem } from './items-repo';
 
 let db: Database.Database;
 
@@ -132,6 +132,14 @@ describe('createAdhocItem', () => {
     expect(item.source).toBe('adhoc');
     expect(item.reason).toBe('manual');
     expect(item.status).toBe('inbox');
+  });
+});
+
+describe('deleteItem', () => {
+  it('removes the item', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    deleteItem(db, item.id);
+    expect(getItemById(db, item.id)).toBeUndefined();
   });
 });
 

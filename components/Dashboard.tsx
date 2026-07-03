@@ -15,6 +15,7 @@ import {
   completeItem,
   undoItem,
   createAdhocItemRequest,
+  deleteAdhocItem,
 } from '@/lib/api-client';
 import type { Item } from '@/lib/types';
 import type { SprintProgress } from '@/lib/sprint';
@@ -75,11 +76,21 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
+  async function handleDelete(id: number) {
+    await deleteAdhocItem(id);
+    await refresh();
+  }
+
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <QuickAddForm onSubmit={handleQuickAdd} />
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
-      <NeedsAttentionBoard items={data.needsAttention} onStart={handleStart} onComplete={handleComplete} />
+      <NeedsAttentionBoard
+        items={data.needsAttention}
+        onStart={handleStart}
+        onComplete={handleComplete}
+        onDelete={handleDelete}
+      />
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={['in-progress']}>
@@ -89,6 +100,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               items={data.inProgress}
               emptyMessage="Nothing in progress — start something above."
               onComplete={handleComplete}
+              onDelete={handleDelete}
             />
             <ItemSection
               value="everything-else"
@@ -97,6 +109,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               emptyMessage="Nothing else queued."
               onStart={handleStart}
               onComplete={handleComplete}
+              onDelete={handleDelete}
             />
           </Accordion>
         </CardContent>
