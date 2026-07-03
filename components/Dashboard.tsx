@@ -85,15 +85,9 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <QuickAddForm onSubmit={handleQuickAdd} />
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
-      <NeedsAttentionBoard
-        items={data.needsAttention}
-        onStart={handleStart}
-        onComplete={handleComplete}
-        onDelete={handleDelete}
-      />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={['in-progress']}>
+          <Accordion type="multiple" defaultValue={[]}>
             <ItemSection
               value="in-progress"
               title="In progress"
@@ -102,6 +96,18 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onComplete={handleComplete}
               onDelete={handleDelete}
             />
+          </Accordion>
+        </CardContent>
+      </Card>
+      <NeedsAttentionBoard
+        items={data.needsAttention}
+        onStart={handleStart}
+        onComplete={handleComplete}
+        onDelete={handleDelete}
+      />
+      <Card>
+        <CardContent className="pt-6">
+          <Accordion type="multiple" defaultValue={[]}>
             <ItemSection
               value="everything-else"
               title="Everything else"
