@@ -37,8 +37,10 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
 
   function scheduleAutoSync() {
+    if (!isMountedRef.current) return;
     if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
     autoSyncTimeoutRef.current = setTimeout(() => {
       handleRefresh();
@@ -94,8 +96,10 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }
 
   useEffect(() => {
+    isMountedRef.current = true;
     scheduleAutoSync();
     return () => {
+      isMountedRef.current = false;
       if (autoSyncTimeoutRef.current) clearTimeout(autoSyncTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
