@@ -188,4 +188,56 @@ describe('fetchGithubItems', () => {
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result[0].prStatus).toBe('approved');
   });
+
+  it('does not let a plain issue mention (404 on /pulls) or a transient failure abort the whole sync', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 21,
+              title: 'A real PR review request',
+              html_url: 'https://github.com/acme/widgets/pull/21',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 99,
+              title: 'A plain issue mentioning me',
+              html_url: 'https://github.com/acme/widgets/issues/99',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('/pulls/21/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/21')) return jsonResponse({ draft: false });
+      if (url.endsWith('/pulls/99')) {
+        return { ok: false, status: 404, json: async () => ({}), text: async () => 'Not Found' } as Response;
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result).toHaveLength(2);
+
+    const issueMention = result.find((r) => r.externalId === '99@acme/widgets');
+    expect(issueMention).toBeDefined();
+    expect(issueMention?.prStatus).toBeNull();
+
+    const reviewRequested = result.find((r) => r.externalId === '21@acme/widgets');
+    expect(reviewRequested).toBeDefined();
+    expect(reviewRequested?.reason).toBe('review_requested');
+    expect(reviewRequested?.prStatus).toBe('ready_for_review');
+  });
 });

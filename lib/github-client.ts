@@ -43,11 +43,27 @@ async function fetchPrStatus(
   repo: string,
   number: number,
   reviews?: any[]
-): Promise<PrStatus> {
-  const detail = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}`);
+): Promise<PrStatus | null> {
+  let detail: any;
+  try {
+    detail = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}`);
+  } catch {
+    // Not every synced item is actually a PR (e.g. a plain issue mention), and
+    // transient failures shouldn't take down the whole sync — just skip the pill.
+    return null;
+  }
   if (detail.draft) return 'draft';
 
-  const reviewList = reviews ?? (await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}/reviews`));
+  let reviewList: any[];
+  if (reviews) {
+    reviewList = reviews;
+  } else {
+    try {
+      reviewList = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}/reviews`);
+    } catch {
+      return null;
+    }
+  }
   const latestByUser = new Map<string, string>();
   for (const r of reviewList) {
     if (r.state === 'COMMENTED') continue;
