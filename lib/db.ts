@@ -53,6 +53,35 @@ function isSqliteBusy(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'SQLITE_BUSY';
 }
 
+function isDuplicateColumnError(err: unknown): boolean {
+  return err instanceof Error && /duplicate column name/i.test(err.message);
+}
+
+// Attempts the ALTER unconditionally, tolerating the column already being
+// present. This is what makes losing a concurrent migration race harmless
+// instead of fatal -- see addColumnIfMissing for why that race happens.
+export function addColumnTolerant(db: Database.Database, table: string, column: string, type: string): void {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  } catch (err) {
+    if (!isDuplicateColumnError(err)) throw err;
+  }
+}
+
+// Adds `column` to `table` unless it's already present. The existence check
+// and the ALTER aren't atomic across separate connections, so this also
+// tolerates losing a race to another connection that added the column in
+// between: Next.js's build-time page-data collection imports every API
+// route module -- and therefore this module -- independently, so multiple
+// unrelated openDb() calls can run this same migration concurrently against
+// the same on-disk file.
+function addColumnIfMissing(db: Database.Database, table: string, column: string, type: string): void {
+  const exists = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some(
+    (col) => col.name === column
+  );
+  if (!exists) addColumnTolerant(db, table, column, type);
+}
+
 // Opening a brand-new database file and switching it to WAL mode is not fully
 // covered by `busy_timeout` when multiple processes race to initialize the
 // same file concurrently (e.g. Next.js's parallel build-time page-data
@@ -71,19 +100,8 @@ export function openDb(path: string): Database.Database {
       db.pragma('foreign_keys = ON');
       db.exec(SCHEMA_SQL);
 
-      const hasAdoStatus = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).some(
-        (col) => col.name === 'ado_status'
-      );
-      if (!hasAdoStatus) {
-        db.exec('ALTER TABLE items ADD COLUMN ado_status TEXT');
-      }
-
-      const hasPrStatus = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).some(
-        (col) => col.name === 'pr_status'
-      );
-      if (!hasPrStatus) {
-        db.exec('ALTER TABLE items ADD COLUMN pr_status TEXT');
-      }
+      addColumnIfMissing(db, 'items', 'ado_status', 'TEXT');
+      addColumnIfMissing(db, 'items', 'pr_status', 'TEXT');
 
       return db;
     } catch (err) {

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import { openDb } from './db';
+import { openDb, addColumnTolerant } from './db';
 
 describe('openDb', () => {
   it('creates all required tables', () => {
@@ -103,5 +103,32 @@ describe('openDb', () => {
     reopened.close();
 
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('addColumnTolerant', () => {
+  it('adds the column when missing', () => {
+    const db = new Database(':memory:');
+    db.exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY)');
+    addColumnTolerant(db, 'widgets', 'color', 'TEXT');
+    const columns = (db.prepare('PRAGMA table_info(widgets)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('color');
+    db.close();
+  });
+
+  it('does not throw when the column already exists, simulating losing a concurrent migration race', () => {
+    // Next.js's build-time page-data collection imports every API route
+    // module -- and therefore lib/db-instance.ts -- independently, so
+    // multiple unrelated openDb() calls can run this same column migration
+    // concurrently against the same on-disk file. This reproduces the
+    // "duplicate column name" crash a losing connection would hit: the
+    // column is already present, but addColumnTolerant attempts the ALTER
+    // unconditionally (it has no guard of its own -- that's addColumnIfMissing's
+    // job) and must tolerate SQLite rejecting the duplicate add rather than
+    // throwing.
+    const db = new Database(':memory:');
+    db.exec('CREATE TABLE widgets (id INTEGER PRIMARY KEY, color TEXT)');
+    expect(() => addColumnTolerant(db, 'widgets', 'color', 'TEXT')).not.toThrow();
+    db.close();
   });
 });
