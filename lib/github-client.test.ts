@@ -27,7 +27,8 @@ describe('fetchGithubItems', () => {
           ],
         });
       }
-      if (url.includes('/pulls/42/reviews')) return jsonResponse([{ state: 'APPROVED' }]);
+      if (url.includes('/pulls/42/reviews')) return jsonResponse([{ user: { login: 'reviewer1' }, state: 'APPROVED' }]);
+      if (url.endsWith('/pulls/42')) return jsonResponse({ draft: false });
       if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
       throw new Error(`Unexpected URL: ${url}`);
@@ -36,6 +37,7 @@ describe('fetchGithubItems', () => {
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result).toHaveLength(1);
     expect(result[0].reason).toBe('approved_unmerged');
+    expect(result[0].prStatus).toBe('approved');
   });
 
   it('classifies an authored PR with no reviews past the stale threshold as stale_own_pr', async () => {
@@ -57,6 +59,7 @@ describe('fetchGithubItems', () => {
         });
       }
       if (url.includes('/pulls/7/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/7')) return jsonResponse({ draft: false });
       if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
       throw new Error(`Unexpected URL: ${url}`);
@@ -64,6 +67,7 @@ describe('fetchGithubItems', () => {
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result[0].reason).toBe('stale_own_pr');
+    expect(result[0].prStatus).toBe('ready_for_review');
   });
 
   it('deduplicates a PR appearing in both review-requested and mentions, keeping review_requested', async () => {
@@ -80,11 +84,108 @@ describe('fetchGithubItems', () => {
       if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [prPayload] });
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [prPayload] });
+      if (url.includes('/pulls/9/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/9')) return jsonResponse({ draft: false });
       throw new Error(`Unexpected URL: ${url}`);
     });
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result).toHaveLength(1);
     expect(result[0].reason).toBe('review_requested');
+  });
+
+  it('marks a draft PR as draft regardless of review state', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 11,
+              title: 'WIP',
+              html_url: 'https://github.com/acme/widgets/pull/11',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/11/reviews')) return jsonResponse([{ user: { login: 'reviewer1' }, state: 'APPROVED' }]);
+      if (url.endsWith('/pulls/11')) return jsonResponse({ draft: true });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].prStatus).toBe('draft');
+  });
+
+  it('treats a change request from one reviewer as changes_requested even if another reviewer approved', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 12,
+              title: 'Needs changes',
+              html_url: 'https://github.com/acme/widgets/pull/12',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/12/reviews')) {
+        return jsonResponse([
+          { user: { login: 'alice' }, state: 'APPROVED' },
+          { user: { login: 'bob' }, state: 'CHANGES_REQUESTED' },
+        ]);
+      }
+      if (url.endsWith('/pulls/12')) return jsonResponse({ draft: false });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].prStatus).toBe('changes_requested');
+  });
+
+  it("uses a reviewer's later approval over their own earlier changes_requested", async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 13,
+              title: 'Now fixed',
+              html_url: 'https://github.com/acme/widgets/pull/13',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/13/reviews')) {
+        // Reviews are returned oldest-first; alice's later APPROVED supersedes her own earlier CHANGES_REQUESTED.
+        return jsonResponse([
+          { user: { login: 'alice' }, state: 'CHANGES_REQUESTED' },
+          { user: { login: 'alice' }, state: 'APPROVED' },
+        ]);
+      }
+      if (url.endsWith('/pulls/13')) return jsonResponse({ draft: false });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].prStatus).toBe('approved');
   });
 });

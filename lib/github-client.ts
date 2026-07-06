@@ -1,4 +1,4 @@
-import type { NewSyncedItemInput } from './types';
+import type { NewSyncedItemInput, PrStatus } from './types';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -37,6 +37,28 @@ function externalId(pr: GithubSearchItem, owner: string, repo: string): string {
   return `${pr.number}@${owner}/${repo}`;
 }
 
+async function fetchPrStatus(
+  config: GithubConfig,
+  owner: string,
+  repo: string,
+  number: number,
+  reviews?: any[]
+): Promise<PrStatus> {
+  const detail = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}`);
+  if (detail.draft) return 'draft';
+
+  const reviewList = reviews ?? (await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}/reviews`));
+  const latestByUser = new Map<string, string>();
+  for (const r of reviewList) {
+    if (r.state === 'COMMENTED') continue;
+    latestByUser.set(r.user.login, r.state); // reviews are returned oldest-first
+  }
+  const states = Array.from(latestByUser.values());
+  if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
+  if (states.includes('APPROVED')) return 'approved';
+  return 'ready_for_review';
+}
+
 async function fetchAuthoredPrItems(config: GithubConfig, username: string): Promise<NewSyncedItemInput[]> {
   const { items } = await githubFetch(
     config.pat,
@@ -54,6 +76,8 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
     if (hasApproval) reason = 'approved_unmerged';
     else if (reviews.length === 0 && ageDays > config.staleDays) reason = 'stale_own_pr';
 
+    const prStatus = await fetchPrStatus(config, owner, repo, pr.number, reviews);
+
     results.push({
       source: 'github_pr',
       externalId: externalId(pr, owner, repo),
@@ -64,6 +88,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       sprintIteration: null,
       rawUpdatedAt: pr.updated_at,
       adoStatus: null,
+      prStatus,
     });
   }
   return results;
@@ -74,38 +99,46 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
     config.pat,
     `/search/issues?q=${encodeURIComponent(`type:pr review-requested:${username} is:open`)}`
   );
-  return (items as GithubSearchItem[]).map((pr) => {
-    const { owner, repo } = repoFromUrl(pr.repository_url);
-    return {
-      source: 'github_pr',
-      externalId: externalId(pr, owner, repo),
-      title: pr.title,
-      url: pr.html_url,
-      reason: 'review_requested',
-      dueDate: null,
-      sprintIteration: null,
-      rawUpdatedAt: pr.updated_at,
-      adoStatus: null,
-    };
-  });
+  return Promise.all(
+    (items as GithubSearchItem[]).map(async (pr) => {
+      const { owner, repo } = repoFromUrl(pr.repository_url);
+      const prStatus = await fetchPrStatus(config, owner, repo, pr.number);
+      return {
+        source: 'github_pr' as const,
+        externalId: externalId(pr, owner, repo),
+        title: pr.title,
+        url: pr.html_url,
+        reason: 'review_requested' as const,
+        dueDate: null,
+        sprintIteration: null,
+        rawUpdatedAt: pr.updated_at,
+        adoStatus: null,
+        prStatus,
+      };
+    })
+  );
 }
 
 async function fetchMentionItems(config: GithubConfig, username: string): Promise<NewSyncedItemInput[]> {
   const { items } = await githubFetch(config.pat, `/search/issues?q=${encodeURIComponent(`mentions:${username} is:open`)}`);
-  return (items as GithubSearchItem[]).map((issue) => {
-    const { owner, repo } = repoFromUrl(issue.repository_url);
-    return {
-      source: 'github_pr',
-      externalId: externalId(issue, owner, repo),
-      title: issue.title,
-      url: issue.html_url,
-      reason: 'mention',
-      dueDate: null,
-      sprintIteration: null,
-      rawUpdatedAt: issue.updated_at,
-      adoStatus: null,
-    };
-  });
+  return Promise.all(
+    (items as GithubSearchItem[]).map(async (issue) => {
+      const { owner, repo } = repoFromUrl(issue.repository_url);
+      const prStatus = await fetchPrStatus(config, owner, repo, issue.number);
+      return {
+        source: 'github_pr' as const,
+        externalId: externalId(issue, owner, repo),
+        title: issue.title,
+        url: issue.html_url,
+        reason: 'mention' as const,
+        dueDate: null,
+        sprintIteration: null,
+        rawUpdatedAt: issue.updated_at,
+        adoStatus: null,
+        prStatus,
+      };
+    })
+  );
 }
 
 export async function fetchGithubItems(config: GithubConfig): Promise<NewSyncedItemInput[]> {
