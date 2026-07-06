@@ -124,6 +124,49 @@ describe('upsertSyncedItem', () => {
     });
     expect(item.adoStatus).toBeNull();
   });
+
+  it('stores and updates pr_status on re-sync', () => {
+    const first = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-10',
+      title: 'Add feature',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      prStatus: 'draft',
+    });
+    expect(first.prStatus).toBe('draft');
+
+    const updated = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-10',
+      title: 'Add feature',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      prStatus: 'approved',
+    });
+    expect(updated.prStatus).toBe('approved');
+  });
+
+  it('defaults pr_status to null when not provided', () => {
+    const item = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '202',
+      title: 'Fix login bug',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      adoStatus: 'Active',
+    });
+    expect(item.prStatus).toBeNull();
+  });
 });
 
 describe('createAdhocItem', () => {
