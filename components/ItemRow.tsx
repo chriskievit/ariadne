@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
+import { getStatusPill } from '@/lib/status-pill';
 import type { Item } from '@/lib/types';
 
 const REASON_VARIANT: Record<Item['reason'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -71,6 +72,7 @@ interface Props {
 export default function ItemRow({ item, onStart, onComplete, onDelete, showTier = false }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
+  const statusPill = getStatusPill(item);
   const [open, setOpen] = useState(false);
   const [duration, setDuration] = useState('');
   const [note, setNote] = useState('');
@@ -183,6 +185,7 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, showTier 
             ) : (
               <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
             )}
+            {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
             <Badge variant="outline">{REASON_LABEL[item.reason]}</Badge>
           </div>
           <div className="flex shrink-0 gap-1.5">
@@ -238,9 +241,10 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, showTier 
           ) : (
             <span className="block truncate font-medium">{item.title}</span>
           )}
-          <Badge variant={REASON_VARIANT[item.reason]} className="ml-2">
-            {REASON_LABEL[item.reason]}
-          </Badge>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
+            <Badge variant={REASON_VARIANT[item.reason]}>{REASON_LABEL[item.reason]}</Badge>
+          </div>
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
