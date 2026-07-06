@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS items (
   created_at TEXT NOT NULL,
   completed_at TEXT,
   ado_status TEXT,
+  pr_status TEXT,
   UNIQUE(source, external_id)
 );
 
@@ -75,6 +76,13 @@ export function openDb(path: string): Database.Database {
       );
       if (!hasAdoStatus) {
         db.exec('ALTER TABLE items ADD COLUMN ado_status TEXT');
+      }
+
+      const hasPrStatus = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).some(
+        (col) => col.name === 'pr_status'
+      );
+      if (!hasPrStatus) {
+        db.exec('ALTER TABLE items ADD COLUMN pr_status TEXT');
       }
 
       return db;
