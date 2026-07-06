@@ -14,6 +14,7 @@ import {
   startItem,
   completeItem,
   undoItem,
+  requeueItem,
   createAdhocItemRequest,
   deleteAdhocItem,
 } from '@/lib/api-client';
@@ -72,6 +73,11 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
+  async function handleRequeue(id: number) {
+    await requeueItem(id);
+    await refresh();
+  }
+
   async function handleComplete(id: number, durationMinutes?: number, note?: string) {
     await completeItem(id, { durationMinutes, note });
     await refresh();
@@ -121,6 +127,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               emptyMessage="Nothing in progress — start something above."
               onComplete={handleComplete}
               onDelete={handleDelete}
+              onRequeue={handleRequeue}
             />
           </Accordion>
         </CardContent>

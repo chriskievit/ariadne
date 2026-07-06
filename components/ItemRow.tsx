@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Check, Trash2 } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Play, Check, Trash2, Undo2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,12 +64,13 @@ const TIER_BORDER_CLASS: Record<PriorityTier, string> = {
 interface Props {
   item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[] };
   onStart?: (id: number) => void;
+  onRequeue?: (id: number) => void;
   onComplete: (id: number, durationMinutes?: number, note?: string) => void;
   onDelete?: (id: number) => void;
   showTier?: boolean;
 }
 
-export default function ItemRow({ item, onStart, onComplete, onDelete, showTier = false }: Props) {
+export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue, showTier = false }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
   const statusPill = getStatusPill(item);
@@ -251,6 +252,12 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, showTier 
         {item.status !== 'in_progress' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={() => onStart(item.id)}>
             Start
+          </Button>
+        )}
+        {item.status === 'in_progress' && onRequeue && (
+          <Button type="button" variant="outline" size="sm" onClick={() => onRequeue(item.id)}>
+            <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Back to queue
           </Button>
         )}
         <Button type="button" size="sm" onClick={() => setOpen(true)}>

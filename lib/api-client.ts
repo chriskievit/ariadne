@@ -23,6 +23,10 @@ export async function undoItem(id: number) {
   await fetch(`/api/items/${id}/undo`, { method: 'POST' });
 }
 
+export async function requeueItem(id: number) {
+  await fetch(`/api/items/${id}/requeue`, { method: 'POST' });
+}
+
 export async function createAdhocItemRequest(input: { title: string; category?: string; dueDate?: string }) {
   await fetch('/api/items', { method: 'POST', body: JSON.stringify(input) });
 }
