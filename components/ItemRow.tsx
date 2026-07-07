@@ -24,15 +24,30 @@ import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEn
 import { getStatusPill } from '@/lib/status-pill';
 import type { Item } from '@/lib/types';
 
-const REASON_VARIANT: Record<Item['reason'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
+type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
+
+const REASON_VARIANT: Record<Item['reason'], ReasonVariant> = {
   approved_unmerged: 'default',
-  mention: 'secondary',
+  mention: 'warning',
   review_requested: 'secondary',
   stale_own_pr: 'destructive',
   assigned: 'outline',
   authored: 'outline',
   manual: 'outline',
 };
+
+// ADO mention detection only ever looks at items already assigned to the
+// user (see fetchMentionWorkItems in lib/ado-client.ts), so a 'mention'
+// reason on an ado_workitem always implies assignment too — show both pills.
+function getReasonPills(item: Item): { label: string; variant: ReasonVariant }[] {
+  if (item.source === 'ado_workitem' && item.reason === 'mention') {
+    return [
+      { label: REASON_LABEL.assigned, variant: REASON_VARIANT.assigned },
+      { label: REASON_LABEL.mention, variant: REASON_VARIANT.mention },
+    ];
+  }
+  return [{ label: REASON_LABEL[item.reason], variant: REASON_VARIANT[item.reason] }];
+}
 
 export const SOURCE_ICON = {
   github_pr: Github,
@@ -190,7 +205,11 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
               <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
             )}
             {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
-            <Badge variant="outline">{REASON_LABEL[item.reason]}</Badge>
+            {getReasonPills(item).map((pill) => (
+              <Badge key={pill.label} variant={pill.variant}>
+                {pill.label}
+              </Badge>
+            ))}
           </div>
           <div className="flex shrink-0 gap-1.5">
             {item.status !== 'in_progress' && onStart && (
@@ -250,7 +269,11 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
-            <Badge variant={REASON_VARIANT[item.reason]}>{REASON_LABEL[item.reason]}</Badge>
+            {getReasonPills(item).map((pill) => (
+              <Badge key={pill.label} variant={pill.variant}>
+                {pill.label}
+              </Badge>
+            ))}
           </div>
         </div>
       </div>

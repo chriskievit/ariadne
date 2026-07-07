@@ -103,9 +103,8 @@ export async function fetchAdoData(config: AdoConfig): Promise<AdoSyncResult> {
     fetchMentionWorkItems(config, assignedIds),
   ]);
 
-  // Assigned takes precedence over mention when a work item qualifies for both.
   const byExternalId = new Map<string, NewSyncedItemInput>();
-  for (const item of [...assignedItems, ...mentionItems]) {
+  for (const item of [...mentionItems, ...assignedItems]) {
     if (!byExternalId.has(item.externalId)) byExternalId.set(item.externalId, item);
   }
 
