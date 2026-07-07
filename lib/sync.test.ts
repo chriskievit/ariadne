@@ -26,11 +26,11 @@ describe('runSync', () => {
     setSetting(db, SETTINGS_KEYS.adoProject, 'project');
 
     (fetchGithubItems as any).mockResolvedValue([
-      { source: 'github_pr', externalId: '1@a/b', title: 'PR', url: null, reason: 'mention', dueDate: null, sprintIteration: null, rawUpdatedAt: null },
+      { source: 'github_pr', externalId: '1@a/b', title: 'PR', url: null, reason: 'mention', dueDate: null, sprintIteration: null, rawUpdatedAt: null, repo: 'b' },
     ]);
     (fetchAdoData as any).mockResolvedValue({
       items: [
-        { source: 'ado_workitem', externalId: '101', title: 'WI', url: null, reason: 'assigned', dueDate: null, sprintIteration: null, rawUpdatedAt: null },
+        { source: 'ado_workitem', externalId: '101', title: 'WI', url: null, reason: 'assigned', dueDate: null, sprintIteration: null, rawUpdatedAt: null, repo: null },
       ],
       iteration: { name: 'Sprint 1', startDate: '2026-07-01', endDate: '2026-07-14' },
     });

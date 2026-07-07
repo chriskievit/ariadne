@@ -26,6 +26,7 @@ describe('getSprintProgress', () => {
       dueDate: null,
       sprintIteration: 'Sprint 42',
       rawUpdatedAt: null,
+      repo: null,
       adoStatus: 'Done',
     });
 
@@ -47,6 +48,7 @@ describe('getSprintProgress', () => {
         dueDate: null,
         sprintIteration: 'Sprint 42',
         rawUpdatedAt: null,
+        repo: null,
         adoStatus,
       });
 
@@ -64,6 +66,7 @@ describe('getSprintProgress', () => {
       dueDate: null,
       sprintIteration: 'Sprint 42',
       rawUpdatedAt: null,
+      repo: null,
       adoStatus: 'Active',
     });
     setStatus(db, item.id, 'done', '2026-07-01T00:00:00.000Z');
@@ -98,6 +101,7 @@ describe('getSprintProgress', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: null,
+      repo: null,
     });
     db.prepare('UPDATE items SET created_at = ? WHERE id = ?').run('2026-05-01T00:00:00.000Z', item.id);
 
@@ -114,6 +118,7 @@ describe('getSprintProgress', () => {
       dueDate: null,
       sprintIteration: 'Project\\Sprint 42',
       rawUpdatedAt: null,
+      repo: null,
     });
 
     expect(getSprintProgress(db).totalCount).toBe(1);

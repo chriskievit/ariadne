@@ -38,6 +38,7 @@ describe('fetchGithubItems', () => {
     expect(result).toHaveLength(1);
     expect(result[0].reason).toBe('approved_unmerged');
     expect(result[0].prStatus).toBe('approved');
+    expect(result[0].repo).toBe('widgets');
   });
 
   it('classifies an authored PR with no reviews past the stale threshold as stale_own_pr', async () => {
@@ -120,6 +121,7 @@ describe('fetchGithubItems', () => {
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result[0].prStatus).toBe('draft');
+    expect(result[0].repo).toBe('widgets');
   });
 
   it('treats a change request from one reviewer as changes_requested even if another reviewer approved', async () => {
@@ -234,10 +236,12 @@ describe('fetchGithubItems', () => {
     const issueMention = result.find((r) => r.externalId === '99@acme/widgets');
     expect(issueMention).toBeDefined();
     expect(issueMention?.prStatus).toBeNull();
+    expect(issueMention?.repo).toBe('widgets');
 
     const reviewRequested = result.find((r) => r.externalId === '21@acme/widgets');
     expect(reviewRequested).toBeDefined();
     expect(reviewRequested?.reason).toBe('review_requested');
     expect(reviewRequested?.prStatus).toBe('ready_for_review');
+    expect(reviewRequested?.repo).toBe('widgets');
   });
 });

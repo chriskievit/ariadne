@@ -26,6 +26,7 @@ export interface Item {
   completedAt: string | null;
   adoStatus: string | null;
   prStatus: PrStatus | null;
+  repo: string | null;
 }
 
 export interface NewSyncedItemInput {
@@ -39,6 +40,7 @@ export interface NewSyncedItemInput {
   rawUpdatedAt: string | null;
   adoStatus?: string | null;
   prStatus?: PrStatus | null;
+  repo: string | null;
 }
 
 export interface NewAdhocItemInput {

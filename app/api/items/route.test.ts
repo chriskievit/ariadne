@@ -22,6 +22,7 @@ describe('GET /api/items', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: null,
+      repo: null,
     });
 
     const res = await GET();

@@ -105,6 +105,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       rawUpdatedAt: pr.updated_at,
       adoStatus: null,
       prStatus,
+      repo,
     });
   }
   return results;
@@ -130,6 +131,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
         rawUpdatedAt: pr.updated_at,
         adoStatus: null,
         prStatus,
+        repo,
       };
     })
   );
@@ -152,6 +154,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
         rawUpdatedAt: issue.updated_at,
         adoStatus: null,
         prStatus,
+        repo,
       };
     })
   );

@@ -20,6 +20,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
     });
     expect(item.title).toBe('Fix bug');
     expect(item.status).toBe('inbox');
@@ -35,6 +36,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
     });
     setStatus(db, first.id, 'in_progress');
 
@@ -47,6 +49,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
     });
 
     expect(updated.id).toBe(first.id);
@@ -65,6 +68,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
     });
     setStatus(db, first.id, 'done', '2026-07-01T12:00:00.000Z');
 
@@ -77,6 +81,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
     });
 
     expect(updated.status).toBe('done');
@@ -93,6 +98,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
       adoStatus: 'Active',
     });
     expect(first.adoStatus).toBe('Active');
@@ -106,6 +112,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
       adoStatus: 'Done',
     });
     expect(updated.adoStatus).toBe('Done');
@@ -121,6 +128,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
     });
     expect(item.adoStatus).toBeNull();
   });
@@ -135,6 +143,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
       prStatus: 'draft',
     });
     expect(first.prStatus).toBe('draft');
@@ -148,6 +157,7 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
       prStatus: 'approved',
     });
     expect(updated.prStatus).toBe('approved');
@@ -163,9 +173,53 @@ describe('upsertSyncedItem', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
       adoStatus: 'Active',
     });
     expect(item.prStatus).toBeNull();
+  });
+
+  it('stores and updates repo on re-sync', () => {
+    const first = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-20',
+      title: 'Add feature',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'widgets',
+    });
+    expect(first.repo).toBe('widgets');
+
+    const updated = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-20',
+      title: 'Add feature',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: 'gadgets',
+    });
+    expect(updated.repo).toBe('gadgets');
+  });
+
+  it('defaults repo to null when not provided', () => {
+    const item = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '303',
+      title: 'Fix login bug',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+    });
+    expect(item.repo).toBeNull();
   });
 });
 
@@ -175,6 +229,11 @@ describe('createAdhocItem', () => {
     expect(item.source).toBe('adhoc');
     expect(item.reason).toBe('manual');
     expect(item.status).toBe('inbox');
+  });
+
+  it('returns repo: null for an ad-hoc item', () => {
+    const item = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
+    expect(item.repo).toBeNull();
   });
 });
 

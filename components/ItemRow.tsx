@@ -163,6 +163,9 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
         ) : (
           <span className="line-clamp-2 break-words font-medium">{item.title}</span>
         )}
+        {item.repo && (
+          <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
+        )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {item.scoreBreakdown ? (
@@ -241,6 +244,9 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
             </a>
           ) : (
             <span className="block truncate font-medium">{item.title}</span>
+          )}
+          {item.repo && (
+            <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}

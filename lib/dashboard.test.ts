@@ -21,6 +21,7 @@ describe('getGroupedItems', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: null,
+      repo: null,
     });
     const low = upsertSyncedItem(db, {
       source: 'ado_workitem',
@@ -31,6 +32,7 @@ describe('getGroupedItems', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: null,
+      repo: null,
     });
     const active = upsertSyncedItem(db, {
       source: 'ado_workitem',
@@ -41,6 +43,7 @@ describe('getGroupedItems', () => {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: null,
+      repo: null,
     });
     setStatus(db, active.id, 'in_progress');
 
