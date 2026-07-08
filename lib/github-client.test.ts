@@ -5,6 +5,21 @@ function jsonResponse(body: any) {
   return { ok: true, json: async () => body, text: async () => '' } as Response;
 }
 
+/** Builds a GraphQL reviewThreads response for a given resolution state. */
+function reviewThreadsResponse(isResolved: boolean[]) {
+  return jsonResponse({
+    data: {
+      repository: {
+        pullRequest: {
+          reviewThreads: { nodes: isResolved.map((resolved) => ({ isResolved: resolved })) },
+        },
+      },
+    },
+  });
+}
+
+const NO_THREADS_RESPONSE = reviewThreadsResponse([]);
+
 describe('fetchGithubItems', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -31,6 +46,7 @@ describe('fetchGithubItems', () => {
       if (url.endsWith('/pulls/42')) return jsonResponse({ draft: false });
       if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -63,6 +79,7 @@ describe('fetchGithubItems', () => {
       if (url.endsWith('/pulls/7')) return jsonResponse({ draft: false });
       if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -87,6 +104,7 @@ describe('fetchGithubItems', () => {
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [prPayload] });
       if (url.includes('/pulls/9/reviews')) return jsonResponse([]);
       if (url.endsWith('/pulls/9')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -116,6 +134,7 @@ describe('fetchGithubItems', () => {
       if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
       if (url.includes('/pulls/11/reviews')) return jsonResponse([{ user: { login: 'reviewer1' }, state: 'APPROVED' }]);
       if (url.endsWith('/pulls/11')) return jsonResponse({ draft: true });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -150,6 +169,7 @@ describe('fetchGithubItems', () => {
         ]);
       }
       if (url.endsWith('/pulls/12')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -184,6 +204,7 @@ describe('fetchGithubItems', () => {
         ]);
       }
       if (url.endsWith('/pulls/13')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -227,6 +248,7 @@ describe('fetchGithubItems', () => {
       if (url.endsWith('/pulls/99')) {
         return { ok: false, status: 404, json: async () => ({}), text: async () => 'Not Found' } as Response;
       }
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
       throw new Error(`Unexpected URL: ${url}`);
     });
 
@@ -243,5 +265,125 @@ describe('fetchGithubItems', () => {
     expect(reviewRequested?.reason).toBe('review_requested');
     expect(reviewRequested?.prStatus).toBe('ready_for_review');
     expect(reviewRequested?.repo).toBe('widgets');
+  });
+
+  it('flags a PR with an unresolved review thread as having unresolved conversations', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 30,
+              title: 'Has unresolved feedback',
+              html_url: 'https://github.com/acme/widgets/pull/30',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/30/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/30')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return reviewThreadsResponse([true, false]);
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].hasUnresolvedConversations).toBe(true);
+  });
+
+  it('does not flag a PR whose review threads are all resolved', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 31,
+              title: 'All feedback addressed',
+              html_url: 'https://github.com/acme/widgets/pull/31',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/31/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/31')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return reviewThreadsResponse([true, true]);
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].hasUnresolvedConversations).toBe(false);
+  });
+
+  it('does not flag a PR with no review threads at all', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 32,
+              title: 'No conversations yet',
+              html_url: 'https://github.com/acme/widgets/pull/32',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/32/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/32')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].hasUnresolvedConversations).toBe(false);
+  });
+
+  it('does not let a failed GraphQL call abort the sync, and defaults hasUnresolvedConversations to false', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 33,
+              title: 'GraphQL is down',
+              html_url: 'https://github.com/acme/widgets/pull/33',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('/pulls/33/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/33')) return jsonResponse({ draft: false });
+      if (url.endsWith('/graphql')) {
+        return { ok: false, status: 500, json: async () => ({}), text: async () => 'Internal Server Error' } as Response;
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result).toHaveLength(1);
+    expect(result[0].prStatus).toBe('ready_for_review');
+    expect(result[0].hasUnresolvedConversations).toBe(false);
   });
 });

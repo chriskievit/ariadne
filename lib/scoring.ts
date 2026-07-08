@@ -6,6 +6,7 @@ export interface ScorableItem {
   dueDate: string | null;
   sprintEnd: string | null;
   rawUpdatedAt: string | null;
+  hasUnresolvedConversations?: boolean;
 }
 
 const REASON_SCORE: Record<Reason, number> = {
@@ -55,6 +56,10 @@ export function scoreBreakdown(item: ScorableItem, now: Date): ScoreBreakdownEnt
     if (ageDays > 5) {
       entries.push({ label: `Stale ${Math.round(ageDays)} days`, points: 15 });
     }
+  }
+
+  if (item.hasUnresolvedConversations) {
+    entries.push({ label: 'Unresolved conversations', points: 20 });
   }
 
   return entries.sort((a, b) => b.points - a.points);

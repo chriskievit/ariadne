@@ -19,14 +19,15 @@ function rowToItem(row: any): Item {
     adoStatus: row.ado_status,
     prStatus: row.pr_status,
     repo: row.repo,
+    hasUnresolvedConversations: !!row.has_unresolved_conversations,
   };
 }
 
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
   const now = new Date().toISOString();
   db.prepare(
-    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, pr_status, repo, status, created_at)
-     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, @prStatus, @repo, 'inbox', @now)
+    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, pr_status, repo, has_unresolved_conversations, status, created_at)
+     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
      ON CONFLICT(source, external_id) DO UPDATE SET
        title = excluded.title,
        url = excluded.url,
@@ -36,8 +37,16 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
        raw_updated_at = excluded.raw_updated_at,
        ado_status = excluded.ado_status,
        pr_status = excluded.pr_status,
-       repo = excluded.repo`
-  ).run({ ...input, adoStatus: input.adoStatus ?? null, prStatus: input.prStatus ?? null, repo: input.repo ?? null, now });
+       repo = excluded.repo,
+       has_unresolved_conversations = excluded.has_unresolved_conversations`
+  ).run({
+    ...input,
+    adoStatus: input.adoStatus ?? null,
+    prStatus: input.prStatus ?? null,
+    repo: input.repo ?? null,
+    hasUnresolvedConversations: input.hasUnresolvedConversations ? 1 : 0,
+    now,
+  });
 
   const row = db.prepare('SELECT * FROM items WHERE source = ? AND external_id = ?').get(input.source, input.externalId);
   return rowToItem(row);

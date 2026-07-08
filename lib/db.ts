@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS items (
   ado_status TEXT,
   pr_status TEXT,
   repo TEXT,
+  has_unresolved_conversations INTEGER,
   UNIQUE(source, external_id)
 );
 
@@ -104,6 +105,7 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'ado_status', 'TEXT');
       addColumnIfMissing(db, 'items', 'pr_status', 'TEXT');
       addColumnIfMissing(db, 'items', 'repo', 'TEXT');
+      addColumnIfMissing(db, 'items', 'has_unresolved_conversations', 'INTEGER');
 
       return db;
     } catch (err) {

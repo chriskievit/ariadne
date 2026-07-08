@@ -20,6 +20,21 @@ async function githubFetch(pat: string, path: string): Promise<any> {
   return res.json();
 }
 
+async function githubGraphql(pat: string, query: string, variables: Record<string, unknown>): Promise<any> {
+  const res = await fetch(`${GITHUB_API}/graphql`, {
+    method: 'POST',
+    headers: {
+      Authorization: `token ${pat}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (!res.ok) {
+    throw new Error(`GitHub GraphQL error ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
+
 interface GithubSearchItem {
   number: number;
   title: string;
@@ -75,6 +90,36 @@ async function fetchPrStatus(
   return 'ready_for_review';
 }
 
+const REVIEW_THREADS_QUERY = `
+  query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $number) {
+        reviewThreads(first: 100) {
+          nodes { isResolved }
+        }
+      }
+    }
+  }
+`;
+
+async function fetchHasUnresolvedConversations(
+  config: GithubConfig,
+  owner: string,
+  repo: string,
+  number: number
+): Promise<boolean> {
+  try {
+    const result = await githubGraphql(config.pat, REVIEW_THREADS_QUERY, { owner, repo, number });
+    if (result.errors) return false;
+    const nodes = result.data?.repository?.pullRequest?.reviewThreads?.nodes;
+    if (!nodes) return false;
+    return nodes.some((node: any) => node.isResolved === false);
+  } catch {
+    // A hiccup here (or the item not actually being a PR) should never abort the whole sync.
+    return false;
+  }
+}
+
 async function fetchAuthoredPrItems(config: GithubConfig, username: string): Promise<NewSyncedItemInput[]> {
   const { items } = await githubFetch(
     config.pat,
@@ -93,6 +138,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
     else if (reviews.length === 0 && ageDays > config.staleDays) reason = 'stale_own_pr';
 
     const prStatus = await fetchPrStatus(config, owner, repo, pr.number, reviews);
+    const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, pr.number);
 
     results.push({
       source: 'github_pr',
@@ -105,6 +151,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       rawUpdatedAt: pr.updated_at,
       adoStatus: null,
       prStatus,
+      hasUnresolvedConversations,
       repo,
     });
   }
@@ -120,6 +167,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
     (items as GithubSearchItem[]).map(async (pr) => {
       const { owner, repo } = repoFromUrl(pr.repository_url);
       const prStatus = await fetchPrStatus(config, owner, repo, pr.number);
+      const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, pr.number);
       return {
         source: 'github_pr' as const,
         externalId: externalId(pr, owner, repo),
@@ -131,6 +179,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
         rawUpdatedAt: pr.updated_at,
         adoStatus: null,
         prStatus,
+        hasUnresolvedConversations,
         repo,
       };
     })
@@ -143,6 +192,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
     (items as GithubSearchItem[]).map(async (issue) => {
       const { owner, repo } = repoFromUrl(issue.repository_url);
       const prStatus = await fetchPrStatus(config, owner, repo, issue.number);
+      const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, issue.number);
       return {
         source: 'github_pr' as const,
         externalId: externalId(issue, owner, repo),
@@ -154,6 +204,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
         rawUpdatedAt: issue.updated_at,
         adoStatus: null,
         prStatus,
+        hasUnresolvedConversations,
         repo,
       };
     })

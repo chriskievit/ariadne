@@ -27,6 +27,7 @@ export interface Item {
   adoStatus: string | null;
   prStatus: PrStatus | null;
   repo: string | null;
+  hasUnresolvedConversations: boolean;
 }
 
 export interface NewSyncedItemInput {
@@ -41,6 +42,7 @@ export interface NewSyncedItemInput {
   adoStatus?: string | null;
   prStatus?: PrStatus | null;
   repo: string | null;
+  hasUnresolvedConversations?: boolean;
 }
 
 export interface NewAdhocItemInput {

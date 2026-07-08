@@ -61,6 +61,24 @@ describe('scoreItem', () => {
     );
     expect(score).toBe(40 + 25 + 15);
   });
+
+  it('adds 20 when the item has unresolved conversations', () => {
+    const score = scoreItem(baseItem({ reason: 'review_requested', hasUnresolvedConversations: true }), NOW);
+    expect(score).toBe(40 + 20);
+  });
+
+  it('stacks the unresolved-conversations bonus with the due-date and staleness bonuses', () => {
+    const score = scoreItem(
+      baseItem({
+        reason: 'review_requested',
+        dueDate: '2026-07-03T12:00:00.000Z',
+        rawUpdatedAt: '2026-06-20T12:00:00.000Z',
+        hasUnresolvedConversations: true,
+      }),
+      NOW
+    );
+    expect(score).toBe(40 + 25 + 15 + 20);
+  });
 });
 
 describe('scoreBreakdown', () => {
@@ -102,6 +120,39 @@ describe('scoreBreakdown', () => {
     expect(breakdown).toEqual([
       { label: 'Review requested', points: 40 },
       { label: 'Due in 1 day', points: 25 },
+      { label: 'Stale 12 days', points: 15 },
+    ]);
+  });
+
+  it('includes the unresolved-conversations entry when hasUnresolvedConversations is true', () => {
+    const breakdown = scoreBreakdown(baseItem({ reason: 'manual', hasUnresolvedConversations: true }), NOW);
+    expect(breakdown).toEqual([
+      { label: 'Unresolved conversations', points: 20 },
+      { label: 'Ad-hoc', points: 10 },
+    ]);
+  });
+
+  it('omits the unresolved-conversations entry when false or undefined', () => {
+    expect(scoreBreakdown(baseItem({ reason: 'manual', hasUnresolvedConversations: false }), NOW)).toEqual([
+      { label: 'Ad-hoc', points: 10 },
+    ]);
+    expect(scoreBreakdown(baseItem({ reason: 'manual' }), NOW)).toEqual([{ label: 'Ad-hoc', points: 10 }]);
+  });
+
+  it('sorts the unresolved-conversations entry relative to other entries by points', () => {
+    const breakdown = scoreBreakdown(
+      baseItem({
+        reason: 'review_requested',
+        dueDate: '2026-07-03T12:00:00.000Z',
+        rawUpdatedAt: '2026-06-20T12:00:00.000Z',
+        hasUnresolvedConversations: true,
+      }),
+      NOW
+    );
+    expect(breakdown).toEqual([
+      { label: 'Review requested', points: 40 },
+      { label: 'Due in 1 day', points: 25 },
+      { label: 'Unresolved conversations', points: 20 },
       { label: 'Stale 12 days', points: 15 },
     ]);
   });
