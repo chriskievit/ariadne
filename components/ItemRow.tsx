@@ -62,18 +62,18 @@ const TIER_LABEL: Record<PriorityTier, string> = {
   critical: 'Critical',
 };
 
-const TIER_BADGE_VARIANT: Record<PriorityTier, 'default' | 'warning' | 'destructive'> = {
-  low: 'default',
-  medium: 'default',
-  high: 'warning',
-  critical: 'destructive',
-};
-
 const TIER_BORDER_CLASS: Record<PriorityTier, string> = {
   low: 'border-l-transparent',
   medium: 'border-l-primary',
   high: 'border-l-warning',
   critical: 'border-l-destructive',
+};
+
+const TIER_DOT_CLASS: Record<PriorityTier, string> = {
+  low: 'bg-muted-foreground/40',
+  medium: 'bg-primary',
+  high: 'bg-warning',
+  critical: 'bg-destructive',
 };
 
 interface Props {
@@ -165,51 +165,61 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
 
   if (showTier) {
     return (
-      <div className={cn('border-b py-3 last:border-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
-        {item.url ? (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noreferrer"
-            className="line-clamp-2 break-words font-medium hover:underline"
-          >
-            {item.title}
-          </a>
-        ) : (
-          <span className="line-clamp-2 break-words font-medium">{item.title}</span>
-        )}
+      <div className={cn('border-b py-3 last:border-b-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
+        <div className="flex items-start justify-between gap-2">
+          {item.url ? (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noreferrer"
+              className="line-clamp-2 break-words font-medium hover:underline"
+            >
+              {item.title}
+            </a>
+          ) : (
+            <span className="line-clamp-2 break-words font-medium">{item.title}</span>
+          )}
+          {item.scoreBreakdown ? (
+            <HoverCard openDelay={150}>
+              <HoverCardTrigger asChild>
+                <span
+                  className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 cursor-default rounded-full', TIER_DOT_CLASS[tier])}
+                  aria-label={`Priority: ${TIER_LABEL[tier]}`}
+                />
+              </HoverCardTrigger>
+              <HoverCardContent className="w-56">
+                <div className="space-y-1 text-sm">
+                  <div className="font-medium">{TIER_LABEL[tier]} priority</div>
+                  {item.scoreBreakdown.map((entry, i) => (
+                    <div key={i} className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">{entry.label}</span>
+                      <span className="font-medium tabular-nums">+{entry.points}</span>
+                    </div>
+                  ))}
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          ) : (
+            <span
+              className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', TIER_DOT_CLASS[tier])}
+              aria-label={`Priority: ${TIER_LABEL[tier]}`}
+            />
+          )}
+        </div>
         {item.repo && (
           <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            {item.scoreBreakdown ? (
-              <HoverCard openDelay={150}>
-                <HoverCardTrigger asChild>
-                  <Badge variant={TIER_BADGE_VARIANT[tier]} className="cursor-default">
-                    {TIER_LABEL[tier]}
-                  </Badge>
-                </HoverCardTrigger>
-                <HoverCardContent className="w-56">
-                  <div className="space-y-1 text-sm">
-                    {item.scoreBreakdown.map((entry, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3">
-                        <span className="text-muted-foreground">{entry.label}</span>
-                        <span className="font-medium tabular-nums">+{entry.points}</span>
-                      </div>
-                    ))}
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
-            ) : (
-              <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
-            )}
             {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
             {getReasonPills(item).map((pill) => (
               <Badge key={pill.label} variant={pill.variant}>
                 {pill.label}
               </Badge>
             ))}
+            {item.hasUnresolvedConversations && (
+              <Badge variant="destructive">Unresolved conversations</Badge>
+            )}
           </div>
           <div className="flex shrink-0 gap-1.5">
             {item.status !== 'in_progress' && onStart && (
@@ -274,6 +284,9 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
                 {pill.label}
               </Badge>
             ))}
+            {item.hasUnresolvedConversations && (
+              <Badge variant="destructive">Unresolved conversations</Badge>
+            )}
           </div>
         </div>
       </div>
