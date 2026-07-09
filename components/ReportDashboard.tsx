@@ -20,10 +20,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { fetchTimeReport } from '@/lib/api-client';
+import { SOURCES } from '@/lib/report';
 import type { TimeReport } from '@/lib/report';
 import type { Source } from '@/lib/types';
-
-const SOURCES: Source[] = ['github_pr', 'ado_workitem', 'adhoc'];
 
 const SOURCE_LABELS: Record<Source, string> = {
   github_pr: 'GitHub',
