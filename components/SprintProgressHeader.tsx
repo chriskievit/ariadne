@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Loader2, RefreshCw, Settings } from 'lucide-react';
+import { BarChart3, Loader2, RefreshCw, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -42,6 +42,11 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
             <Button type="button" onClick={onRefresh} disabled={syncing}>
               {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {syncing ? 'Syncing…' : 'Refresh'}
+            </Button>
+            <Button type="button" variant="ghost" size="icon" asChild aria-label="Report">
+              <Link href="/report">
+                <BarChart3 className="h-4 w-4" />
+              </Link>
             </Button>
             <Button type="button" variant="ghost" size="icon" asChild aria-label="Settings">
               <Link href="/settings">
