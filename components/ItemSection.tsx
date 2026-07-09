@@ -10,7 +10,7 @@ interface Props {
   items: (Item & { score: number })[];
   emptyMessage: string;
   onStart?: (id: number) => void;
-  onComplete: (id: number, durationMinutes?: number, note?: string) => void;
+  onComplete: (id: number, durationHours?: number, note?: string) => void;
   onDelete?: (id: number) => void;
   onRequeue?: (id: number) => void;
 }

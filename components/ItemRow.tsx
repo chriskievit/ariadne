@@ -80,7 +80,7 @@ interface Props {
   item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[] };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
-  onComplete: (id: number, durationMinutes?: number, note?: string) => void;
+  onComplete: (id: number, durationHours?: number, note?: string) => void;
   onDelete?: (id: number) => void;
   showTier?: boolean;
 }
@@ -90,15 +90,15 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
   const tier = getPriorityTier(item.score);
   const statusPill = getStatusPill(item);
   const [open, setOpen] = useState(false);
-  const [duration, setDuration] = useState('');
+  const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
   const canDelete = item.source === 'adhoc' && onDelete;
 
   function handleCompleteSubmit() {
-    onComplete(item.id, duration ? Number(duration) : undefined, note || undefined);
+    onComplete(item.id, hours ? Number(hours) : undefined, note || undefined);
     setOpen(false);
-    setDuration('');
+    setHours('');
     setNote('');
   }
 
@@ -110,12 +110,14 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor={`duration-${item.id}`}>Minutes spent (optional)</Label>
+            <Label htmlFor={`duration-${item.id}`}>Hours spent (optional)</Label>
             <Input
               id={`duration-${item.id}`}
               type="number"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              step="0.25"
+              min="0"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
             />
           </div>
           <div className="grid gap-1.5">

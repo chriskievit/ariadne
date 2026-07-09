@@ -78,8 +78,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
-  async function handleComplete(id: number, durationMinutes?: number, note?: string) {
-    await completeItem(id, { durationMinutes, note });
+  async function handleComplete(id: number, durationHours?: number, note?: string) {
+    await completeItem(id, { durationHours, note });
     await refresh();
     toast('Marked complete.', {
       duration: 5000,
