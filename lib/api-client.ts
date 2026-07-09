@@ -1,3 +1,5 @@
+import type { TimeReport } from '@/lib/report';
+
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
   const items = await itemsRes.json();
@@ -33,4 +35,9 @@ export async function createAdhocItemRequest(input: { title: string; category?: 
 
 export async function deleteAdhocItem(id: number) {
   await fetch(`/api/items/${id}`, { method: 'DELETE' });
+}
+
+export async function fetchTimeReport(start: string, end: string): Promise<TimeReport> {
+  const res = await fetch(`/api/report?start=${start}&end=${end}`);
+  return res.json();
 }
