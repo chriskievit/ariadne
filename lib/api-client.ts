@@ -39,5 +39,8 @@ export async function deleteAdhocItem(id: number) {
 
 export async function fetchTimeReport(start: string, end: string): Promise<TimeReport> {
   const res = await fetch(`/api/report?start=${start}&end=${end}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch time report: ${res.status}`);
+  }
   return res.json();
 }

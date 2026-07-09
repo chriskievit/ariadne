@@ -55,6 +55,7 @@ function isEmpty(report: TimeReport): boolean {
 export default function ReportDashboard({ initialReport, initialRange, sprintRange }: Props) {
   const [range, setRange] = useState<DateRange>(initialRange);
   const [report, setReport] = useState<TimeReport>(initialReport);
+  const [rangeMessage, setRangeMessage] = useState<string | null>(null);
   const hasMountedRef = useRef(false);
 
   useEffect(() => {
@@ -62,7 +63,16 @@ export default function ReportDashboard({ initialReport, initialRange, sprintRan
       hasMountedRef.current = true;
       return;
     }
-    fetchTimeReport(range.start, range.end).then(setReport);
+    if (range.start > range.end) {
+      setRangeMessage('Start date must be before end date.');
+      return;
+    }
+    setRangeMessage(null);
+    fetchTimeReport(range.start, range.end)
+      .then(setReport)
+      .catch(() => {
+        setRangeMessage('Could not load the report for this range. Showing the last loaded data.');
+      });
   }, [range.start, range.end]);
 
   const donutData = SOURCES.map((source) => ({
@@ -103,6 +113,9 @@ export default function ReportDashboard({ initialReport, initialRange, sprintRan
           >
             Reset to current sprint
           </Button>
+          {rangeMessage ? (
+            <p className="w-full text-sm text-destructive">{rangeMessage}</p>
+          ) : null}
         </CardContent>
       </Card>
 
