@@ -132,3 +132,75 @@ describe('addColumnTolerant', () => {
     db.close();
   });
 });
+
+describe('time_logs duration migration', () => {
+  it('creates duration_hours (not duration_minutes) on a fresh time_logs table', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(time_logs)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('duration_hours');
+    expect(columns).not.toContain('duration_minutes');
+    db.close();
+  });
+
+  it('converts existing duration_minutes values to duration_hours and drops the old column', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'activitydash-db-test-'));
+    const path = join(dir, 'legacy.db');
+
+    const legacy = new Database(path);
+    legacy.exec(`
+      CREATE TABLE items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL,
+        external_id TEXT,
+        title TEXT NOT NULL,
+        url TEXT,
+        reason TEXT NOT NULL,
+        category TEXT,
+        due_date TEXT,
+        sprint_iteration TEXT,
+        raw_updated_at TEXT,
+        status TEXT NOT NULL DEFAULT 'inbox',
+        created_at TEXT NOT NULL,
+        completed_at TEXT,
+        UNIQUE(source, external_id)
+      );
+      CREATE TABLE time_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL REFERENCES items(id),
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        duration_minutes INTEGER,
+        note TEXT
+      );
+    `);
+    legacy
+      .prepare(
+        `INSERT INTO items (source, external_id, title, reason, status, created_at) VALUES ('adhoc', NULL, 'Legacy item', 'manual', 'done', '2026-01-01T00:00:00.000Z')`
+      )
+      .run();
+    legacy
+      .prepare(
+        `INSERT INTO time_logs (item_id, started_at, ended_at, duration_minutes, note) VALUES (1, '2026-01-01T00:00:00.000Z', '2026-01-01T01:30:00.000Z', 90, 'legacy note')`
+      )
+      .run();
+    legacy.close();
+
+    const db = openDb(path);
+    const columns = (db.prepare('PRAGMA table_info(time_logs)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('duration_hours');
+    expect(columns).not.toContain('duration_minutes');
+
+    const row = db.prepare('SELECT * FROM time_logs WHERE item_id = 1').get() as any;
+    expect(row.duration_hours).toBe(1.5);
+    expect(row.note).toBe('legacy note');
+    db.close();
+
+    // Reopening an already-migrated database must not error or re-run destructively.
+    const reopened = openDb(path);
+    const reopenedRow = reopened.prepare('SELECT * FROM time_logs WHERE item_id = 1').get() as any;
+    expect(reopenedRow.duration_hours).toBe(1.5);
+    reopened.close();
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+});

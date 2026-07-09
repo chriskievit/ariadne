@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS time_logs (
   item_id INTEGER NOT NULL REFERENCES items(id),
   started_at TEXT NOT NULL,
   ended_at TEXT,
-  duration_minutes INTEGER,
+  duration_hours REAL,
   note TEXT
 );
 
@@ -84,6 +84,32 @@ function addColumnIfMissing(db: Database.Database, table: string, column: string
   if (!exists) addColumnTolerant(db, table, column, type);
 }
 
+function isMissingColumnError(err: unknown): boolean {
+  return err instanceof Error && /no such column/i.test(err.message);
+}
+
+// Converts a pre-migration time_logs table (duration_minutes) to the current
+// schema (duration_hours), backfilling existing rows. Guarded by checking
+// for duration_minutes first so this is a no-op on both fresh databases
+// (which never had that column) and already-migrated ones.
+function migrateTimeLogsToHours(db: Database.Database): void {
+  const hasMinutesColumn = (db.prepare('PRAGMA table_info(time_logs)').all() as { name: string }[]).some(
+    (col) => col.name === 'duration_minutes'
+  );
+  if (!hasMinutesColumn) return;
+
+  addColumnIfMissing(db, 'time_logs', 'duration_hours', 'REAL');
+  db.exec(
+    'UPDATE time_logs SET duration_hours = duration_minutes / 60.0 WHERE duration_hours IS NULL AND duration_minutes IS NOT NULL'
+  );
+
+  try {
+    db.exec('ALTER TABLE time_logs DROP COLUMN duration_minutes');
+  } catch (err) {
+    if (!isMissingColumnError(err)) throw err;
+  }
+}
+
 // Opening a brand-new database file and switching it to WAL mode is not fully
 // covered by `busy_timeout` when multiple processes race to initialize the
 // same file concurrently (e.g. Next.js's parallel build-time page-data
@@ -106,6 +132,7 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'pr_status', 'TEXT');
       addColumnIfMissing(db, 'items', 'repo', 'TEXT');
       addColumnIfMissing(db, 'items', 'has_unresolved_conversations', 'INTEGER');
+      migrateTimeLogsToHours(db);
 
       return db;
     } catch (err) {
