@@ -22,9 +22,9 @@ describe('startTimer / completeTimer', () => {
     const started = startTimer(db, itemId);
     expect(started.endedAt).toBeNull();
 
-    const completed = completeTimer(db, itemId, { durationMinutes: 45, note: 'Paired with Alex' });
+    const completed = completeTimer(db, itemId, { durationHours: 0.75, note: 'Paired with Alex' });
     expect(completed.id).toBe(started.id);
-    expect(completed.durationMinutes).toBe(45);
+    expect(completed.durationHours).toBe(0.75);
     expect(completed.note).toBe('Paired with Alex');
     expect(completed.endedAt).not.toBeNull();
   });
@@ -36,13 +36,13 @@ describe('startTimer / completeTimer', () => {
       started.id
     );
     const completed = completeTimer(db, itemId);
-    expect(completed.durationMinutes).toBeGreaterThanOrEqual(9);
-    expect(completed.durationMinutes).toBeLessThanOrEqual(11);
+    expect(completed.durationHours).toBeGreaterThanOrEqual(9 / 60);
+    expect(completed.durationHours).toBeLessThanOrEqual(11 / 60);
   });
 
   it('creates an already-closed log when there is no open timer', () => {
-    const completed = completeTimer(db, itemId, { durationMinutes: 5 });
-    expect(completed.durationMinutes).toBe(5);
+    const completed = completeTimer(db, itemId, { durationHours: 0.25 });
+    expect(completed.durationHours).toBe(0.25);
     expect(completed.endedAt).not.toBeNull();
   });
 });
@@ -50,7 +50,7 @@ describe('startTimer / completeTimer', () => {
 describe('undoLastCompletion', () => {
   it('removes the most recent log entry', () => {
     startTimer(db, itemId);
-    completeTimer(db, itemId, { durationMinutes: 20 });
+    completeTimer(db, itemId, { durationHours: 1.5 });
     undoLastCompletion(db, itemId);
     expect(listLogsByItem(db, itemId)).toHaveLength(0);
   });

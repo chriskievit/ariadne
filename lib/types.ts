@@ -56,6 +56,6 @@ export interface TimeLog {
   itemId: number;
   startedAt: string;
   endedAt: string | null;
-  durationMinutes: number | null;
+  durationHours: number | null;
   note: string | null;
 }

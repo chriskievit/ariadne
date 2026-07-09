@@ -7,7 +7,7 @@ function rowToLog(row: any): TimeLog {
     itemId: row.item_id,
     startedAt: row.started_at,
     endedAt: row.ended_at,
-    durationMinutes: row.duration_minutes,
+    durationHours: row.duration_hours,
     note: row.note,
   };
 }
@@ -21,7 +21,7 @@ export function startTimer(db: Database.Database, itemId: number): TimeLog {
 export function completeTimer(
   db: Database.Database,
   itemId: number,
-  options: { durationMinutes?: number; note?: string } = {}
+  options: { durationHours?: number; note?: string } = {}
 ): TimeLog {
   const openLog = db
     .prepare('SELECT * FROM time_logs WHERE item_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1')
@@ -32,16 +32,16 @@ export function completeTimer(
     // No open timer (e.g. the item was never Started) — record an
     // already-closed log instead of failing the completion.
     const result = db
-      .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_minutes, note) VALUES (?, ?, ?, ?, ?)')
-      .run(itemId, now, now, options.durationMinutes ?? 0, options.note ?? null);
+      .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours, note) VALUES (?, ?, ?, ?, ?)')
+      .run(itemId, now, now, options.durationHours ?? 0, options.note ?? null);
     return rowToLog(db.prepare('SELECT * FROM time_logs WHERE id = ?').get(result.lastInsertRowid));
   }
 
   const duration =
-    options.durationMinutes ??
-    Math.round((new Date(now).getTime() - new Date(openLog.started_at).getTime()) / 60_000);
+    options.durationHours ??
+    (new Date(now).getTime() - new Date(openLog.started_at).getTime()) / 3_600_000;
 
-  db.prepare('UPDATE time_logs SET ended_at = ?, duration_minutes = ?, note = ? WHERE id = ?').run(
+  db.prepare('UPDATE time_logs SET ended_at = ?, duration_hours = ?, note = ? WHERE id = ?').run(
     now,
     duration,
     options.note ?? null,
