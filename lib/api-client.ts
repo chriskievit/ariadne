@@ -14,7 +14,7 @@ export async function startItem(id: number) {
   await fetch(`/api/items/${id}/start`, { method: 'POST' });
 }
 
-export async function completeItem(id: number, body: { durationMinutes?: number; note?: string } = {}) {
+export async function completeItem(id: number, body: { durationHours?: number; note?: string } = {}) {
   const res = await fetch(`/api/items/${id}/complete`, { method: 'POST', body: JSON.stringify(body) });
   return res.json();
 }

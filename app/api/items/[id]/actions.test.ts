@@ -23,12 +23,12 @@ describe('start -> complete -> undo', () => {
     expect((await startRes.json()).status).toBe('in_progress');
 
     const completeRes = await complete(
-      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ durationMinutes: 30 }) }),
+      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ durationHours: 1.5 }) }),
       { params: { id: String(itemId) } }
     );
     const completeBody = await completeRes.json();
     expect(completeBody.item.status).toBe('done');
-    expect(completeBody.timeLog.durationMinutes).toBe(30);
+    expect(completeBody.timeLog.durationHours).toBe(1.5);
 
     const undoRes = await undo(new Request('http://localhost'), { params: { id: String(itemId) } });
     const undoBody = await undoRes.json();
