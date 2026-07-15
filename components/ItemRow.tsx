@@ -287,14 +287,20 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
         )}
         <div className="mt-1.5 flex items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
+            {statusPill && (
+              <Badge variant={statusPill.variant} title={statusPill.label} className="max-w-[9rem]">
+                <span className="min-w-0 truncate">{statusPill.label}</span>
+              </Badge>
+            )}
             {getReasonPills(item).map((pill) => (
-              <Badge key={pill.label} variant={pill.variant}>
-                {pill.label}
+              <Badge key={pill.label} variant={pill.variant} title={pill.label} className="max-w-[9rem]">
+                <span className="min-w-0 truncate">{pill.label}</span>
               </Badge>
             ))}
             {item.hasUnresolvedConversations && (
-              <Badge variant="destructive">Unresolved conversations</Badge>
+              <Badge variant="destructive" title="Unresolved conversations" className="max-w-[9rem]">
+                <span className="min-w-0 truncate">Unresolved conversations</span>
+              </Badge>
             )}
           </div>
           <div className="flex shrink-0 gap-1.5">
@@ -365,14 +371,20 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
             <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {statusPill && <Badge variant={statusPill.variant}>{statusPill.label}</Badge>}
+            {statusPill && (
+              <Badge variant={statusPill.variant} title={statusPill.label} className="max-w-[9rem]">
+                <span className="min-w-0 truncate">{statusPill.label}</span>
+              </Badge>
+            )}
             {getReasonPills(item).map((pill) => (
-              <Badge key={pill.label} variant={pill.variant}>
-                {pill.label}
+              <Badge key={pill.label} variant={pill.variant} title={pill.label} className="max-w-[9rem]">
+                <span className="min-w-0 truncate">{pill.label}</span>
               </Badge>
             ))}
             {item.hasUnresolvedConversations && (
-              <Badge variant="destructive">Unresolved conversations</Badge>
+              <Badge variant="destructive" title="Unresolved conversations" className="max-w-[9rem]">
+                <span className="min-w-0 truncate">Unresolved conversations</span>
+              </Badge>
             )}
           </div>
         </div>
