@@ -74,4 +74,20 @@ describe('POST /api/items/[id]/open-claude', () => {
 
     expect(res.status).toBe(404);
   });
+
+  it('returns 500 with an error message when writeLaunchConfig throws', async () => {
+    const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
+    writeLaunchConfig.mockImplementationOnce(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    const res = await POST(
+      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ workingDir: '/explicit/path' }) }),
+      { params: { id: String(item.id) } }
+    );
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBeTruthy();
+  });
 });

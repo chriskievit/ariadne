@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast } from '@/components/ui/sonner';
 import { fetchLocalRepos } from '@/lib/api-client';
 import type { LocalRepo } from '@/lib/warp';
 import {
@@ -117,7 +118,13 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
       onOpenClaude(item.id);
       return;
     }
-    const repos = await fetchLocalRepos();
+    let repos: LocalRepo[];
+    try {
+      repos = await fetchLocalRepos();
+    } catch {
+      toast('Could not load local repos.');
+      return;
+    }
     setLocalRepos(repos);
     setSelectedRepoPath(repos[0]?.path ?? '');
     setClaudeDialogOpen(true);

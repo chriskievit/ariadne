@@ -22,6 +22,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     );
   }
 
-  writeLaunchConfig(workingDir);
+  try {
+    writeLaunchConfig(workingDir);
+  } catch {
+    return NextResponse.json({ error: 'Failed to write Warp launch configuration.' }, { status: 500 });
+  }
   return NextResponse.json({ warpUrl: WARP_LAUNCH_URL });
 }

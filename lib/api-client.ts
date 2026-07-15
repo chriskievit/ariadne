@@ -40,7 +40,11 @@ export async function openInClaude(id: number, workingDir?: string): Promise<{ w
     method: 'POST',
     body: JSON.stringify(workingDir ? { workingDir } : {}),
   });
-  return res.json();
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { error: body.error ?? 'Could not open Claude session.' };
+  }
+  return body;
 }
 
 export async function createAdhocItemRequest(input: { title: string; category?: string; dueDate?: string }) {
