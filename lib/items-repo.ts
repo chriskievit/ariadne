@@ -23,6 +23,12 @@ function rowToItem(row: any): Item {
   };
 }
 
+function replaceItemLinks(db: Database.Database, prItemId: number, adoExternalIds: string[]): void {
+  db.prepare('DELETE FROM item_links WHERE pr_item_id = ?').run(prItemId);
+  const insert = db.prepare('INSERT INTO item_links (pr_item_id, ado_external_id) VALUES (?, ?)');
+  for (const adoExternalId of adoExternalIds) insert.run(prItemId, adoExternalId);
+}
+
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
   const now = new Date().toISOString();
   db.prepare(
@@ -49,7 +55,13 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
   });
 
   const row = db.prepare('SELECT * FROM items WHERE source = ? AND external_id = ?').get(input.source, input.externalId);
-  return rowToItem(row);
+  const item = rowToItem(row);
+
+  if (input.source === 'github_pr' && input.linkedAdoExternalIds) {
+    replaceItemLinks(db, item.id, input.linkedAdoExternalIds);
+  }
+
+  return item;
 }
 
 export function createAdhocItem(db: Database.Database, input: NewAdhocItemInput): Item {

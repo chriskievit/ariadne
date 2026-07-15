@@ -255,3 +255,87 @@ describe('listItems / getItemById / setStatus', () => {
     expect(listItems(db)).toHaveLength(1);
   });
 });
+
+describe('upsertSyncedItem item_links', () => {
+  it('writes item_links rows for a PR with linkedAdoExternalIds', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-40',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+      linkedAdoExternalIds: ['41363', '99'],
+    });
+    const rows = db
+      .prepare('SELECT ado_external_id FROM item_links WHERE pr_item_id = ? ORDER BY ado_external_id')
+      .all(pr.id) as { ado_external_id: string }[];
+    expect(rows.map((r) => r.ado_external_id)).toEqual(['41363', '99']);
+  });
+
+  it('fully replaces item_links on re-sync when the referenced ids change', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-41',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+      linkedAdoExternalIds: ['1'],
+    });
+    upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-41',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
+      linkedAdoExternalIds: ['2'],
+    });
+    const rows = db.prepare('SELECT ado_external_id FROM item_links WHERE pr_item_id = ?').all(pr.id) as {
+      ado_external_id: string;
+    }[];
+    expect(rows.map((r) => r.ado_external_id)).toEqual(['2']);
+  });
+
+  it('does not write item_links rows when linkedAdoExternalIds is absent', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-42',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+    });
+    const rows = db.prepare('SELECT * FROM item_links WHERE pr_item_id = ?').all(pr.id);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('does not write item_links rows for an ado_workitem upsert', () => {
+    const wi = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '500',
+      title: 'Some work item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+    });
+    const rows = db.prepare('SELECT * FROM item_links WHERE pr_item_id = ?').all(wi.id);
+    expect(rows).toHaveLength(0);
+  });
+});
