@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Check, Trash2, Undo2 } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { fetchLocalRepos } from '@/lib/api-client';
+import type { LocalRepo } from '@/lib/warp';
 import {
   Dialog,
   DialogContent,
@@ -81,11 +83,12 @@ interface Props {
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
+  onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   showTier?: boolean;
 }
 
-export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue, showTier = false }: Props) {
+export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDelete, onRequeue, showTier = false }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
   const statusPill = getStatusPill(item);
@@ -93,6 +96,9 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [claudeDialogOpen, setClaudeDialogOpen] = useState(false);
+  const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
+  const [selectedRepoPath, setSelectedRepoPath] = useState('');
   const canDelete = item.source === 'adhoc' && onDelete;
 
   const parsedHours = Number(hours);
@@ -104,6 +110,23 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
     setOpen(false);
     setHours('');
     setNote('');
+  }
+
+  async function handleOpenClaudeClick() {
+    if (item.repo) {
+      onOpenClaude(item.id);
+      return;
+    }
+    const repos = await fetchLocalRepos();
+    setLocalRepos(repos);
+    setSelectedRepoPath(repos[0]?.path ?? '');
+    setClaudeDialogOpen(true);
+  }
+
+  function handleClaudeDialogSubmit() {
+    if (!selectedRepoPath) return;
+    onOpenClaude(item.id, selectedRepoPath);
+    setClaudeDialogOpen(false);
   }
 
   const completeDialog = (
@@ -166,6 +189,43 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
             }}
           >
             Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const claudeDialog = (
+    <Dialog open={claudeDialogOpen} onOpenChange={setClaudeDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Choose a working directory</DialogTitle>
+          <DialogDescription>
+            This item has no linked repo, so pick which local project Claude should start in.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-1.5 py-2">
+          <Label htmlFor={`claude-repo-${item.id}`}>Repo</Label>
+          <select
+            id={`claude-repo-${item.id}`}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            value={selectedRepoPath}
+            onChange={(e) => setSelectedRepoPath(e.target.value)}
+          >
+            {localRepos.length === 0 && <option value="">No local repos configured</option>}
+            {localRepos.map((repo) => (
+              <option key={repo.path} value={repo.path}>
+                {repo.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setClaudeDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleClaudeDialogSubmit} disabled={!selectedRepoPath}>
+            Open
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -243,6 +303,16 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
                 <Play aria-hidden="true" />
               </Button>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Open in Claude"
+              title="Open in Claude"
+              onClick={handleOpenClaudeClick}
+            >
+              <Bot aria-hidden="true" />
+            </Button>
             <Button type="button" size="icon" aria-label="Mark complete" title="Mark complete" onClick={() => setOpen(true)}>
               <Check aria-hidden="true" />
             </Button>
@@ -262,6 +332,7 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
         </div>
         {completeDialog}
         {deleteDialog}
+        {claudeDialog}
       </div>
     );
   }
@@ -311,6 +382,10 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
             Back to queue
           </Button>
         )}
+        <Button type="button" variant="outline" size="sm" onClick={handleOpenClaudeClick}>
+          <Bot className="mr-1.5 h-4 w-4" aria-hidden="true" />
+          Open in Claude
+        </Button>
         <Button type="button" size="sm" onClick={() => setOpen(true)}>
           Mark complete
         </Button>
@@ -322,6 +397,7 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
       </div>
       {completeDialog}
       {deleteDialog}
+      {claudeDialog}
     </div>
   );
 }
