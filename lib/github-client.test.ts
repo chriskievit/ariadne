@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchGithubItems } from './github-client';
+import { fetchGithubItems, parseLinkedAdoIds } from './github-client';
 
 function jsonResponse(body: any) {
   return { ok: true, json: async () => body, text: async () => '' } as Response;
@@ -385,5 +385,119 @@ describe('fetchGithubItems', () => {
     expect(result).toHaveLength(1);
     expect(result[0].prStatus).toBe('ready_for_review');
     expect(result[0].hasUnresolvedConversations).toBe(false);
+  });
+});
+
+describe('parseLinkedAdoIds', () => {
+  it('extracts an AB# reference case-insensitively', () => {
+    expect(parseLinkedAdoIds('Fixes AB#41363')).toEqual(['41363']);
+    expect(parseLinkedAdoIds('fixes ab#41363')).toEqual(['41363']);
+  });
+
+  it('dedupes a repeated reference', () => {
+    expect(parseLinkedAdoIds('AB#1 mentioned twice: AB#1')).toEqual(['1']);
+  });
+
+  it('returns multiple distinct references in order of first appearance', () => {
+    expect(parseLinkedAdoIds('Fixes AB#1, also related to AB#2')).toEqual(['1', '2']);
+  });
+
+  it('returns an empty array when there is no reference', () => {
+    expect(parseLinkedAdoIds('Just a normal PR description')).toEqual([]);
+  });
+});
+
+describe('fetchGithubItems linked ADO ids', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('extracts a linked ADO work item id from the PR body', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 50,
+              title: 'feat(#41363): prevent deletion',
+              html_url: 'https://github.com/acme/widgets/pull/50',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('/pulls/50/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/50')) {
+        return jsonResponse({ draft: false, title: 'feat(#41363): prevent deletion', body: 'Fixes AB#41363' });
+      }
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].linkedAdoExternalIds).toEqual(['41363']);
+  });
+
+  it('falls back to parsing the PR title when the detail fetch fails', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('review-requested%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 60,
+              title: 'AB#77 quick fix',
+              html_url: 'https://github.com/acme/widgets/pull/60',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/pulls/60')) {
+        return { ok: false, status: 404, json: async () => ({}), text: async () => 'Not Found' } as Response;
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].linkedAdoExternalIds).toEqual(['77']);
+  });
+
+  it('returns an empty array when the PR references no work item', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 70,
+              title: 'Unrelated PR',
+              html_url: 'https://github.com/acme/widgets/pull/70',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('/pulls/70/reviews')) return jsonResponse([]);
+      if (url.endsWith('/pulls/70')) return jsonResponse({ draft: false, title: 'Unrelated PR', body: 'No work item here.' });
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
+    expect(result[0].linkedAdoExternalIds).toEqual([]);
   });
 });

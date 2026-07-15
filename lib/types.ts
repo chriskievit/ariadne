@@ -43,6 +43,7 @@ export interface NewSyncedItemInput {
   prStatus?: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations?: boolean;
+  linkedAdoExternalIds?: string[];
 }
 
 export interface NewAdhocItemInput {

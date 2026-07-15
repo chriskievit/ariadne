@@ -52,22 +52,38 @@ function externalId(pr: GithubSearchItem, owner: string, repo: string): string {
   return `${pr.number}@${owner}/${repo}`;
 }
 
+export function parseLinkedAdoIds(text: string): string[] {
+  const ids = new Set<string>();
+  for (const match of text.matchAll(/AB#(\d+)/gi)) {
+    ids.add(match[1]);
+  }
+  return Array.from(ids);
+}
+
+interface PrStatusResult {
+  prStatus: PrStatus | null;
+  linkedAdoIds: string[];
+}
+
 async function fetchPrStatus(
   config: GithubConfig,
   owner: string,
   repo: string,
   number: number,
+  fallbackTitle: string,
   reviews?: any[]
-): Promise<PrStatus | null> {
+): Promise<PrStatusResult> {
   let detail: any;
   try {
     detail = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}`);
   } catch {
     // Not every synced item is actually a PR (e.g. a plain issue mention), and
-    // transient failures shouldn't take down the whole sync — just skip the pill.
-    return null;
+    // transient failures shouldn't take down the whole sync — just skip the
+    // pill, but still try to pick up a linked work item from the title alone.
+    return { prStatus: null, linkedAdoIds: parseLinkedAdoIds(fallbackTitle) };
   }
-  if (detail.draft) return 'draft';
+  const linkedAdoIds = parseLinkedAdoIds(`${detail.title ?? ''}\n${detail.body ?? ''}`);
+  if (detail.draft) return { prStatus: 'draft', linkedAdoIds };
 
   let reviewList: any[];
   if (reviews) {
@@ -76,7 +92,7 @@ async function fetchPrStatus(
     try {
       reviewList = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}/reviews`);
     } catch {
-      return null;
+      return { prStatus: null, linkedAdoIds };
     }
   }
   const latestByUser = new Map<string, string>();
@@ -85,9 +101,9 @@ async function fetchPrStatus(
     latestByUser.set(r.user.login, r.state); // reviews are returned oldest-first
   }
   const states = Array.from(latestByUser.values());
-  if (states.includes('CHANGES_REQUESTED')) return 'changes_requested';
-  if (states.includes('APPROVED')) return 'approved';
-  return 'ready_for_review';
+  if (states.includes('CHANGES_REQUESTED')) return { prStatus: 'changes_requested', linkedAdoIds };
+  if (states.includes('APPROVED')) return { prStatus: 'approved', linkedAdoIds };
+  return { prStatus: 'ready_for_review', linkedAdoIds };
 }
 
 const REVIEW_THREADS_QUERY = `
@@ -137,7 +153,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
     if (hasApproval) reason = 'approved_unmerged';
     else if (reviews.length === 0 && ageDays > config.staleDays) reason = 'stale_own_pr';
 
-    const prStatus = await fetchPrStatus(config, owner, repo, pr.number, reviews);
+    const { prStatus, linkedAdoIds } = await fetchPrStatus(config, owner, repo, pr.number, pr.title, reviews);
     const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, pr.number);
 
     results.push({
@@ -153,6 +169,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       prStatus,
       hasUnresolvedConversations,
       repo,
+      linkedAdoExternalIds: linkedAdoIds,
     });
   }
   return results;
@@ -166,7 +183,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
   return Promise.all(
     (items as GithubSearchItem[]).map(async (pr) => {
       const { owner, repo } = repoFromUrl(pr.repository_url);
-      const prStatus = await fetchPrStatus(config, owner, repo, pr.number);
+      const { prStatus, linkedAdoIds } = await fetchPrStatus(config, owner, repo, pr.number, pr.title);
       const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, pr.number);
       return {
         source: 'github_pr' as const,
@@ -181,6 +198,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
         prStatus,
         hasUnresolvedConversations,
         repo,
+        linkedAdoExternalIds: linkedAdoIds,
       };
     })
   );
@@ -191,7 +209,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
   return Promise.all(
     (items as GithubSearchItem[]).map(async (issue) => {
       const { owner, repo } = repoFromUrl(issue.repository_url);
-      const prStatus = await fetchPrStatus(config, owner, repo, issue.number);
+      const { prStatus, linkedAdoIds } = await fetchPrStatus(config, owner, repo, issue.number, issue.title);
       const hasUnresolvedConversations = await fetchHasUnresolvedConversations(config, owner, repo, issue.number);
       return {
         source: 'github_pr' as const,
@@ -206,6 +224,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
         prStatus,
         hasUnresolvedConversations,
         repo,
+        linkedAdoExternalIds: linkedAdoIds,
       };
     })
   );
