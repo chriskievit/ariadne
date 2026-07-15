@@ -8,6 +8,8 @@ export const SETTINGS_KEYS = {
   sprintName: 'sprint.name',
   sprintStart: 'sprint.start',
   sprintEnd: 'sprint.end',
+  localReposBaseDir: 'warp.localReposBaseDir',
+  repoPathOverrides: 'warp.repoPathOverrides',
 } as const;
 
 export const DEFAULT_STALE_DAYS = 3;
