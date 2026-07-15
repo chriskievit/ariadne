@@ -61,3 +61,49 @@ describe('getGroupedItems', () => {
     expect(grouped.everythingElse.map((i) => i.id)).toEqual([]);
   });
 });
+
+describe('getGroupedItems links', () => {
+  it('attaches linked items to both sides of a link', () => {
+    const wi = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '41363',
+      title: 'WI',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '5654@acme/widgets',
+      title: 'PR',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: 'widgets',
+      linkedAdoExternalIds: ['41363'],
+    });
+
+    const grouped = getGroupedItems(db, new Date());
+    const all = [...grouped.needsAttention, ...grouped.inProgress, ...grouped.everythingElse];
+    const wiItem = all.find((i) => i.id === wi.id);
+    const prItem = all.find((i) => i.id === pr.id);
+
+    expect(wiItem?.links).toEqual([
+      { source: 'github_pr', shortLabel: '#5654', title: 'PR', url: '', status: 'inbox', itemId: pr.id },
+    ]);
+    expect(prItem?.links).toEqual([
+      { source: 'ado_workitem', shortLabel: 'WI-41363', title: 'WI', url: '', status: 'inbox', itemId: wi.id },
+    ]);
+  });
+
+  it('defaults links to an empty array when there are none', () => {
+    const adhoc = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
+    const grouped = getGroupedItems(db, new Date());
+    expect(grouped.needsAttention.find((i) => i.id === adhoc.id)?.links).toEqual([]);
+  });
+});
