@@ -1,4 +1,5 @@
 import type { TimeReport } from '@/lib/report';
+import type { LocalRepo } from '@/lib/warp';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -27,6 +28,19 @@ export async function undoItem(id: number) {
 
 export async function requeueItem(id: number) {
   await fetch(`/api/items/${id}/requeue`, { method: 'POST' });
+}
+
+export async function fetchLocalRepos(): Promise<LocalRepo[]> {
+  const res = await fetch('/api/local-repos');
+  return res.json();
+}
+
+export async function openInClaude(id: number, workingDir?: string): Promise<{ warpUrl?: string; error?: string }> {
+  const res = await fetch(`/api/items/${id}/open-claude`, {
+    method: 'POST',
+    body: JSON.stringify(workingDir ? { workingDir } : {}),
+  });
+  return res.json();
 }
 
 export async function createAdhocItemRequest(input: { title: string; category?: string; dueDate?: string }) {
