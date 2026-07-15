@@ -11,9 +11,9 @@ afterEach(() => {
 });
 
 describe('writeLaunchConfig', () => {
-  it('creates the launch_configurations directory if missing', () => {
+  it('creates the tab_configs directory if missing', () => {
     const parent = mkdtempSync(join(tmpdir(), 'activitydash-launch-test-'));
-    dir = join(parent, 'launch_configurations');
+    dir = join(parent, 'tab_configs');
     expect(existsSync(dir)).toBe(false);
 
     writeLaunchConfig('/some/working/dir', dir);
@@ -21,14 +21,27 @@ describe('writeLaunchConfig', () => {
     expect(existsSync(dir)).toBe(true);
   });
 
-  it('writes a YAML file with the given cwd and a claude startup command', () => {
+  it('writes a Tab Config TOML file with the given directory and a claude startup command', () => {
     dir = mkdtempSync(join(tmpdir(), 'activitydash-launch-test-'));
 
     writeLaunchConfig('/some/working/dir', dir);
 
-    const contents = readFileSync(join(dir, `${LAUNCH_CONFIG_NAME}.yaml`), 'utf8');
-    expect(contents).toContain('cwd: /some/working/dir');
-    expect(contents).toContain('exec: claude');
+    const contents = readFileSync(join(dir, `${LAUNCH_CONFIG_NAME}.toml`), 'utf8');
+    // Per https://docs.warp.dev/terminal/windows/tab-configs/, a single-pane
+    // tab config is `name` + one `[[panes]]` table with directory/commands --
+    // this replaces the Legacy Launch Configuration YAML format, which always
+    // opens a new window instead of a tab in the active one.
+    expect(contents).toBe(
+      [
+        'name = "activitydash"',
+        '[[panes]]',
+        'id = "main"',
+        'type = "terminal"',
+        'directory = "/some/working/dir"',
+        'commands = ["claude"]',
+        '',
+      ].join('\n')
+    );
   });
 
   it('overwrites an existing file for the same config name', () => {
@@ -37,14 +50,14 @@ describe('writeLaunchConfig', () => {
     writeLaunchConfig('/first/dir', dir);
     writeLaunchConfig('/second/dir', dir);
 
-    const contents = readFileSync(join(dir, `${LAUNCH_CONFIG_NAME}.yaml`), 'utf8');
-    expect(contents).toContain('cwd: /second/dir');
+    const contents = readFileSync(join(dir, `${LAUNCH_CONFIG_NAME}.toml`), 'utf8');
+    expect(contents).toContain('directory = "/second/dir"');
     expect(contents).not.toContain('/first/dir');
   });
 });
 
 describe('WARP_LAUNCH_URL', () => {
-  it('points at the activitydash launch configuration', () => {
-    expect(WARP_LAUNCH_URL).toBe('warp://launch/activitydash');
+  it('points at the activitydash tab config, which opens as a tab in the active window by default', () => {
+    expect(WARP_LAUNCH_URL).toBe('warp://tab_config/activitydash');
   });
 });

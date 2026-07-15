@@ -3,26 +3,26 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 export const LAUNCH_CONFIG_NAME = 'activitydash';
-export const WARP_LAUNCH_URL = `warp://launch/${LAUNCH_CONFIG_NAME}`;
+export const WARP_LAUNCH_URL = `warp://tab_config/${LAUNCH_CONFIG_NAME}`;
 
-function defaultLaunchConfigDir(): string {
-  return join(homedir(), '.warp', 'launch_configurations');
+function defaultTabConfigDir(): string {
+  return join(homedir(), '.warp', 'tab_configs');
 }
 
-export function writeLaunchConfig(cwd: string, launchConfigDir: string = defaultLaunchConfigDir()): void {
-  if (!existsSync(launchConfigDir)) {
-    mkdirSync(launchConfigDir, { recursive: true });
+export function writeLaunchConfig(cwd: string, tabConfigDir: string = defaultTabConfigDir()): void {
+  if (!existsSync(tabConfigDir)) {
+    mkdirSync(tabConfigDir, { recursive: true });
   }
 
-  const yaml = [
-    `name: ${LAUNCH_CONFIG_NAME}`,
-    'windows:',
-    '  - tabs:',
-    `      - cwd: ${cwd}`,
-    '        commands:',
-    '          - exec: claude',
+  const toml = [
+    `name = "${LAUNCH_CONFIG_NAME}"`,
+    '[[panes]]',
+    'id = "main"',
+    'type = "terminal"',
+    `directory = "${cwd}"`,
+    'commands = ["claude"]',
     '',
   ].join('\n');
 
-  writeFileSync(join(launchConfigDir, `${LAUNCH_CONFIG_NAME}.yaml`), yaml, 'utf8');
+  writeFileSync(join(tabConfigDir, `${LAUNCH_CONFIG_NAME}.toml`), toml, 'utf8');
 }
