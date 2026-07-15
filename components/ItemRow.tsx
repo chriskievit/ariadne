@@ -149,11 +149,12 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
   const [selectedRepoPath, setSelectedRepoPath] = useState('');
   const [startCascadeOpen, setStartCascadeOpen] = useState(false);
   const [completeCascadeOpen, setCompleteCascadeOpen] = useState(false);
+  const [pendingComplete, setPendingComplete] = useState<{ hours: number; note?: string } | null>(null);
   const canDelete = item.source === 'adhoc' && onDelete;
 
   const parsedHours = Number(hours);
   const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
-  const pendingStartLinks = actionableLinks(item.links, 'in_progress');
+  const pendingStartLinks = (item.links ?? []).filter((link) => link.itemId !== null && link.status === 'inbox');
   const pendingCompleteLinks = actionableLinks(item.links, 'done');
 
   function handleStartClick() {
@@ -166,13 +167,30 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
 
   function handleCompleteSubmit() {
     if (!hoursValid) return;
-    onComplete(item.id, parsedHours, note || undefined);
     setOpen(false);
+    if (pendingCompleteLinks.length > 0) {
+      setPendingComplete({ hours: parsedHours, note: note || undefined });
+      setCompleteCascadeOpen(true);
+    } else {
+      onComplete(item.id, parsedHours, note || undefined);
+      setHours('');
+      setNote('');
+    }
+  }
+
+  function closeCompleteCascade(cascadeToLinked: boolean) {
+    if (pendingComplete) {
+      onComplete(item.id, pendingComplete.hours, pendingComplete.note);
+      if (cascadeToLinked) {
+        pendingCompleteLinks.forEach((link) => {
+          if (link.itemId !== null) onComplete(link.itemId, 0);
+        });
+      }
+    }
+    setPendingComplete(null);
     setHours('');
     setNote('');
-    if (pendingCompleteLinks.length > 0) {
-      setCompleteCascadeOpen(true);
-    }
+    setCompleteCascadeOpen(false);
   }
 
   async function handleOpenClaudeClick() {
@@ -341,7 +359,12 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
   );
 
   const completeCascadeDialog = (
-    <Dialog open={completeCascadeOpen} onOpenChange={setCompleteCascadeOpen}>
+    <Dialog
+      open={completeCascadeOpen}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) closeCompleteCascade(false);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Complete linked item{pendingCompleteLinks.length > 1 ? 's' : ''} too?</DialogTitle>
@@ -352,18 +375,10 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setCompleteCascadeOpen(false)}>
+          <Button type="button" variant="outline" onClick={() => closeCompleteCascade(false)}>
             Not now
           </Button>
-          <Button
-            type="button"
-            onClick={() => {
-              pendingCompleteLinks.forEach((link) => {
-                if (link.itemId !== null) onComplete(link.itemId, 0);
-              });
-              setCompleteCascadeOpen(false);
-            }}
-          >
+          <Button type="button" onClick={() => closeCompleteCascade(true)}>
             Complete {pendingCompleteLinks.length > 1 ? 'all' : 'it'}
           </Button>
         </DialogFooter>

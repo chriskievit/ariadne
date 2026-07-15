@@ -3,8 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ItemRow, { SOURCE_ICON } from './ItemRow';
 import type { Item } from '@/lib/types';
-
-type ScoredItem = Item & { score: number };
+import type { ScoredItem } from '@/lib/dashboard';
 
 interface Props {
   items: ScoredItem[];

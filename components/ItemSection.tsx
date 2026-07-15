@@ -2,12 +2,12 @@
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ItemRow from './ItemRow';
-import type { Item } from '@/lib/types';
+import type { ScoredItem } from '@/lib/dashboard';
 
 interface Props {
   value: string;
   title: string;
-  items: (Item & { score: number })[];
+  items: ScoredItem[];
   emptyMessage: string;
   onStart?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;

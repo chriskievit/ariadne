@@ -6,7 +6,7 @@ import { getLinksForItems, type LinkedRef } from './links-repo';
 import { SETTINGS_KEYS, NEEDS_ATTENTION_THRESHOLD } from './config';
 import type { Item } from './types';
 
-type ScoredItem = Item & { score: number; scoreBreakdown: ScoreBreakdownEntry[]; links: LinkedRef[] };
+export type ScoredItem = Item & { score: number; scoreBreakdown: ScoreBreakdownEntry[]; links: LinkedRef[] };
 
 export interface GroupedItems {
   needsAttention: ScoredItem[];

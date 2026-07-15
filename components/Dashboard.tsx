@@ -19,12 +19,10 @@ import {
   deleteAdhocItem,
   openInClaude,
 } from '@/lib/api-client';
-import type { Item } from '@/lib/types';
+import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
-
-type ScoredItem = Item & { score: number };
 
 interface DashboardData {
   needsAttention: ScoredItem[];
