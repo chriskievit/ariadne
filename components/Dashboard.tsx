@@ -17,6 +17,7 @@ import {
   requeueItem,
   createAdhocItemRequest,
   deleteAdhocItem,
+  openInClaude,
 } from '@/lib/api-client';
 import type { Item } from '@/lib/types';
 import type { SprintProgress } from '@/lib/sprint';
@@ -78,6 +79,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
+  async function handleOpenClaude(id: number, workingDir?: string) {
+    const result = await openInClaude(id, workingDir);
+    if (result.warpUrl) {
+      window.location.href = result.warpUrl;
+    } else {
+      toast(result.error ?? 'Could not open Claude session.');
+    }
+  }
+
   async function handleComplete(id: number, durationHours: number, note?: string) {
     await completeItem(id, { durationHours, note });
     await refresh();
@@ -126,6 +136,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               items={data.inProgress}
               emptyMessage="Nothing in progress — start something above."
               onComplete={handleComplete}
+              onOpenClaude={handleOpenClaude}
               onDelete={handleDelete}
               onRequeue={handleRequeue}
             />
@@ -136,6 +147,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         items={data.needsAttention}
         onStart={handleStart}
         onComplete={handleComplete}
+        onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
       />
       <Card>
@@ -148,6 +160,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               emptyMessage="Nothing else queued."
               onStart={handleStart}
               onComplete={handleComplete}
+              onOpenClaude={handleOpenClaude}
               onDelete={handleDelete}
             />
           </Accordion>

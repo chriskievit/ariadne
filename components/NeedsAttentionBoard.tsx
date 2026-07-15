@@ -10,6 +10,7 @@ interface Props {
   items: ScoredItem[];
   onStart: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
+  onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete: (id: number) => void;
 }
 
@@ -19,7 +20,7 @@ const SOURCE_GROUPS: { source: Item['source']; label: string; emptyMessage: stri
   { source: 'adhoc', label: 'Ad-hoc', emptyMessage: 'No ad-hoc items right now.' },
 ];
 
-export default function NeedsAttentionBoard({ items, onStart, onComplete, onDelete }: Props) {
+export default function NeedsAttentionBoard({ items, onStart, onComplete, onOpenClaude, onDelete }: Props) {
   return (
     <div>
       <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
@@ -50,6 +51,7 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete, onDele
                         item={item}
                         onStart={onStart}
                         onComplete={onComplete}
+                        onOpenClaude={onOpenClaude}
                         onDelete={onDelete}
                         showTier
                       />
