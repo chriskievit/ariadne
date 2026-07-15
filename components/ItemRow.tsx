@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2 } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2, Link2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill } from '@/lib/status-pill';
 import type { Item } from '@/lib/types';
+import type { LinkedRef } from '@/lib/links-repo';
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
 
@@ -80,13 +81,55 @@ const TIER_DOT_CLASS: Record<PriorityTier, string> = {
 };
 
 interface Props {
-  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[] };
+  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[]; links?: LinkedRef[] };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   showTier?: boolean;
+}
+
+function LinkBadges({ links }: { links?: LinkedRef[] }) {
+  if (!links || links.length === 0) return null;
+  return (
+    <>
+      {links.map((link) =>
+        link.itemId !== null ? (
+          <HoverCard key={`${link.source}-${link.itemId}`} openDelay={150}>
+            <HoverCardTrigger asChild>
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+              >
+                <Link2 className="h-3 w-3" aria-hidden="true" />
+                {link.shortLabel}
+              </a>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-56">
+              <div className="space-y-1 text-sm">
+                <div className="font-medium">{link.title}</div>
+                {link.status && <div className="text-muted-foreground">Status: {link.status}</div>}
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        ) : (
+          <a
+            key={`${link.source}-${link.shortLabel}`}
+            href={link.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
+          >
+            <Link2 className="h-3 w-3" aria-hidden="true" />
+            {link.shortLabel}
+          </a>
+        )
+      )}
+    </>
+  );
 }
 
 export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDelete, onRequeue, showTier = false }: Props) {
@@ -242,19 +285,22 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
   if (showTier) {
     return (
       <div className={cn('border-b py-3 last:border-b-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
-        <div className="flex items-start justify-between gap-2">
-          {item.url ? (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noreferrer"
-              className="line-clamp-2 break-words font-medium hover:underline"
-            >
-              {item.title}
-            </a>
-          ) : (
-            <span className="line-clamp-2 break-words font-medium">{item.title}</span>
-          )}
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            {item.url ? (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="line-clamp-2 min-w-0 break-words font-medium hover:underline"
+              >
+                {item.title}
+              </a>
+            ) : (
+              <span className="line-clamp-2 min-w-0 break-words font-medium">{item.title}</span>
+            )}
+            <LinkBadges links={item.links} />
+          </div>
           {item.scoreBreakdown ? (
             <HoverCard openDelay={150}>
               <HoverCardTrigger asChild>
@@ -355,18 +401,21 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
       <div className="flex min-w-0 items-center gap-3">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
-          {item.url ? (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noreferrer"
-              className="block truncate font-medium hover:underline"
-            >
-              {item.title}
-            </a>
-          ) : (
-            <span className="block truncate font-medium">{item.title}</span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {item.url ? (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 flex-1 truncate font-medium hover:underline"
+              >
+                {item.title}
+              </a>
+            ) : (
+              <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+            )}
+            <LinkBadges links={item.links} />
+          </div>
           {item.repo && (
             <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
           )}
