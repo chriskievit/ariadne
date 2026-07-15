@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from '@/lib/config';
 
 // react-hook-form treats dots in a field `name` as a nested-path separator
@@ -22,6 +23,8 @@ const settingsSchema = z.object({
   adoProject: z.string().optional(),
   adoTeam: z.string().optional(),
   staleDays: z.string().optional(),
+  localReposBaseDir: z.string().optional(),
+  repoPathOverrides: z.string().optional(),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -41,6 +44,8 @@ export default function SettingsForm({ initialSettings }: Props) {
       adoProject: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
       adoTeam: initialSettings[SETTINGS_KEYS.adoTeam] ?? '',
       staleDays: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
+      localReposBaseDir: initialSettings[SETTINGS_KEYS.localReposBaseDir] ?? '',
+      repoPathOverrides: initialSettings[SETTINGS_KEYS.repoPathOverrides] ?? '',
     },
   });
 
@@ -54,6 +59,8 @@ export default function SettingsForm({ initialSettings }: Props) {
         [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
         [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
         [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
+        [SETTINGS_KEYS.localReposBaseDir]: values.localReposBaseDir ?? '',
+        [SETTINGS_KEYS.repoPathOverrides]: values.repoPathOverrides ?? '',
       }),
     });
     setSaved(true);
@@ -137,6 +144,32 @@ export default function SettingsForm({ initialSettings }: Props) {
                   <FormLabel>Stale PR threshold (days)</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="localReposBaseDir"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Local repos base directory</FormLabel>
+                  <FormControl>
+                    <Input placeholder="/Users/you/dev/github" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="repoPathOverrides"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Repo path overrides (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="repo-name=/absolute/path (one per line)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
