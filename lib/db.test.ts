@@ -12,7 +12,7 @@ describe('openDb', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all()
       .map((row: any) => row.name);
-    expect(tables).toEqual(['items', 'settings', 'sync_log', 'time_logs']);
+    expect(tables).toEqual(['item_links', 'items', 'settings', 'sync_log', 'time_logs']);
     db.close();
   });
 
@@ -103,6 +103,13 @@ describe('openDb', () => {
     reopened.close();
 
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('includes the item_links table with pr_item_id and ado_external_id columns', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(item_links)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(['id', 'pr_item_id', 'ado_external_id']));
+    db.close();
   });
 });
 

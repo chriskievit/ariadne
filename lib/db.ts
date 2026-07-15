@@ -22,6 +22,13 @@ CREATE TABLE IF NOT EXISTS items (
   UNIQUE(source, external_id)
 );
 
+CREATE TABLE IF NOT EXISTS item_links (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pr_item_id INTEGER NOT NULL REFERENCES items(id),
+  ado_external_id TEXT NOT NULL,
+  UNIQUE(pr_item_id, ado_external_id)
+);
+
 CREATE TABLE IF NOT EXISTS time_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id INTEGER NOT NULL REFERENCES items(id),
