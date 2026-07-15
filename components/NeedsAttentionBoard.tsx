@@ -9,7 +9,7 @@ type ScoredItem = Item & { score: number };
 interface Props {
   items: ScoredItem[];
   onStart: (id: number) => void;
-  onComplete: (id: number, durationHours?: number, note?: string) => void;
+  onComplete: (id: number, durationHours: number, note?: string) => void;
   onDelete: (id: number) => void;
 }
 
@@ -22,8 +22,9 @@ const SOURCE_GROUPS: { source: Item['source']; label: string; emptyMessage: stri
 export default function NeedsAttentionBoard({ items, onStart, onComplete, onDelete }: Props) {
   return (
     <div>
-      <h2 className="mb-3 text-base font-semibold">
-        Needs attention <span className="text-sm font-normal text-muted-foreground">({items.length})</span>
+      <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
+        Needs attention
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
       </h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {SOURCE_GROUPS.map((group) => {

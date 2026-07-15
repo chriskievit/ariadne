@@ -80,7 +80,7 @@ interface Props {
   item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[] };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
-  onComplete: (id: number, durationHours?: number, note?: string) => void;
+  onComplete: (id: number, durationHours: number, note?: string) => void;
   onDelete?: (id: number) => void;
   showTier?: boolean;
 }
@@ -95,8 +95,12 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
   const [deleteOpen, setDeleteOpen] = useState(false);
   const canDelete = item.source === 'adhoc' && onDelete;
 
+  const parsedHours = Number(hours);
+  const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
+
   function handleCompleteSubmit() {
-    onComplete(item.id, hours ? Number(hours) : undefined, note || undefined);
+    if (!hoursValid) return;
+    onComplete(item.id, parsedHours, note || undefined);
     setOpen(false);
     setHours('');
     setNote('');
@@ -110,7 +114,7 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor={`duration-${item.id}`}>Hours spent (optional)</Label>
+            <Label htmlFor={`duration-${item.id}`}>Hours spent</Label>
             <Input
               id={`duration-${item.id}`}
               type="number"
@@ -119,6 +123,9 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
               value={hours}
               onChange={(e) => setHours(e.target.value)}
             />
+            {hours.trim() !== '' && !hoursValid ? (
+              <p className="text-sm text-destructive">Enter a number 0 or greater.</p>
+            ) : null}
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor={`note-${item.id}`}>Note (optional)</Label>
@@ -129,7 +136,7 @@ export default function ItemRow({ item, onStart, onComplete, onDelete, onRequeue
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleCompleteSubmit}>
+          <Button type="button" onClick={handleCompleteSubmit} disabled={!hoursValid}>
             Complete
           </Button>
         </DialogFooter>

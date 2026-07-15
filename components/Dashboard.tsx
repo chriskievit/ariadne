@@ -78,7 +78,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
-  async function handleComplete(id: number, durationHours?: number, note?: string) {
+  async function handleComplete(id: number, durationHours: number, note?: string) {
     await completeItem(id, { durationHours, note });
     await refresh();
     toast('Marked complete.', {
@@ -119,7 +119,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={[]}>
+          <Accordion type="multiple" defaultValue={['in-progress']}>
             <ItemSection
               value="in-progress"
               title="In progress"
@@ -140,7 +140,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={[]}>
+          <Accordion type="multiple" defaultValue={['everything-else']}>
             <ItemSection
               value="everything-else"
               title="Everything else"

@@ -18,7 +18,7 @@ export function getTimeReport(db: Database.Database, startDate: string, endDate:
 
   const rows = db
     .prepare(
-      `SELECT items.source as source, DATE(time_logs.started_at) as day, SUM(time_logs.duration_hours) as hours
+      `SELECT items.source as source, DATE(items.completed_at) as day, SUM(time_logs.duration_hours) as hours
        FROM time_logs
        JOIN items ON items.id = time_logs.item_id
        WHERE time_logs.duration_hours IS NOT NULL

@@ -98,6 +98,18 @@ describe('getTimeReport', () => {
     ]);
   });
 
+  it('buckets a time log that spans multiple days under the day the item was completed, not the day it started', () => {
+    const item = completedItem('adhoc', '2026-07-07T10:00:00.000Z');
+    logTime(item.id, '2026-07-03T09:00:00.000Z', 95.77);
+
+    const report = getTimeReport(db, '2026-07-03', '2026-07-07');
+    const day03 = report.dailySeries.find((d) => d.date === '2026-07-03');
+    const day07 = report.dailySeries.find((d) => d.date === '2026-07-07');
+
+    expect(day03).toBeUndefined();
+    expect(day07?.adhoc).toBe(95.77);
+  });
+
   it('returns all-zero totals and an empty dailySeries when nothing matches', () => {
     const report = getTimeReport(db, '2026-07-01', '2026-07-02');
     expect(report.totalsBySource).toEqual({ github_pr: 0, ado_workitem: 0, adhoc: 0 });

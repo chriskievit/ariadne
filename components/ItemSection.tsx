@@ -10,7 +10,7 @@ interface Props {
   items: (Item & { score: number })[];
   emptyMessage: string;
   onStart?: (id: number) => void;
-  onComplete: (id: number, durationHours?: number, note?: string) => void;
+  onComplete: (id: number, durationHours: number, note?: string) => void;
   onDelete?: (id: number) => void;
   onRequeue?: (id: number) => void;
 }
@@ -19,7 +19,10 @@ export default function ItemSection({ value, title, items, emptyMessage, onStart
   return (
     <AccordionItem value={value}>
       <AccordionTrigger>
-        {title} <span className="text-sm font-normal text-muted-foreground">({items.length})</span>
+        <span className="flex items-center gap-2">
+          {title}
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
+        </span>
       </AccordionTrigger>
       <AccordionContent>
         {items.length === 0 ? (

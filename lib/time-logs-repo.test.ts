@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { startTimer, completeTimer, undoLastCompletion, listLogsByItem } from './time-logs-repo';
+import { startTimer, completeTimer, undoLastCompletion, listLogsByItem, elapsedHoursSinceStart } from './time-logs-repo';
 
 let db: Database.Database;
 let itemId: number;
@@ -29,21 +29,37 @@ describe('startTimer / completeTimer', () => {
     expect(completed.endedAt).not.toBeNull();
   });
 
-  it('computes duration from elapsed time when none is given', () => {
+  it('creates an already-closed log when there is no open timer', () => {
+    const completed = completeTimer(db, itemId, { durationHours: 0.25 });
+    expect(completed.durationHours).toBe(0.25);
+    expect(completed.endedAt).not.toBeNull();
+  });
+
+  it('throws when durationHours is missing', () => {
+    startTimer(db, itemId);
+    expect(() => completeTimer(db, itemId, {} as any)).toThrow(/durationHours/);
+  });
+
+  it('throws when durationHours is negative', () => {
+    startTimer(db, itemId);
+    expect(() => completeTimer(db, itemId, { durationHours: -1 })).toThrow(/durationHours/);
+  });
+});
+
+describe('elapsedHoursSinceStart', () => {
+  it('returns the wall-clock hours elapsed since the open timer started', () => {
     const started = startTimer(db, itemId);
     db.prepare('UPDATE time_logs SET started_at = ? WHERE id = ?').run(
       new Date(Date.now() - 10 * 60_000).toISOString(),
       started.id
     );
-    const completed = completeTimer(db, itemId);
-    expect(completed.durationHours).toBeGreaterThanOrEqual(9 / 60);
-    expect(completed.durationHours).toBeLessThanOrEqual(11 / 60);
+    const hours = elapsedHoursSinceStart(db, itemId);
+    expect(hours).toBeGreaterThanOrEqual(9 / 60);
+    expect(hours).toBeLessThanOrEqual(11 / 60);
   });
 
-  it('creates an already-closed log when there is no open timer', () => {
-    const completed = completeTimer(db, itemId, { durationHours: 0.25 });
-    expect(completed.durationHours).toBe(0.25);
-    expect(completed.endedAt).not.toBeNull();
+  it('returns 0 when there is no open timer', () => {
+    expect(elapsedHoursSinceStart(db, itemId)).toBe(0);
   });
 });
 
