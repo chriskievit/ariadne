@@ -25,7 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill } from '@/lib/status-pill';
-import type { Item } from '@/lib/types';
+import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
@@ -90,6 +90,10 @@ interface Props {
   showTier?: boolean;
 }
 
+function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
+  return (links ?? []).filter((link) => link.itemId !== null && link.status !== targetStatus);
+}
+
 function LinkBadges({ links }: { links?: LinkedRef[] }) {
   if (!links || links.length === 0) return null;
   return (
@@ -143,10 +147,22 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
   const [claudeDialogOpen, setClaudeDialogOpen] = useState(false);
   const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
   const [selectedRepoPath, setSelectedRepoPath] = useState('');
+  const [startCascadeOpen, setStartCascadeOpen] = useState(false);
+  const [completeCascadeOpen, setCompleteCascadeOpen] = useState(false);
   const canDelete = item.source === 'adhoc' && onDelete;
 
   const parsedHours = Number(hours);
   const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
+  const pendingStartLinks = actionableLinks(item.links, 'in_progress');
+  const pendingCompleteLinks = actionableLinks(item.links, 'done');
+
+  function handleStartClick() {
+    if (pendingStartLinks.length > 0) {
+      setStartCascadeOpen(true);
+    } else {
+      onStart?.(item.id);
+    }
+  }
 
   function handleCompleteSubmit() {
     if (!hoursValid) return;
@@ -154,6 +170,9 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
     setOpen(false);
     setHours('');
     setNote('');
+    if (pendingCompleteLinks.length > 0) {
+      setCompleteCascadeOpen(true);
+    }
   }
 
   async function handleOpenClaudeClick() {
@@ -282,6 +301,76 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
     </Dialog>
   );
 
+  const startCascadeDialog = (
+    <Dialog open={startCascadeOpen} onOpenChange={setStartCascadeOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Start linked item{pendingStartLinks.length > 1 ? 's' : ''} too?</DialogTitle>
+          <DialogDescription>
+            {pendingStartLinks.length === 1
+              ? `"${pendingStartLinks[0].title}" is linked to this item.`
+              : `${pendingStartLinks.length} linked items aren't in progress yet.`}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              onStart?.(item.id);
+              setStartCascadeOpen(false);
+            }}
+          >
+            Just this one
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              onStart?.(item.id);
+              pendingStartLinks.forEach((link) => {
+                if (link.itemId !== null) onStart?.(link.itemId);
+              });
+              setStartCascadeOpen(false);
+            }}
+          >
+            Start {pendingStartLinks.length > 1 ? 'all' : 'both'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const completeCascadeDialog = (
+    <Dialog open={completeCascadeOpen} onOpenChange={setCompleteCascadeOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Complete linked item{pendingCompleteLinks.length > 1 ? 's' : ''} too?</DialogTitle>
+          <DialogDescription>
+            {pendingCompleteLinks.length === 1
+              ? `"${pendingCompleteLinks[0].title}" is linked to this item.`
+              : `${pendingCompleteLinks.length} linked items aren't done yet.`}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setCompleteCascadeOpen(false)}>
+            Not now
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              pendingCompleteLinks.forEach((link) => {
+                if (link.itemId !== null) onComplete(link.itemId, 0);
+              });
+              setCompleteCascadeOpen(false);
+            }}
+          >
+            Complete {pendingCompleteLinks.length > 1 ? 'all' : 'it'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (showTier) {
     return (
       <div className={cn('border-b py-3 last:border-b-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
@@ -357,7 +446,7 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
                 size="icon"
                 aria-label="Start"
                 title="Start"
-                onClick={() => onStart(item.id)}
+                onClick={handleStartClick}
               >
                 <Play aria-hidden="true" />
               </Button>
@@ -392,6 +481,8 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
         {completeDialog}
         {deleteDialog}
         {claudeDialog}
+        {startCascadeDialog}
+        {completeCascadeDialog}
       </div>
     );
   }
@@ -440,7 +531,7 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
       </div>
       <div className="flex shrink-0 gap-2">
         {item.status !== 'in_progress' && onStart && (
-          <Button type="button" variant="outline" size="sm" onClick={() => onStart(item.id)}>
+          <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
           </Button>
         )}
@@ -466,6 +557,8 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
       {completeDialog}
       {deleteDialog}
       {claudeDialog}
+      {startCascadeDialog}
+      {completeCascadeDialog}
     </div>
   );
 }
