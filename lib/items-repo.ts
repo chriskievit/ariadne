@@ -87,11 +87,26 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 }
 
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
+  if (status === 'in_progress') {
+    // "In progress" already means "this is what I'm doing right now" -- Today
+    // doesn't need to keep saying the same thing once an item gets here, and
+    // without this an item could show up in both sections at once.
+    db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0, today_date = NULL WHERE id = ?').run(
+      status,
+      completedAt,
+      id
+    );
+    return;
+  }
   db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0 WHERE id = ?').run(status, completedAt, id);
 }
 
 export function setParked(db: Database.Database, id: number, parked: boolean): void {
   db.prepare('UPDATE items SET parked = ? WHERE id = ?').run(parked ? 1 : 0, id);
+}
+
+export function setTodayDate(db: Database.Database, id: number, date: string | null): void {
+  db.prepare('UPDATE items SET today_date = ? WHERE id = ?').run(date, id);
 }
 
 export function getOpenGithubPrCandidates(db: Database.Database): { id: number; externalId: string }[] {

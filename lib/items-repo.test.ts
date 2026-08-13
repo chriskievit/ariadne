@@ -8,6 +8,7 @@ import {
   getItemById,
   setStatus,
   setParked,
+  setTodayDate,
   deleteItem,
   getOpenGithubPrCandidates,
   setPrStatus,
@@ -96,6 +97,35 @@ describe('upsertSyncedItem', () => {
 
     expect(updated.status).toBe('done');
     expect(updated.completedAt).toBe('2026-07-01T12:00:00.000Z');
+  });
+
+  it('preserves an existing today_date on re-sync', () => {
+    const first = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-99',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+    });
+    setTodayDate(db, first.id, '2026-08-13');
+
+    upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-99',
+      title: 'Fix bug (renamed)',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+      repo: null,
+    });
+
+    expect(getItemById(db, first.id)?.todayDate).toBe('2026-08-13');
   });
 
   it('stores and updates ado_status on re-sync', () => {
@@ -373,6 +403,54 @@ describe('setStatus clears parked', () => {
     setStatus(db, item.id, 'inbox');
 
     expect(getItemById(db, item.id)?.parked).toBe(false);
+  });
+});
+
+describe('setTodayDate', () => {
+  it('sets today_date', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    expect(getItemById(db, item.id)?.todayDate).toBe('2026-08-13');
+  });
+
+  it('clears today_date when passed null', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    setTodayDate(db, item.id, null);
+    expect(getItemById(db, item.id)?.todayDate).toBeNull();
+  });
+});
+
+describe('setStatus today_date interaction', () => {
+  it('clears an existing today_date when starting an item', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    setStatus(db, item.id, 'in_progress');
+    expect(getItemById(db, item.id)?.todayDate).toBeNull();
+  });
+
+  it('leaves today_date untouched when completing an item directly (never started)', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    setStatus(db, item.id, 'done', '2026-08-13T12:00:00.000Z');
+    expect(getItemById(db, item.id)?.todayDate).toBe('2026-08-13');
+  });
+
+  it('leaves today_date untouched when returning an item to inbox', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    setStatus(db, item.id, 'inbox');
+    expect(getItemById(db, item.id)?.todayDate).toBe('2026-08-13');
+  });
+
+  it('still resets parked to false on the in_progress transition, unchanged from before', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setStatus(db, item.id, 'in_progress');
+    setParked(db, item.id, true);
+    setTodayDate(db, item.id, '2026-08-13');
+    setStatus(db, item.id, 'in_progress');
+    expect(getItemById(db, item.id)?.parked).toBe(false);
+    expect(getItemById(db, item.id)?.todayDate).toBeNull();
   });
 });
 
