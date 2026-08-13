@@ -54,7 +54,6 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete, onOpen
                         onOpenClaude={onOpenClaude}
                         onDelete={onDelete}
                         onPinToday={onPinToday}
-                        showTier
                       />
                     ))}
                   </div>
