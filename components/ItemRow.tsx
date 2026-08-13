@@ -104,11 +104,6 @@ interface Props {
   onDelete?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
-  // Deprecated — every row now renders the same shared grammar regardless of
-  // where it's used, so this no longer does anything. Kept only so existing
-  // call sites don't need to change in lockstep with this file; removed once
-  // both call sites stop passing it.
-  showTier?: boolean;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
