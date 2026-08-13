@@ -40,7 +40,8 @@
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 240 5.9% 90%;
-    --sidebar-ring: 240 5.5% 64.3%
+    --sidebar-ring: 240 5.5% 64.3%;
+    --brand-gold: 41.4 53.8% 54.1%;
   }
   .dark {
     --background: 240 10% 3.9%;
