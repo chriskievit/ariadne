@@ -105,6 +105,13 @@ describe('openDb', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it('includes the parked column on a fresh items table', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('parked');
+    db.close();
+  });
+
   it('includes the item_links table with pr_item_id and ado_external_id columns', () => {
     const db = openDb(':memory:');
     const columns = (db.prepare('PRAGMA table_info(item_links)').all() as { name: string }[]).map((c) => c.name);

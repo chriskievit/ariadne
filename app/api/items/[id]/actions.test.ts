@@ -9,11 +9,13 @@ const { POST: start } = await import('./start/route');
 const { POST: complete } = await import('./complete/route');
 const { POST: undo } = await import('./undo/route');
 const { POST: requeue } = await import('./requeue/route');
+const { POST: park } = await import('./park/route');
+const { POST: unpark } = await import('./unpark/route');
 
 let itemId: number;
 
 beforeEach(() => {
-  testDb.exec('DELETE FROM items; DELETE FROM time_logs;');
+  testDb.exec('DELETE FROM time_logs; DELETE FROM items;');
   itemId = createAdhocItem(testDb, { title: 'Test item' }).id;
 });
 
@@ -34,6 +36,31 @@ describe('start -> complete -> undo', () => {
     const undoBody = await undoRes.json();
     expect(undoBody.status).toBe('in_progress');
     expect(undoBody.completedAt).toBeNull();
+  });
+});
+
+describe('start -> park -> unpark', () => {
+  it('parks an in-progress item and can unpark it again', async () => {
+    await start(new Request('http://localhost'), { params: { id: String(itemId) } });
+
+    const parkRes = await park(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const parkBody = await parkRes.json();
+    expect(parkBody.status).toBe('in_progress');
+    expect(parkBody.parked).toBe(true);
+
+    const unparkRes = await unpark(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const unparkBody = await unparkRes.json();
+    expect(unparkBody.parked).toBe(false);
+  });
+
+  it('requeuing a parked item clears parked', async () => {
+    await start(new Request('http://localhost'), { params: { id: String(itemId) } });
+    await park(new Request('http://localhost'), { params: { id: String(itemId) } });
+
+    const requeueRes = await requeue(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const requeueBody = await requeueRes.json();
+    expect(requeueBody.status).toBe('inbox');
+    expect(requeueBody.parked).toBe(false);
   });
 });
 

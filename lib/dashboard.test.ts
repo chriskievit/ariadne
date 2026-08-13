@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { upsertSyncedItem, createAdhocItem, setStatus } from './items-repo';
+import { upsertSyncedItem, createAdhocItem, setStatus, setParked } from './items-repo';
 import { getGroupedItems } from './dashboard';
 
 let db: Database.Database;
@@ -59,6 +59,40 @@ describe('getGroupedItems', () => {
     const grouped = getGroupedItems(db, new Date());
     expect(grouped.needsAttention.map((i) => i.id)).toEqual([adhoc.id]);
     expect(grouped.everythingElse.map((i) => i.id)).toEqual([]);
+  });
+});
+
+describe('getGroupedItems parked', () => {
+  it('moves a parked in-progress item out of inProgress and into parked', () => {
+    const active = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '200',
+      title: 'Active item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    const parked = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '201',
+      title: 'Parked item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setStatus(db, active.id, 'in_progress');
+    setStatus(db, parked.id, 'in_progress');
+    setParked(db, parked.id, true);
+
+    const grouped = getGroupedItems(db, new Date());
+    expect(grouped.inProgress.map((i) => i.id)).toEqual([active.id]);
+    expect(grouped.parked.map((i) => i.id)).toEqual([parked.id]);
   });
 });
 

@@ -30,6 +30,14 @@ export async function requeueItem(id: number) {
   await fetch(`/api/items/${id}/requeue`, { method: 'POST' });
 }
 
+export async function parkItem(id: number) {
+  await fetch(`/api/items/${id}/park`, { method: 'POST' });
+}
+
+export async function unparkItem(id: number) {
+  await fetch(`/api/items/${id}/unpark`, { method: 'POST' });
+}
+
 export async function fetchLocalRepos(): Promise<LocalRepo[]> {
   const res = await fetch('/api/local-repos');
   return res.json();

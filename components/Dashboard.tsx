@@ -15,6 +15,8 @@ import {
   completeItem,
   undoItem,
   requeueItem,
+  parkItem,
+  unparkItem,
   createAdhocItemRequest,
   deleteAdhocItem,
   openInClaude,
@@ -27,6 +29,7 @@ const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 interface DashboardData {
   needsAttention: ScoredItem[];
   inProgress: ScoredItem[];
+  parked: ScoredItem[];
   everythingElse: ScoredItem[];
   sprint: SprintProgress;
 }
@@ -74,6 +77,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   async function handleRequeue(id: number) {
     await requeueItem(id);
+    await refresh();
+  }
+
+  async function handlePark(id: number) {
+    await parkItem(id);
+    await refresh();
+  }
+
+  async function handleUnpark(id: number) {
+    await unparkItem(id);
     await refresh();
   }
 
@@ -137,6 +150,24 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onOpenClaude={handleOpenClaude}
               onDelete={handleDelete}
               onRequeue={handleRequeue}
+              onPark={handlePark}
+            />
+          </Accordion>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="pt-6">
+          <Accordion type="multiple">
+            <ItemSection
+              value="parked"
+              title="Parked"
+              items={data.parked}
+              emptyMessage="Nothing parked."
+              onComplete={handleComplete}
+              onOpenClaude={handleOpenClaude}
+              onDelete={handleDelete}
+              onRequeue={handleRequeue}
+              onUnpark={handleUnpark}
             />
           </Accordion>
         </CardContent>

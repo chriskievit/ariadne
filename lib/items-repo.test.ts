@@ -7,6 +7,7 @@ import {
   listItems,
   getItemById,
   setStatus,
+  setParked,
   deleteItem,
   getOpenGithubPrCandidates,
   setPrStatus,
@@ -343,6 +344,35 @@ describe('listItems / getItemById / setStatus', () => {
     expect(updated?.status).toBe('done');
     expect(updated?.completedAt).toBe('2026-07-02T12:00:00.000Z');
     expect(listItems(db)).toHaveLength(1);
+  });
+});
+
+describe('setParked', () => {
+  it('marks an item parked', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setStatus(db, item.id, 'in_progress');
+    setParked(db, item.id, true);
+    expect(getItemById(db, item.id)?.parked).toBe(true);
+  });
+
+  it('unmarks a parked item', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setStatus(db, item.id, 'in_progress');
+    setParked(db, item.id, true);
+    setParked(db, item.id, false);
+    expect(getItemById(db, item.id)?.parked).toBe(false);
+  });
+});
+
+describe('setStatus clears parked', () => {
+  it('resets parked to false on any status transition', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setStatus(db, item.id, 'in_progress');
+    setParked(db, item.id, true);
+
+    setStatus(db, item.id, 'inbox');
+
+    expect(getItemById(db, item.id)?.parked).toBe(false);
   });
 });
 

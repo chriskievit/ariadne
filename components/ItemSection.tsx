@@ -14,6 +14,8 @@ interface Props {
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   onRequeue?: (id: number) => void;
+  onPark?: (id: number) => void;
+  onUnpark?: (id: number) => void;
 }
 
 export default function ItemSection({
@@ -26,6 +28,8 @@ export default function ItemSection({
   onOpenClaude,
   onDelete,
   onRequeue,
+  onPark,
+  onUnpark,
 }: Props) {
   return (
     <AccordionItem value={value}>
@@ -49,6 +53,8 @@ export default function ItemSection({
                 onOpenClaude={onOpenClaude}
                 onDelete={onDelete}
                 onRequeue={onRequeue}
+                onPark={onPark}
+                onUnpark={onUnpark}
               />
             ))}
           </div>

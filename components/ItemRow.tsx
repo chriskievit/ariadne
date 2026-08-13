@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2, Link2 } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2, Link2, Pause, PlayCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,6 +87,8 @@ interface Props {
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
+  onPark?: (id: number) => void;
+  onUnpark?: (id: number) => void;
   showTier?: boolean;
 }
 
@@ -136,7 +138,17 @@ function LinkBadges({ links }: { links?: LinkedRef[] }) {
   );
 }
 
-export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDelete, onRequeue, showTier = false }: Props) {
+export default function ItemRow({
+  item,
+  onStart,
+  onComplete,
+  onOpenClaude,
+  onDelete,
+  onRequeue,
+  onPark,
+  onUnpark,
+  showTier = false,
+}: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
   const statusPill = getStatusPill(item);
@@ -554,6 +566,18 @@ export default function ItemRow({ item, onStart, onComplete, onOpenClaude, onDel
           <Button type="button" variant="outline" size="sm" onClick={() => onRequeue(item.id)}>
             <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Back to queue
+          </Button>
+        )}
+        {item.status === 'in_progress' && !item.parked && onPark && (
+          <Button type="button" variant="outline" size="sm" onClick={() => onPark(item.id)}>
+            <Pause className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Park
+          </Button>
+        )}
+        {item.status === 'in_progress' && item.parked && onUnpark && (
+          <Button type="button" variant="outline" size="sm" onClick={() => onUnpark(item.id)}>
+            <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Unpark
           </Button>
         )}
         <Button type="button" variant="outline" size="sm" onClick={handleOpenClaudeClick}>

@@ -11,6 +11,7 @@ export type ScoredItem = Item & { score: number; scoreBreakdown: ScoreBreakdownE
 export interface GroupedItems {
   needsAttention: ScoredItem[];
   inProgress: ScoredItem[];
+  parked: ScoredItem[];
   everythingElse: ScoredItem[];
 }
 
@@ -27,7 +28,8 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
     needsAttention: scored.filter(
       (i) => i.status === 'inbox' && (i.source === 'adhoc' || i.score >= NEEDS_ATTENTION_THRESHOLD)
     ),
-    inProgress: scored.filter((i) => i.status === 'in_progress'),
+    inProgress: scored.filter((i) => i.status === 'in_progress' && !i.parked),
+    parked: scored.filter((i) => i.status === 'in_progress' && i.parked),
     everythingElse: scored.filter(
       (i) => i.status === 'inbox' && i.source !== 'adhoc' && i.score < NEEDS_ATTENTION_THRESHOLD
     ),

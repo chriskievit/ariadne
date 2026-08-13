@@ -20,6 +20,7 @@ function rowToItem(row: any): Item {
     prStatus: row.pr_status,
     repo: row.repo,
     hasUnresolvedConversations: !!row.has_unresolved_conversations,
+    parked: !!row.parked,
   };
 }
 
@@ -85,7 +86,11 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 }
 
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
-  db.prepare('UPDATE items SET status = ?, completed_at = ? WHERE id = ?').run(status, completedAt, id);
+  db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0 WHERE id = ?').run(status, completedAt, id);
+}
+
+export function setParked(db: Database.Database, id: number, parked: boolean): void {
+  db.prepare('UPDATE items SET parked = ? WHERE id = ?').run(parked ? 1 : 0, id);
 }
 
 export function getOpenGithubPrCandidates(db: Database.Database): { id: number; externalId: string }[] {

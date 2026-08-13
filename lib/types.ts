@@ -28,6 +28,7 @@ export interface Item {
   prStatus: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations: boolean;
+  parked: boolean;
 }
 
 export interface NewSyncedItemInput {
