@@ -1,4 +1,4 @@
-# ActivityDash
+# Ariadne
 
 A personal, local-only dashboard that aggregates work signals from GitHub
 (PRs, review requests, mentions) and Azure DevOps (assigned work items,
@@ -7,7 +7,7 @@ tracks sprint progress, and lets you pick what you're currently working on
 and log time against it.
 
 Single-user, runs on your machine only. GitHub and Azure DevOps access is
-read-only — ActivityDash never writes back to either system.
+read-only — Ariadne never writes back to either system.
 
 ## Stack
 
@@ -42,7 +42,7 @@ the latest PRs, work items, and sprint status.
 
 ## Data
 
-All data lives in a local SQLite file (`activitydash.db` by default,
-configurable via `ACTIVITYDASH_DB_PATH`). Ad-hoc requests (face-to-face,
+All data lives in a local SQLite file (`ariadne.db` by default,
+configurable via `ARIADNE_DB_PATH`). Ad-hoc requests (face-to-face,
 email, Teams) can be added directly from the dashboard alongside synced
 GitHub/ADO items.
