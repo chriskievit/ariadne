@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export const LAUNCH_CONFIG_NAME = 'activitydash';
+export const LAUNCH_CONFIG_NAME = 'ariadne';
 export const WARP_LAUNCH_URL = `warp://tab_config/${LAUNCH_CONFIG_NAME}`;
 
 function defaultTabConfigDir(): string {

@@ -24,7 +24,7 @@ describe('openDb', () => {
   });
 
   it('adds the ado_status column to a pre-existing items table that lacks it', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'activitydash-db-test-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
     const path = join(dir, 'legacy.db');
 
     // Simulate a pre-migration database: an items table without ado_status.
@@ -69,7 +69,7 @@ describe('openDb', () => {
   });
 
   it('adds the pr_status column to a pre-existing items table that lacks it', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'activitydash-db-test-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
     const path = join(dir, 'legacy.db');
 
     const legacy = new Database(path);
@@ -164,7 +164,7 @@ describe('time_logs duration migration', () => {
   });
 
   it('converts existing duration_minutes values to duration_hours and drops the old column', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'activitydash-db-test-'));
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
     const path = join(dir, 'legacy.db');
 
     const legacy = new Database(path);

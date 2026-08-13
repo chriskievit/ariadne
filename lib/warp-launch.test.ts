@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe('writeLaunchConfig', () => {
   it('creates the tab_configs directory if missing', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'activitydash-launch-test-'));
+    const parent = mkdtempSync(join(tmpdir(), 'ariadne-launch-test-'));
     dir = join(parent, 'tab_configs');
     expect(existsSync(dir)).toBe(false);
 
@@ -22,7 +22,7 @@ describe('writeLaunchConfig', () => {
   });
 
   it('writes a Tab Config TOML file with the given directory and a claude startup command', () => {
-    dir = mkdtempSync(join(tmpdir(), 'activitydash-launch-test-'));
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-launch-test-'));
 
     writeLaunchConfig('/some/working/dir', dir);
 
@@ -33,7 +33,7 @@ describe('writeLaunchConfig', () => {
     // opens a new window instead of a tab in the active one.
     expect(contents).toBe(
       [
-        'name = "activitydash"',
+        'name = "ariadne"',
         '[[panes]]',
         'id = "main"',
         'type = "terminal"',
@@ -45,7 +45,7 @@ describe('writeLaunchConfig', () => {
   });
 
   it('overwrites an existing file for the same config name', () => {
-    dir = mkdtempSync(join(tmpdir(), 'activitydash-launch-test-'));
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-launch-test-'));
 
     writeLaunchConfig('/first/dir', dir);
     writeLaunchConfig('/second/dir', dir);
@@ -57,7 +57,7 @@ describe('writeLaunchConfig', () => {
 });
 
 describe('WARP_LAUNCH_URL', () => {
-  it('points at the activitydash tab config, which opens as a tab in the active window by default', () => {
-    expect(WARP_LAUNCH_URL).toBe('warp://tab_config/activitydash');
+  it('points at the ariadne tab config, which opens as a tab in the active window by default', () => {
+    expect(WARP_LAUNCH_URL).toBe('warp://tab_config/ariadne');
   });
 });

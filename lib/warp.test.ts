@@ -12,7 +12,7 @@ let baseDir: string;
 
 beforeEach(() => {
   db = openDb(':memory:');
-  baseDir = mkdtempSync(join(tmpdir(), 'activitydash-warp-test-'));
+  baseDir = mkdtempSync(join(tmpdir(), 'ariadne-warp-test-'));
   mkdirSync(join(baseDir, 'repo-a'));
   mkdirSync(join(baseDir, 'repo-b'));
   setSetting(db, SETTINGS_KEYS.localReposBaseDir, baseDir);

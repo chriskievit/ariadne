@@ -15,7 +15,7 @@ let baseDir: string;
 
 beforeEach(() => {
   testDb.exec('DELETE FROM settings;');
-  baseDir = mkdtempSync(join(tmpdir(), 'activitydash-local-repos-test-'));
+  baseDir = mkdtempSync(join(tmpdir(), 'ariadne-local-repos-test-'));
   mkdirSync(join(baseDir, 'repo-a'));
   setSetting(testDb, SETTINGS_KEYS.localReposBaseDir, baseDir);
 });

@@ -10,7 +10,7 @@ vi.mock('@/lib/db-instance', () => ({ db: testDb }));
 const writeLaunchConfig = vi.fn();
 vi.mock('@/lib/warp-launch', () => ({
   writeLaunchConfig: (...args: unknown[]) => writeLaunchConfig(...args),
-  WARP_LAUNCH_URL: 'warp://tab_config/activitydash',
+  WARP_LAUNCH_URL: 'warp://tab_config/ariadne',
 }));
 
 const { POST } = await import('./route');
@@ -40,7 +40,7 @@ describe('POST /api/items/[id]/open-claude', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ warpUrl: 'warp://tab_config/activitydash' });
+    expect(await res.json()).toEqual({ warpUrl: 'warp://tab_config/ariadne' });
     expect(writeLaunchConfig).toHaveBeenCalledWith('/Users/chris/dev/github/repo-a');
   });
 
