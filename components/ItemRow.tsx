@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2, Link2, Pause, PlayCircle } from 'lucide-react';
+import { Github, ClipboardList, MessageSquare, Bot, Trash2, Undo2, Link2, Pause, MoreHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +22,15 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@/components/ui/hover-card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
-import { getStatusPill } from '@/lib/status-pill';
+import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
 import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 
@@ -53,6 +59,22 @@ function getReasonPills(item: Item): { label: string; variant: ReasonVariant }[]
   return [{ label: REASON_LABEL[item.reason], variant: REASON_VARIANT[item.reason] }];
 }
 
+// Inline badge precedence: exactly one badge shows on the row — the status
+// pill if there is one, else the item's primary reason pill, else none.
+// Everything not chosen here still shows up in the hover-card (see
+// HoverExtras below) rather than being dropped.
+function getInlineBadge(item: Item): { label: string; variant: BadgeVariant | ReasonVariant } | null {
+  const statusPill = getStatusPill(item);
+  if (statusPill) return statusPill;
+  return getReasonPills(item)[0] ?? null;
+}
+
+function getOverflowPills(item: Item): { label: string; variant: ReasonVariant }[] {
+  const statusPill = getStatusPill(item);
+  const reasonPills = getReasonPills(item);
+  return statusPill ? reasonPills : reasonPills.slice(1);
+}
+
 export const SOURCE_ICON = {
   github_pr: Github,
   ado_workitem: ClipboardList,
@@ -64,13 +86,6 @@ const TIER_LABEL: Record<PriorityTier, string> = {
   medium: 'Medium',
   high: 'High',
   critical: 'Critical',
-};
-
-const TIER_BORDER_CLASS: Record<PriorityTier, string> = {
-  low: 'border-l-transparent',
-  medium: 'border-l-primary',
-  high: 'border-l-warning',
-  critical: 'border-l-destructive',
 };
 
 const TIER_DOT_CLASS: Record<PriorityTier, string> = {
@@ -89,6 +104,10 @@ interface Props {
   onDelete?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
+  // Deprecated — every row now renders the same shared grammar regardless of
+  // where it's used, so this no longer does anything. Kept only so existing
+  // call sites don't need to change in lockstep with this file; removed once
+  // both call sites stop passing it.
   showTier?: boolean;
 }
 
@@ -96,45 +115,97 @@ function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): 
   return (links ?? []).filter((link) => link.itemId !== null && link.status !== targetStatus);
 }
 
-function LinkBadges({ links }: { links?: LinkedRef[] }) {
-  if (!links || links.length === 0) return null;
+// The second, lower-priority section of the row's hover-card: everything
+// that didn't make the one-badge inline cut — remaining reason pills, the
+// unresolved-conversations flag, and linked ADO work item / GitHub PR chips.
+function HoverExtras({ item }: { item: Item & { links?: LinkedRef[] } }) {
+  const overflowPills = getOverflowPills(item);
+  const hasExtras = overflowPills.length > 0 || item.hasUnresolvedConversations || (item.links?.length ?? 0) > 0;
+  if (!hasExtras) return null;
   return (
-    <>
-      {links.map((link) =>
-        link.itemId !== null ? (
-          <HoverCard key={`${link.source}-${link.itemId}`} openDelay={150}>
-            <HoverCardTrigger asChild>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
-              >
-                <Link2 className="h-3 w-3" aria-hidden="true" />
-                {link.shortLabel}
-              </a>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-56">
-              <div className="space-y-1 text-sm">
-                <div className="font-medium">{link.title}</div>
-                {link.status && <div className="text-muted-foreground">Status: {link.status}</div>}
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-        ) : (
-          <a
-            key={`${link.source}-${link.shortLabel}`}
-            href={link.url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground hover:underline"
-          >
-            <Link2 className="h-3 w-3" aria-hidden="true" />
-            {link.shortLabel}
-          </a>
-        )
+    <div className="mt-2 space-y-1.5 border-t pt-2">
+      {(overflowPills.length > 0 || item.hasUnresolvedConversations) && (
+        <div className="flex flex-wrap gap-1">
+          {overflowPills.map((pill) => (
+            <Badge key={pill.label} variant={pill.variant} title={pill.label} className="max-w-[9rem]">
+              <span className="min-w-0 truncate">{pill.label}</span>
+            </Badge>
+          ))}
+          {item.hasUnresolvedConversations && (
+            <Badge variant="destructive" title="Unresolved conversations" className="max-w-[12rem]">
+              <span className="min-w-0 truncate">Unresolved conversations</span>
+            </Badge>
+          )}
+        </div>
       )}
-    </>
+      {item.links && item.links.length > 0 && (
+        <div className="space-y-1 text-xs">
+          {item.links.map((link) => (
+            <a
+              key={`${link.source}-${link.shortLabel}`}
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+            >
+              <Link2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="truncate">
+                {link.shortLabel} — {link.title}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The quiet `⋯` overflow menu — contents depend on status, matching what
+// used to be always-visible buttons. Only ever mounted for non-parked rows;
+// parked rows get their own minimal "Resume" treatment instead (see the
+// `item.parked` branch in ItemRow), so this never needs an
+// in-progress-and-parked case.
+function OverflowMenu({
+  item,
+  onRequeue,
+  onPark,
+  onOpenClaude,
+  onDelete,
+}: {
+  item: Item;
+  onRequeue?: (id: number) => void;
+  onPark?: (id: number) => void;
+  onOpenClaude: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" aria-label="More actions" title="More actions">
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {item.status === 'in_progress' && onRequeue && (
+          <DropdownMenuItem onSelect={() => onRequeue(item.id)}>
+            <Undo2 aria-hidden="true" /> Back to queue
+          </DropdownMenuItem>
+        )}
+        {item.status === 'in_progress' && onPark && (
+          <DropdownMenuItem onSelect={() => onPark(item.id)}>
+            <Pause aria-hidden="true" /> Park
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={onOpenClaude}>
+          <Bot aria-hidden="true" /> Open in Claude
+        </DropdownMenuItem>
+        {onDelete && (
+          <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
+            <Trash2 aria-hidden="true" /> Delete
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -147,11 +218,9 @@ export default function ItemRow({
   onRequeue,
   onPark,
   onUnpark,
-  showTier = false,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
-  const statusPill = getStatusPill(item);
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
@@ -162,7 +231,7 @@ export default function ItemRow({
   const [startCascadeOpen, setStartCascadeOpen] = useState(false);
   const [completeCascadeOpen, setCompleteCascadeOpen] = useState(false);
   const [pendingComplete, setPendingComplete] = useState<{ hours: number; note?: string } | null>(null);
-  const canDelete = item.source === 'adhoc' && onDelete;
+  const canDelete = item.source === 'adhoc' && Boolean(onDelete);
 
   const parsedHours = Number(hours);
   const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
@@ -398,121 +467,31 @@ export default function ItemRow({
     </Dialog>
   );
 
-  if (showTier) {
+  // Parked rows deliberately cost as little visual attention as possible: no
+  // icon, no badge, no priority dot, no primary action, no overflow menu —
+  // just the title and a one-click way back in.
+  if (item.parked) {
     return (
-      <div className={cn('border-b py-3 last:border-b-0 border-l-4 pl-3', TIER_BORDER_CLASS[tier])}>
-        <div className="flex items-start gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {item.url ? (
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                className="line-clamp-2 min-w-0 break-words font-medium hover:underline"
-              >
-                {item.title}
-              </a>
-            ) : (
-              <span className="line-clamp-2 min-w-0 break-words font-medium">{item.title}</span>
-            )}
-            <LinkBadges links={item.links} />
-          </div>
-          {item.scoreBreakdown ? (
-            <HoverCard openDelay={150}>
-              <HoverCardTrigger asChild>
-                <span
-                  className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 cursor-default rounded-full', TIER_DOT_CLASS[tier])}
-                  aria-label={`Priority: ${TIER_LABEL[tier]}`}
-                />
-              </HoverCardTrigger>
-              <HoverCardContent className="w-56">
-                <div className="space-y-1 text-sm">
-                  <div className="font-medium">{TIER_LABEL[tier]} priority</div>
-                  {item.scoreBreakdown.map((entry, i) => (
-                    <div key={i} className="flex items-center justify-between gap-3">
-                      <span className="text-muted-foreground">{entry.label}</span>
-                      <span className="font-medium tabular-nums">+{entry.points}</span>
-                    </div>
-                  ))}
-                </div>
-              </HoverCardContent>
-            </HoverCard>
-          ) : (
-            <span
-              className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', TIER_DOT_CLASS[tier])}
-              aria-label={`Priority: ${TIER_LABEL[tier]}`}
-            />
-          )}
-        </div>
-        {item.repo && (
-          <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
+      <div className="flex items-center justify-between gap-3 border-b py-3 opacity-55 last:border-0">
+        {item.url ? (
+          <a href={item.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-sm hover:underline">
+            {item.title}
+          </a>
+        ) : (
+          <span className="min-w-0 truncate text-sm">{item.title}</span>
         )}
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {statusPill && (
-              <Badge variant={statusPill.variant} title={statusPill.label} className="max-w-[9rem]">
-                <span className="min-w-0 truncate">{statusPill.label}</span>
-              </Badge>
-            )}
-            {getReasonPills(item).map((pill) => (
-              <Badge key={pill.label} variant={pill.variant} title={pill.label} className="max-w-[9rem]">
-                <span className="min-w-0 truncate">{pill.label}</span>
-              </Badge>
-            ))}
-            {item.hasUnresolvedConversations && (
-              <Badge variant="destructive" title="Unresolved conversations" className="max-w-[9rem]">
-                <span className="min-w-0 truncate">Unresolved conversations</span>
-              </Badge>
-            )}
-          </div>
-          <div className="flex shrink-0 gap-1.5">
-            {item.status !== 'in_progress' && onStart && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                aria-label="Start"
-                title="Start"
-                onClick={handleStartClick}
-              >
-                <Play aria-hidden="true" />
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Open in Claude"
-              title="Open in Claude"
-              onClick={handleOpenClaudeClick}
-            >
-              <Bot aria-hidden="true" />
-            </Button>
-            <Button type="button" size="icon" aria-label="Mark complete" title="Mark complete" onClick={() => setOpen(true)}>
-              <Check aria-hidden="true" />
-            </Button>
-            {canDelete && (
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                aria-label="Delete"
-                title="Delete"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 aria-hidden="true" />
-              </Button>
-            )}
-          </div>
-        </div>
-        {completeDialog}
-        {deleteDialog}
-        {claudeDialog}
-        {startCascadeDialog}
-        {completeCascadeDialog}
+        <button
+          type="button"
+          onClick={() => onUnpark?.(item.id)}
+          className="shrink-0 text-sm font-medium text-primary hover:underline"
+        >
+          Resume
+        </button>
       </div>
     );
   }
+
+  const inlineBadge = getInlineBadge(item);
 
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3 last:border-0">
@@ -525,73 +504,60 @@ export default function ItemRow({
                 href={item.url}
                 target="_blank"
                 rel="noreferrer"
-                className="min-w-0 flex-1 truncate font-medium hover:underline"
+                className="min-w-0 truncate font-medium hover:underline"
               >
                 {item.title}
               </a>
             ) : (
-              <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+              <span className="min-w-0 truncate font-medium">{item.title}</span>
             )}
-            <LinkBadges links={item.links} />
-          </div>
-          {item.repo && (
-            <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
-          )}
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {statusPill && (
-              <Badge variant={statusPill.variant} title={statusPill.label} className="max-w-[9rem]">
-                <span className="min-w-0 truncate">{statusPill.label}</span>
-              </Badge>
-            )}
-            {getReasonPills(item).map((pill) => (
-              <Badge key={pill.label} variant={pill.variant} title={pill.label} className="max-w-[9rem]">
-                <span className="min-w-0 truncate">{pill.label}</span>
-              </Badge>
-            ))}
-            {item.hasUnresolvedConversations && (
-              <Badge variant="destructive" title="Unresolved conversations" className="max-w-[9rem]">
-                <span className="min-w-0 truncate">Unresolved conversations</span>
+            {inlineBadge && (
+              <Badge variant={inlineBadge.variant} title={inlineBadge.label} className="max-w-[9rem] shrink-0">
+                <span className="min-w-0 truncate">{inlineBadge.label}</span>
               </Badge>
             )}
           </div>
+          {item.repo && <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>}
         </div>
+        <HoverCard openDelay={150}>
+          <HoverCardTrigger asChild>
+            <span
+              className={cn('h-2.5 w-2.5 shrink-0 cursor-default rounded-full', TIER_DOT_CLASS[tier])}
+              aria-label={`Priority: ${TIER_LABEL[tier]}`}
+            />
+          </HoverCardTrigger>
+          <HoverCardContent className="w-64">
+            <div className="space-y-1 text-sm">
+              <div className="font-medium">{TIER_LABEL[tier]} priority</div>
+              {item.scoreBreakdown?.map((entry, i) => (
+                <div key={i} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">{entry.label}</span>
+                  <span className="font-medium tabular-nums">+{entry.points}</span>
+                </div>
+              ))}
+            </div>
+            <HoverExtras item={item} />
+          </HoverCardContent>
+        </HoverCard>
       </div>
-      <div className="flex shrink-0 gap-2">
-        {item.status !== 'in_progress' && onStart && (
+      <div className="flex shrink-0 items-center gap-1">
+        {item.status === 'inbox' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
           </Button>
         )}
-        {item.status === 'in_progress' && onRequeue && (
-          <Button type="button" variant="outline" size="sm" onClick={() => onRequeue(item.id)}>
-            <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Back to queue
+        {item.status === 'in_progress' && (
+          <Button type="button" size="sm" onClick={() => setOpen(true)}>
+            Complete
           </Button>
         )}
-        {item.status === 'in_progress' && !item.parked && onPark && (
-          <Button type="button" variant="outline" size="sm" onClick={() => onPark(item.id)}>
-            <Pause className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Park
-          </Button>
-        )}
-        {item.status === 'in_progress' && item.parked && onUnpark && (
-          <Button type="button" variant="outline" size="sm" onClick={() => onUnpark(item.id)}>
-            <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Unpark
-          </Button>
-        )}
-        <Button type="button" variant="outline" size="sm" onClick={handleOpenClaudeClick}>
-          <Bot className="mr-1.5 h-4 w-4" aria-hidden="true" />
-          Open in Claude
-        </Button>
-        <Button type="button" size="sm" onClick={() => setOpen(true)}>
-          Mark complete
-        </Button>
-        {canDelete && (
-          <Button type="button" variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            Delete
-          </Button>
-        )}
+        <OverflowMenu
+          item={item}
+          onRequeue={onRequeue}
+          onPark={onPark}
+          onOpenClaude={handleOpenClaudeClick}
+          onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+        />
       </div>
       {completeDialog}
       {deleteDialog}
