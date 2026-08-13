@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import type { TimeLog } from './types';
+import { localDateString } from './date';
 
 function rowToLog(row: any): TimeLog {
   return {
@@ -72,4 +73,26 @@ export function undoLastCompletion(db: Database.Database, itemId: number): void 
 
 export function listLogsByItem(db: Database.Database, itemId: number): TimeLog[] {
   return db.prepare('SELECT * FROM time_logs WHERE item_id = ? ORDER BY started_at').all(itemId).map(rowToLog);
+}
+
+// Grouped by item so the shutdown dialog can show hours-logged-today per
+// item, not just the day's total.
+export function sumHoursLoggedOnByItem(db: Database.Database, date: string): Map<number, number> {
+  const rows = db
+    .prepare(
+      'SELECT item_id, ended_at, duration_hours FROM time_logs WHERE ended_at IS NOT NULL AND duration_hours IS NOT NULL'
+    )
+    .all() as { item_id: number; ended_at: string; duration_hours: number }[];
+  const byItem = new Map<number, number>();
+  for (const row of rows) {
+    if (localDateString(new Date(row.ended_at)) !== date) continue;
+    byItem.set(row.item_id, (byItem.get(row.item_id) ?? 0) + row.duration_hours);
+  }
+  return byItem;
+}
+
+export function sumHoursLoggedOn(db: Database.Database, date: string): number {
+  let total = 0;
+  for (const hours of sumHoursLoggedOnByItem(db, date).values()) total += hours;
+  return total;
 }

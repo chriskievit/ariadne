@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
 import { upsertSyncedItem, createAdhocItem, setStatus, setParked, setTodayDate } from './items-repo';
-import { getGroupedItems } from './dashboard';
+import { getGroupedItems, getTodaySummary } from './dashboard';
 
 let db: Database.Database;
 
@@ -194,5 +194,79 @@ describe('getGroupedItems links', () => {
     const adhoc = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
     const grouped = getGroupedItems(db, new Date());
     expect(grouped.needsAttention.find((i) => i.id === adhoc.id)?.links).toEqual([]);
+  });
+});
+
+describe('getTodaySummary', () => {
+  it('splits planned-today items into still-open vs done-today, independent of each other', () => {
+    const stillOpen = createAdhocItem(db, { title: 'Still open' });
+    setTodayDate(db, stillOpen.id, '2026-08-13');
+
+    const finishedViaToday = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '1',
+      title: 'Finished, was pinned today',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setTodayDate(db, finishedViaToday.id, '2026-08-13');
+    setStatus(db, finishedViaToday.id, 'in_progress'); // clears today_date, as expected
+    setStatus(db, finishedViaToday.id, 'done', '2026-08-13T15:00:00.000Z');
+
+    const finishedWithoutEverBeingPinned = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '2',
+      title: 'Finished, never pinned',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setStatus(db, finishedWithoutEverBeingPinned.id, 'done', '2026-08-13T16:00:00.000Z');
+
+    const now = new Date(2026, 7, 13, 20, 0);
+    const summary = getTodaySummary(db, '2026-08-13', now);
+
+    expect(summary.planned.map((i) => i.id)).toEqual([stillOpen.id]);
+    expect(summary.doneToday.map((i) => i.id).sort()).toEqual(
+      [finishedViaToday.id, finishedWithoutEverBeingPinned.id].sort()
+    );
+  });
+
+  it('excludes an item with a stale (past) today_date that was never carried forward or completed', () => {
+    const stale = createAdhocItem(db, { title: 'Forgotten' });
+    setTodayDate(db, stale.id, '2026-08-11');
+
+    const now = new Date(2026, 7, 13, 20, 0);
+    const summary = getTodaySummary(db, '2026-08-13', now);
+
+    expect(summary.planned.map((i) => i.id)).toEqual([]);
+    expect(summary.doneToday.map((i) => i.id)).toEqual([]);
+  });
+
+  it("sums hoursLoggedToday only from today's time_logs rows", () => {
+    const item = createAdhocItem(db, { title: 'Multi-day item' });
+    db.prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours) VALUES (?, ?, ?, ?)').run(
+      item.id,
+      '2026-08-12T10:00:00.000Z',
+      '2026-08-12T12:00:00.000Z',
+      2
+    );
+    db.prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours) VALUES (?, ?, ?, ?)').run(
+      item.id,
+      '2026-08-13T09:00:00.000Z',
+      '2026-08-13T10:15:00.000Z',
+      1.25
+    );
+
+    const now = new Date(2026, 7, 13, 20, 0);
+    const summary = getTodaySummary(db, '2026-08-13', now);
+    expect(summary.hoursLoggedToday).toBe(1.25);
   });
 });

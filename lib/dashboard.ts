@@ -4,6 +4,7 @@ import { getSetting } from './settings-repo';
 import { sortByUrgency, type ScoreBreakdownEntry } from './scoring';
 import { getLinksForItems, type LinkedRef } from './links-repo';
 import { localDateString } from './date';
+import { sumHoursLoggedOn } from './time-logs-repo';
 import { SETTINGS_KEYS, NEEDS_ATTENTION_THRESHOLD } from './config';
 import type { Item } from './types';
 
@@ -47,4 +48,24 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
       (i) => i.status === 'inbox' && !todayIds.has(i.id) && i.source !== 'adhoc' && i.score < NEEDS_ATTENTION_THRESHOLD
     ),
   };
+}
+
+export interface TodaySummary {
+  planned: Item[];
+  doneToday: Item[];
+  hoursLoggedToday: number;
+}
+
+// `now` is accepted (not just `date`) to mirror getGroupedItems's signature
+// and keep the door open for future now-relative logic, even though only
+// `date` is used today -- the two must never disagree about what day it is.
+export function getTodaySummary(db: Database.Database, date: string, now: Date): TodaySummary {
+  const items = listItems(db);
+  const planned = items.filter((i) => i.todayDate === date && i.status !== 'done');
+  const doneToday = items.filter(
+    (i) => i.status === 'done' && i.completedAt !== null && localDateString(new Date(i.completedAt)) === date
+  );
+  const hoursLoggedToday = sumHoursLoggedOn(db, date);
+  void now;
+  return { planned, doneToday, hoursLoggedToday };
 }

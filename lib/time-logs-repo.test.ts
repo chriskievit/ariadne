@@ -1,7 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { startTimer, completeTimer, undoLastCompletion, listLogsByItem, elapsedHoursSinceStart } from './time-logs-repo';
+import { createAdhocItem } from './items-repo';
+import { localDateString } from './date';
+import {
+  startTimer,
+  completeTimer,
+  undoLastCompletion,
+  listLogsByItem,
+  elapsedHoursSinceStart,
+  sumHoursLoggedOn,
+  sumHoursLoggedOnByItem,
+} from './time-logs-repo';
 
 let db: Database.Database;
 let itemId: number;
@@ -69,5 +79,38 @@ describe('undoLastCompletion', () => {
     completeTimer(db, itemId, { durationHours: 1.5 });
     undoLastCompletion(db, itemId);
     expect(listLogsByItem(db, itemId)).toHaveLength(0);
+  });
+});
+
+describe('sumHoursLoggedOn / sumHoursLoggedOnByItem', () => {
+  it('sums duration_hours only for logs ended on the given date', () => {
+    const testDb = openDb(':memory:');
+    const item = createAdhocItem(testDb, { title: 'Test' });
+    testDb
+      .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours) VALUES (?, ?, ?, ?)')
+      .run(item.id, '2026-08-12T10:00:00.000Z', '2026-08-12T12:00:00.000Z', 2);
+    testDb
+      .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours) VALUES (?, ?, ?, ?)')
+      .run(item.id, '2026-08-13T10:00:00.000Z', '2026-08-13T11:30:00.000Z', 1.5);
+
+    expect(sumHoursLoggedOn(testDb, '2026-08-13')).toBe(1.5);
+    expect(sumHoursLoggedOnByItem(testDb, '2026-08-13').get(item.id)).toBe(1.5);
+    testDb.close();
+  });
+
+  it('ignores open timers (no ended_at)', () => {
+    const testDb = openDb(':memory:');
+    const item = createAdhocItem(testDb, { title: 'Test' });
+    startTimer(testDb, item.id);
+
+    expect(sumHoursLoggedOn(testDb, localDateString(new Date()))).toBe(0);
+    testDb.close();
+  });
+
+  it('returns 0 / an empty map when there are no logs on the date', () => {
+    const testDb = openDb(':memory:');
+    expect(sumHoursLoggedOn(testDb, '2026-08-13')).toBe(0);
+    expect(sumHoursLoggedOnByItem(testDb, '2026-08-13').size).toBe(0);
+    testDb.close();
   });
 });
