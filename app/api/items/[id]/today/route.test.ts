@@ -1,0 +1,46 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { openDb } from '@/lib/db';
+import { createAdhocItem, getItemById } from '@/lib/items-repo';
+import { localDateString, addDays } from '@/lib/date';
+
+const testDb = openDb(':memory:');
+vi.mock('@/lib/db-instance', () => ({ db: testDb }));
+
+const { POST: pinToday, DELETE: unpinToday } = await import('./route');
+
+let itemId: number;
+
+beforeEach(() => {
+  testDb.exec('DELETE FROM time_logs; DELETE FROM items;');
+  itemId = createAdhocItem(testDb, { title: 'Test item' }).id;
+});
+
+describe('POST /api/items/[id]/today', () => {
+  it('defaults to today when no date is given', async () => {
+    const res = await pinToday(new Request('http://localhost', { method: 'POST', body: '{}' }), {
+      params: { id: String(itemId) },
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).todayDate).toBe(localDateString(new Date()));
+  });
+
+  it('sets a given date (e.g. tomorrow, for carry-to-tomorrow)', async () => {
+    const tomorrow = addDays(localDateString(new Date()), 1);
+    const res = await pinToday(
+      new Request('http://localhost', { method: 'POST', body: JSON.stringify({ date: tomorrow }) }),
+      { params: { id: String(itemId) } }
+    );
+    expect((await res.json()).todayDate).toBe(tomorrow);
+  });
+});
+
+describe('DELETE /api/items/[id]/today', () => {
+  it('clears today_date', async () => {
+    await pinToday(new Request('http://localhost', { method: 'POST', body: '{}' }), { params: { id: String(itemId) } });
+    const res = await unpinToday(new Request('http://localhost', { method: 'DELETE' }), {
+      params: { id: String(itemId) },
+    });
+    expect((await res.json()).todayDate).toBeNull();
+    expect(getItemById(testDb, itemId)?.todayDate).toBeNull();
+  });
+});
