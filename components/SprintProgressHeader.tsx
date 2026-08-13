@@ -3,6 +3,7 @@
 import { Loader2, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { formatRelativeTime } from '@/lib/utils';
 import type { SprintProgress } from '@/lib/sprint';
 
 interface Props {
@@ -19,10 +20,7 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
     : null;
   const percent = sprint.totalCount > 0 ? Math.round((sprint.completedCount / sprint.totalCount) * 100) : 0;
   const lastSyncedLabel = sprint.lastSyncedAt
-    ? (() => {
-        const minutesAgo = Math.round((Date.now() - new Date(sprint.lastSyncedAt as string).getTime()) / 60_000);
-        return `Last synced: ${minutesAgo === 0 ? 'just now' : `${minutesAgo} min ago`}`;
-      })()
+    ? `Last synced: ${formatRelativeTime(new Date(sprint.lastSyncedAt).getTime())}`
     : 'Never synced';
 
   return (
