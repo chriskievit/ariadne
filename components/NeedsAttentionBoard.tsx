@@ -27,7 +27,7 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete, onOpen
         Needs attention
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
       </h2>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {SOURCE_GROUPS.map((group) => {
           const groupItems = items.filter((item) => item.source === group.source);
           const Icon = SOURCE_ICON[group.source];
