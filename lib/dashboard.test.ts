@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { upsertSyncedItem, createAdhocItem, setStatus, setParked } from './items-repo';
+import { upsertSyncedItem, createAdhocItem, setStatus, setParked, setTodayDate } from './items-repo';
 import { getGroupedItems } from './dashboard';
 
 let db: Database.Database;
@@ -93,6 +93,61 @@ describe('getGroupedItems parked', () => {
     const grouped = getGroupedItems(db, new Date());
     expect(grouped.inProgress.map((i) => i.id)).toEqual([active.id]);
     expect(grouped.parked.map((i) => i.id)).toEqual([parked.id]);
+  });
+});
+
+describe('getGroupedItems today bucket', () => {
+  it('puts an item pinned to today in the today bucket instead of its score bucket', () => {
+    const urgent = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '1@a/b',
+      title: 'Ready to merge',
+      url: null,
+      reason: 'approved_unmerged',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setTodayDate(db, urgent.id, '2026-08-13');
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([urgent.id]);
+    expect(grouped.needsAttention.map((i) => i.id)).toEqual([]);
+  });
+
+  it('does not put a stale (past) today_date item in the today bucket', () => {
+    const item = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '200',
+      title: 'Old plan',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setTodayDate(db, item.id, '2026-08-11');
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.everythingElse.map((i) => i.id)).toEqual([item.id]);
+  });
+
+  it('never puts an in-progress item in the today bucket even if today_date is still set', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, '2026-08-13');
+    // Bypass setStatus's own auto-clear to simulate a stale write reaching
+    // this state some other way -- belt-and-suspenders on top of Task 4.
+    db.prepare("UPDATE items SET status = 'in_progress' WHERE id = ?").run(item.id);
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.inProgress.map((i) => i.id)).toEqual([item.id]);
   });
 });
 
