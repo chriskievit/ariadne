@@ -140,6 +140,7 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'repo', 'TEXT');
       addColumnIfMissing(db, 'items', 'has_unresolved_conversations', 'INTEGER');
       addColumnIfMissing(db, 'items', 'parked', 'INTEGER');
+      addColumnIfMissing(db, 'items', 'today_date', 'TEXT');
       migrateTimeLogsToHours(db);
 
       return db;
