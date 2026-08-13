@@ -29,6 +29,7 @@ export interface Item {
   repo: string | null;
   hasUnresolvedConversations: boolean;
   parked: boolean;
+  todayDate: string | null;
 }
 
 export interface NewSyncedItemInput {

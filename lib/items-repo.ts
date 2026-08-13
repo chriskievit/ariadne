@@ -21,6 +21,7 @@ function rowToItem(row: any): Item {
     repo: row.repo,
     hasUnresolvedConversations: !!row.has_unresolved_conversations,
     parked: !!row.parked,
+    todayDate: row.today_date,
   };
 }
 
