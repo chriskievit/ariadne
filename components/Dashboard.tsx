@@ -38,6 +38,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -136,14 +137,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <QuickAddForm onSubmit={handleQuickAdd} />
       <SprintProgressHeader
         sprint={data.sprint}
         onRefresh={handleRefresh}
         syncing={syncing}
         errors={syncErrors}
-        onAddClick={() => {}}
+        onAddClick={() => setQuickAddOpen(true)}
       />
+      <QuickAddForm open={quickAddOpen} onOpenChange={setQuickAddOpen} onSubmit={handleQuickAdd} />
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={['in-progress']}>

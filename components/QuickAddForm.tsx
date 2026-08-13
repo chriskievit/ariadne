@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -19,11 +17,15 @@ const quickAddSchema = z.object({
 type QuickAddValues = z.infer<typeof quickAddSchema>;
 
 interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onSubmit: (input: { title: string; category?: string; dueDate?: string }) => void;
 }
 
-export default function QuickAddForm({ onSubmit }: Props) {
-  const [open, setOpen] = useState(false);
+// The closed-state trigger for this form lives in SprintProgressHeader's
+// ambient row (an icon-only button), not here — this component only ever
+// renders the open-state form itself, controlled from Dashboard.
+export default function QuickAddForm({ open, onOpenChange, onSubmit }: Props) {
   const form = useForm<QuickAddValues>({
     resolver: zodResolver(quickAddSchema),
     defaultValues: { title: '', category: '', dueDate: '' },
@@ -32,16 +34,10 @@ export default function QuickAddForm({ onSubmit }: Props) {
   function handleSubmit(values: QuickAddValues) {
     onSubmit({ title: values.title, category: values.category || undefined, dueDate: values.dueDate || undefined });
     form.reset();
-    setOpen(false);
+    onOpenChange(false);
   }
 
-  if (!open) {
-    return (
-      <Button type="button" variant="outline" className="border-dashed" onClick={() => setOpen(true)}>
-        <Plus className="h-4 w-4" /> Add ad-hoc item
-      </Button>
-    );
-  }
+  if (!open) return null;
 
   return (
     <Card>
@@ -91,7 +87,7 @@ export default function QuickAddForm({ onSubmit }: Props) {
             </div>
             <div className="flex gap-2">
               <Button type="submit">Add</Button>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
             </div>
