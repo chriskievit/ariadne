@@ -230,6 +230,38 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
   );
 }
 
+interface MergedCheckCandidate {
+  id: number;
+  externalId: string;
+}
+
+/**
+ * GitHub search only returns `is:open` PRs, so a PR that merged since the last
+ * sync simply stops appearing there instead of coming back with a "merged"
+ * status. This re-checks items that fell out of that search directly against
+ * the GitHub API to find which of them actually merged.
+ */
+export async function fetchMergedExternalIds(
+  config: GithubConfig,
+  candidates: MergedCheckCandidate[]
+): Promise<Set<string>> {
+  const merged = new Set<string>();
+  await Promise.all(
+    candidates.map(async (candidate) => {
+      const match = candidate.externalId.match(/^(\d+)@([^/]+)\/(.+)$/);
+      if (!match) return;
+      const [, number, owner, repo] = match;
+      try {
+        const detail = await githubFetch(config.pat, `/repos/${owner}/${repo}/pulls/${number}`);
+        if (detail.merged) merged.add(candidate.externalId);
+      } catch {
+        // Deleted repo, transient error, etc. — leave this item's status as-is.
+      }
+    })
+  );
+  return merged;
+}
+
 export async function fetchGithubItems(config: GithubConfig): Promise<NewSyncedItemInput[]> {
   const user = await githubFetch(config.pat, '/user');
   const username = user.login;

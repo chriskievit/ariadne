@@ -7,7 +7,7 @@ export type Reason =
   | 'manual'
   | 'stale_own_pr'
   | 'approved_unmerged';
-export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved';
+export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved' | 'merged';
 export type Status = 'inbox' | 'in_progress' | 'done';
 
 export interface Item {

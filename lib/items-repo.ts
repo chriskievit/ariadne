@@ -88,6 +88,19 @@ export function setStatus(db: Database.Database, id: number, status: Status, com
   db.prepare('UPDATE items SET status = ?, completed_at = ? WHERE id = ?').run(status, completedAt, id);
 }
 
+export function getOpenGithubPrCandidates(db: Database.Database): { id: number; externalId: string }[] {
+  return db
+    .prepare(
+      `SELECT id, external_id FROM items WHERE source = 'github_pr' AND status != 'done' AND (pr_status IS NULL OR pr_status != 'merged')`
+    )
+    .all()
+    .map((row: any) => ({ id: row.id, externalId: row.external_id }));
+}
+
+export function setPrStatus(db: Database.Database, id: number, prStatus: Item['prStatus']): void {
+  db.prepare('UPDATE items SET pr_status = ? WHERE id = ?').run(prStatus, id);
+}
+
 export function deleteItem(db: Database.Database, id: number): void {
   db.prepare('DELETE FROM items WHERE id = ?').run(id);
 }

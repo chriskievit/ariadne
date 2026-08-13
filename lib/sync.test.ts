@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { openDb } from './db';
 import { setSetting, getSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
-import { listItems } from './items-repo';
+import { listItems, upsertSyncedItem, getItemById } from './items-repo';
 
-vi.mock('./github-client', () => ({ fetchGithubItems: vi.fn() }));
+vi.mock('./github-client', () => ({ fetchGithubItems: vi.fn(), fetchMergedExternalIds: vi.fn() }));
 vi.mock('./ado-client', () => ({ fetchAdoData: vi.fn() }));
 
-import { fetchGithubItems } from './github-client';
+import { fetchGithubItems, fetchMergedExternalIds } from './github-client';
 import { fetchAdoData } from './ado-client';
 import { runSync } from './sync';
 
@@ -83,6 +83,78 @@ describe('runSync', () => {
     expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Sprint 7');
     expect(getSetting(db, SETTINGS_KEYS.sprintStart)).toBe('2026-07-01');
     expect(getSetting(db, SETTINGS_KEYS.sprintEnd)).toBe('2026-07-14');
+  });
+
+  it('flags a previously-synced PR as merged once it drops out of the open-PR fetch', async () => {
+    setSetting(db, SETTINGS_KEYS.githubPat, 'gh-pat');
+    setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
+    setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
+    setSetting(db, SETTINGS_KEYS.adoProject, 'project');
+    (fetchAdoData as any).mockResolvedValue({ items: [], iteration: null });
+
+    const existing = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '42@acme/widgets',
+      title: 'Add feature',
+      url: null,
+      reason: 'authored',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'widgets',
+      prStatus: 'approved',
+    });
+
+    (fetchGithubItems as any).mockResolvedValue([]);
+    (fetchMergedExternalIds as any).mockResolvedValue(new Set(['42@acme/widgets']));
+
+    await runSync(db);
+
+    expect(fetchMergedExternalIds).toHaveBeenCalledWith(
+      { pat: 'gh-pat', staleDays: expect.any(Number) },
+      [{ id: existing.id, externalId: '42@acme/widgets' }]
+    );
+    expect(getItemById(db, existing.id)?.prStatus).toBe('merged');
+  });
+
+  it('does not re-check a PR that is still present in the current fetch', async () => {
+    setSetting(db, SETTINGS_KEYS.githubPat, 'gh-pat');
+    setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
+    setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
+    setSetting(db, SETTINGS_KEYS.adoProject, 'project');
+    (fetchAdoData as any).mockResolvedValue({ items: [], iteration: null });
+
+    upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '42@acme/widgets',
+      title: 'Add feature',
+      url: null,
+      reason: 'authored',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'widgets',
+      prStatus: 'approved',
+    });
+
+    (fetchGithubItems as any).mockResolvedValue([
+      {
+        source: 'github_pr',
+        externalId: '42@acme/widgets',
+        title: 'Add feature',
+        url: null,
+        reason: 'authored',
+        dueDate: null,
+        sprintIteration: null,
+        rawUpdatedAt: '2026-07-02T00:00:00.000Z',
+        repo: 'widgets',
+        prStatus: 'approved',
+      },
+    ]);
+
+    await runSync(db);
+
+    expect(fetchMergedExternalIds).not.toHaveBeenCalled();
   });
 
   it('writes a sync_log row per source on every run', async () => {

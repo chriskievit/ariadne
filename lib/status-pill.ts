@@ -12,6 +12,7 @@ const PR_STATUS_PILL: Record<PrStatus, StatusPill> = {
   ready_for_review: { label: 'Ready for review', variant: 'default' },
   changes_requested: { label: 'Changes requested', variant: 'warning' },
   approved: { label: 'Approved', variant: 'success' },
+  merged: { label: 'Merged', variant: 'outline' },
 };
 
 function adoStatusVariant(state: string): BadgeVariant {

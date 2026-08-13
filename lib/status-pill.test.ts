@@ -19,6 +19,7 @@ describe('getStatusPill', () => {
     ['ready_for_review', 'Ready for review', 'default'],
     ['changes_requested', 'Changes requested', 'warning'],
     ['approved', 'Approved', 'success'],
+    ['merged', 'Merged', 'outline'],
   ] as const)('maps github_pr prStatus %s to label %s and variant %s', (prStatus, label, variant) => {
     expect(getStatusPill({ source: 'github_pr', prStatus, adoStatus: null })).toEqual({ label, variant });
   });

@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
-import { fetchGithubItems } from './github-client';
+import { fetchGithubItems, fetchMergedExternalIds } from './github-client';
 import { fetchAdoData } from './ado-client';
-import { upsertSyncedItem } from './items-repo';
+import { upsertSyncedItem, getOpenGithubPrCandidates, setPrStatus } from './items-repo';
 import { getSetting, setSetting } from './settings-repo';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from './config';
 
@@ -33,6 +33,16 @@ async function syncGithub(db: Database.Database): Promise<SyncOutcome> {
   try {
     const items = await fetchGithubItems({ pat, staleDays });
     for (const item of items) upsertSyncedItem(db, item);
+
+    const fetchedExternalIds = new Set(items.map((item) => item.externalId));
+    const candidates = getOpenGithubPrCandidates(db).filter((c) => !fetchedExternalIds.has(c.externalId));
+    if (candidates.length > 0) {
+      const merged = await fetchMergedExternalIds({ pat, staleDays }, candidates);
+      for (const candidate of candidates) {
+        if (merged.has(candidate.externalId)) setPrStatus(db, candidate.id, 'merged');
+      }
+    }
+
     logSyncResult(db, 'github', items.length, null);
     return { source: 'github', itemCount: items.length, error: null };
   } catch (err) {

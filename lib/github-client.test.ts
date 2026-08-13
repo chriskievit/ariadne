@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchGithubItems, parseLinkedAdoIds } from './github-client';
+import { fetchGithubItems, parseLinkedAdoIds, fetchMergedExternalIds } from './github-client';
 
 function jsonResponse(body: any) {
   return { ok: true, json: async () => body, text: async () => '' } as Response;
@@ -499,5 +499,41 @@ describe('fetchGithubItems linked ADO ids', () => {
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
     expect(result[0].linkedAdoExternalIds).toEqual([]);
+  });
+});
+
+describe('fetchMergedExternalIds', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('includes candidates whose PR is now merged', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/repos/acme/widgets/pulls/42')) return jsonResponse({ merged: true });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchMergedExternalIds({ pat: 'x', staleDays: 3 }, [{ id: 1, externalId: '42@acme/widgets' }]);
+    expect(result.has('42@acme/widgets')).toBe(true);
+  });
+
+  it('excludes candidates whose PR is still open (e.g. fell off a search page)', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith('/repos/acme/widgets/pulls/42')) return jsonResponse({ merged: false });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const result = await fetchMergedExternalIds({ pat: 'x', staleDays: 3 }, [{ id: 1, externalId: '42@acme/widgets' }]);
+    expect(result.has('42@acme/widgets')).toBe(false);
+  });
+
+  it('excludes candidates whose lookup fails (deleted repo, network error, etc.)', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async () => ({ ok: false, status: 404, text: async () => 'Not Found' }) as Response);
+
+    const result = await fetchMergedExternalIds({ pat: 'x', staleDays: 3 }, [{ id: 1, externalId: '42@acme/widgets' }]);
+    expect(result.size).toBe(0);
   });
 });

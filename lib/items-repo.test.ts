@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { openDb } from './db';
-import { upsertSyncedItem, createAdhocItem, listItems, getItemById, setStatus, deleteItem } from './items-repo';
+import {
+  upsertSyncedItem,
+  createAdhocItem,
+  listItems,
+  getItemById,
+  setStatus,
+  deleteItem,
+  getOpenGithubPrCandidates,
+  setPrStatus,
+} from './items-repo';
 
 let db: Database.Database;
 
@@ -242,6 +251,87 @@ describe('deleteItem', () => {
     const item = createAdhocItem(db, { title: 'Test' });
     deleteItem(db, item.id);
     expect(getItemById(db, item.id)).toBeUndefined();
+  });
+});
+
+describe('getOpenGithubPrCandidates / setPrStatus', () => {
+  it('includes non-done github_pr items without a merged pr_status', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '1@a/b',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'b',
+      prStatus: 'approved',
+    });
+    expect(getOpenGithubPrCandidates(db).map((c) => c.id)).toContain(pr.id);
+  });
+
+  it('excludes items already marked done', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '2@a/b',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'b',
+    });
+    setStatus(db, pr.id, 'done', '2026-07-01T12:00:00.000Z');
+    expect(getOpenGithubPrCandidates(db).map((c) => c.id)).not.toContain(pr.id);
+  });
+
+  it('excludes items already marked merged', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '3@a/b',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'b',
+    });
+    setPrStatus(db, pr.id, 'merged');
+    expect(getOpenGithubPrCandidates(db).map((c) => c.id)).not.toContain(pr.id);
+  });
+
+  it('excludes ado_workitem items', () => {
+    const wi = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '600',
+      title: 'Some work item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: null,
+    });
+    expect(getOpenGithubPrCandidates(db).map((c) => c.id)).not.toContain(wi.id);
+  });
+
+  it('setPrStatus updates the stored pr_status', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '4@a/b',
+      title: 'Fix bug',
+      url: null,
+      reason: 'review_requested',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'b',
+    });
+    setPrStatus(db, pr.id, 'merged');
+    expect(getItemById(db, pr.id)?.prStatus).toBe('merged');
   });
 });
 
