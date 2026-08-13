@@ -16,6 +16,8 @@ interface Props {
   onRequeue?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
+  onPinToday?: (id: number) => void;
+  onUnpinToday?: (id: number) => void;
 }
 
 export default function ItemSection({
@@ -30,6 +32,8 @@ export default function ItemSection({
   onRequeue,
   onPark,
   onUnpark,
+  onPinToday,
+  onUnpinToday,
 }: Props) {
   return (
     <AccordionItem value={value}>
@@ -55,6 +59,8 @@ export default function ItemSection({
                 onRequeue={onRequeue}
                 onPark={onPark}
                 onUnpark={onUnpark}
+                onPinToday={onPinToday}
+                onUnpinToday={onUnpinToday}
               />
             ))}
           </div>

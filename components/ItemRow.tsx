@@ -1,7 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Github, ClipboardList, MessageSquare, Play, Bot, Check, Trash2, Undo2, Link2, Pause, PlayCircle } from 'lucide-react';
+import {
+  Github,
+  ClipboardList,
+  MessageSquare,
+  Play,
+  Bot,
+  Check,
+  Trash2,
+  Undo2,
+  Link2,
+  Pause,
+  PlayCircle,
+  Pin,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +102,8 @@ interface Props {
   onDelete?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
+  onPinToday?: (id: number) => void;
+  onUnpinToday?: (id: number) => void;
   showTier?: boolean;
 }
 
@@ -138,6 +153,37 @@ function LinkBadges({ links }: { links?: LinkedRef[] }) {
   );
 }
 
+function PinToggle({
+  onPinToday,
+  onUnpinToday,
+  itemId,
+  size,
+}: {
+  onPinToday?: (id: number) => void;
+  onUnpinToday?: (id: number) => void;
+  itemId: number;
+  size: 'icon-sm' | 'icon';
+}) {
+  if (!onPinToday && !onUnpinToday) return null;
+  const label = onUnpinToday ? 'Unpin from today' : 'Pin to today';
+  return (
+    <Button
+      type="button"
+      variant={onUnpinToday ? 'secondary' : 'outline'}
+      size="icon"
+      className={size === 'icon-sm' ? 'h-6 w-6' : undefined}
+      aria-label={label}
+      title={label}
+      onClick={() => (onUnpinToday ? onUnpinToday(itemId) : onPinToday?.(itemId))}
+    >
+      <Pin
+        className={cn(size === 'icon-sm' ? 'h-3.5 w-3.5' : 'h-4 w-4', onUnpinToday && 'fill-current')}
+        aria-hidden="true"
+      />
+    </Button>
+  );
+}
+
 export default function ItemRow({
   item,
   onStart,
@@ -147,6 +193,8 @@ export default function ItemRow({
   onRequeue,
   onPark,
   onUnpark,
+  onPinToday,
+  onUnpinToday,
   showTier = false,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
@@ -417,6 +465,7 @@ export default function ItemRow({
             )}
             <LinkBadges links={item.links} />
           </div>
+          <PinToggle onPinToday={onPinToday} onUnpinToday={onUnpinToday} itemId={item.id} size="icon-sm" />
           {item.scoreBreakdown ? (
             <HoverCard openDelay={150}>
               <HoverCardTrigger asChild>
@@ -557,6 +606,7 @@ export default function ItemRow({
         </div>
       </div>
       <div className="flex shrink-0 gap-2">
+        <PinToggle onPinToday={onPinToday} onUnpinToday={onUnpinToday} itemId={item.id} size="icon" />
         {item.status !== 'in_progress' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
