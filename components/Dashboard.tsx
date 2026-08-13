@@ -8,6 +8,8 @@ import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
 import NeedsAttentionBoard from './NeedsAttentionBoard';
 import QuickAddForm from './QuickAddForm';
+import TodaySection from './TodaySection';
+import ShutdownDialog from './ShutdownDialog';
 import {
   fetchDashboardData,
   triggerSync,
@@ -20,6 +22,8 @@ import {
   createAdhocItemRequest,
   deleteAdhocItem,
   openInClaude,
+  pinToday,
+  unpinToday,
 } from '@/lib/api-client';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
@@ -27,6 +31,7 @@ import type { SprintProgress } from '@/lib/sprint';
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 interface DashboardData {
+  today: ScoredItem[];
   needsAttention: ScoredItem[];
   inProgress: ScoredItem[];
   parked: ScoredItem[];
@@ -38,6 +43,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
+  const [reviewDayOpen, setReviewDayOpen] = useState(false);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -90,6 +96,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await refresh();
   }
 
+  async function handlePinToday(id: number) {
+    await pinToday(id);
+    await refresh();
+  }
+
+  async function handleUnpinToday(id: number) {
+    await unpinToday(id);
+    await refresh();
+  }
+
   async function handleOpenClaude(id: number, workingDir?: string) {
     const result = await openInClaude(id, workingDir);
     if (result.warpUrl) {
@@ -138,6 +154,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <QuickAddForm onSubmit={handleQuickAdd} />
       <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
+      <TodaySection
+        items={data.today}
+        onStart={handleStart}
+        onComplete={handleComplete}
+        onOpenClaude={handleOpenClaude}
+        onDelete={handleDelete}
+        onUnpinToday={handleUnpinToday}
+        onReviewDay={() => setReviewDayOpen(true)}
+      />
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={['in-progress']}>
@@ -178,6 +203,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onComplete={handleComplete}
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
+        onPinToday={handlePinToday}
       />
       <Card>
         <CardContent className="pt-6">
@@ -191,10 +217,12 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onComplete={handleComplete}
               onOpenClaude={handleOpenClaude}
               onDelete={handleDelete}
+              onPinToday={handlePinToday}
             />
           </Accordion>
         </CardContent>
       </Card>
+      <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
     </main>
   );
 }
