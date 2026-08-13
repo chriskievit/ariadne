@@ -8,6 +8,7 @@ interface Props {
   value: string;
   title: string;
   items: ScoredItem[];
+  parkedItems?: ScoredItem[];
   emptyMessage: string;
   onStart?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
@@ -22,6 +23,7 @@ export default function ItemSection({
   value,
   title,
   items,
+  parkedItems,
   emptyMessage,
   onStart,
   onComplete,
@@ -31,6 +33,7 @@ export default function ItemSection({
   onPark,
   onUnpark,
 }: Props) {
+  const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
   return (
     <AccordionItem value={value}>
       <AccordionTrigger>
@@ -40,7 +43,7 @@ export default function ItemSection({
         </span>
       </AccordionTrigger>
       <AccordionContent>
-        {items.length === 0 ? (
+        {isEmpty ? (
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
           <div>
@@ -57,6 +60,22 @@ export default function ItemSection({
                 onUnpark={onUnpark}
               />
             ))}
+            {parkedItems && parkedItems.length > 0 && (
+              <>
+                <p className="pb-1 pt-3 text-xs font-medium text-muted-foreground">Paused · {parkedItems.length}</p>
+                {parkedItems.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    onComplete={onComplete}
+                    onOpenClaude={onOpenClaude}
+                    onDelete={onDelete}
+                    onRequeue={onRequeue}
+                    onUnpark={onUnpark}
+                  />
+                ))}
+              </>
+            )}
           </div>
         )}
       </AccordionContent>
