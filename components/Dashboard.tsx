@@ -137,7 +137,13 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <QuickAddForm onSubmit={handleQuickAdd} />
-      <SprintProgressHeader sprint={data.sprint} onRefresh={handleRefresh} syncing={syncing} errors={syncErrors} />
+      <SprintProgressHeader
+        sprint={data.sprint}
+        onRefresh={handleRefresh}
+        syncing={syncing}
+        errors={syncErrors}
+        onAddClick={() => {}}
+      />
       <Card>
         <CardContent className="pt-6">
           <Accordion type="multiple" defaultValue={['in-progress']}>
