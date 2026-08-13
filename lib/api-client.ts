@@ -1,5 +1,7 @@
 import type { TimeReport } from '@/lib/report';
 import type { LocalRepo } from '@/lib/warp';
+import { localDateString, addDays } from '@/lib/date';
+import type { Item } from '@/lib/types';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -36,6 +38,30 @@ export async function parkItem(id: number) {
 
 export async function unparkItem(id: number) {
   await fetch(`/api/items/${id}/unpark`, { method: 'POST' });
+}
+
+export interface TodaySummaryResponse {
+  planned: Item[];
+  doneToday: (Item & { hoursLoggedToday: number })[];
+  hoursLoggedToday: number;
+}
+
+export async function pinToday(id: number, date?: string) {
+  await fetch(`/api/items/${id}/today`, { method: 'POST', body: JSON.stringify(date ? { date } : {}) });
+}
+
+export async function unpinToday(id: number) {
+  await fetch(`/api/items/${id}/today`, { method: 'DELETE' });
+}
+
+export async function carryToTomorrow(id: number) {
+  const tomorrow = addDays(localDateString(new Date()), 1);
+  return pinToday(id, tomorrow);
+}
+
+export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
+  const res = await fetch('/api/today/summary');
+  return res.json();
 }
 
 export async function fetchLocalRepos(): Promise<LocalRepo[]> {
