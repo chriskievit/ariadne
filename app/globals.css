@@ -55,6 +55,9 @@
        that demand action (blocked). See lib/status-pill.ts. */
     --status-blocked: 38 92% 50%;
     --status-neutral: 240 5% 45%;
+    --status-blocked-foreground: 20 14% 4%;
+    --urgency-critical-foreground: 0 0% 8%;
+    --urgency-high-foreground: 20 14% 4%;
   }
   .dark {
     --background: 240 10% 3.9%;
@@ -101,6 +104,9 @@
 
     --status-blocked: 38 92% 55%;
     --status-neutral: 240 5% 65%;
+    --status-blocked-foreground: 20 14% 4%;
+    --urgency-critical-foreground: 0 0% 8%;
+    --urgency-high-foreground: 20 14% 4%;
   }
 }
 

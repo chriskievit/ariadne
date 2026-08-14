@@ -18,6 +18,8 @@ const badgeVariants = cva(
           "border-transparent bg-warning text-warning-foreground shadow hover:bg-warning/80",
         success:
           "border-transparent bg-success text-success-foreground shadow hover:bg-success/80",
+        blocked:
+          "border-transparent bg-status-blocked text-status-blocked-foreground shadow hover:bg-status-blocked/80",
         outline: "text-foreground",
       },
     },

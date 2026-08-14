@@ -1,6 +1,6 @@
 import type { Item, PrStatus } from './types';
 
-export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'warning' | 'success' | 'outline';
+export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'warning' | 'success' | 'outline' | 'blocked';
 
 export interface StatusPill {
   label: string;
@@ -20,7 +20,7 @@ const PR_STATUS_PILL: Record<PrStatus, StatusPill> = {
 
 function adoStatusVariant(state: string): BadgeVariant {
   const s = state.toLowerCase();
-  if (/block/.test(s)) return 'warning';
+  if (/block/.test(s)) return 'blocked';
   if (/resolv|done|closed|complet/.test(s)) return 'success';
   if (/remov/.test(s)) return 'destructive';
   if (/active|committ|doing|progress/.test(s)) return 'secondary';
