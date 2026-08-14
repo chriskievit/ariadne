@@ -15,7 +15,7 @@ time against it. No other personal tool combines all three.
 Single-user, runs on your machine only. GitHub and Azure DevOps access is
 read-only, Ariadne never writes back to either system.
 
-![Ariadne dashboard showing Today, In progress, and Needs attention grouped by GitHub, Azure DevOps, and ad-hoc](docs/screenshot-dashboard.png)
+![Ariadne dashboard showing Today, In progress, and Signals grouped by GitHub, Azure DevOps, and ad-hoc](docs/screenshot-dashboard.png)
 
 ## Philosophy
 
@@ -31,7 +31,8 @@ you should do next.
 - **Transparent, not AI-driven.** Urgency is a deterministic, visible point
   formula (own PR approved, mentioned, stale, due soon, ...), not an opaque
   ML ranking. The whole scoring table lives in `lib/scoring.ts`, readable
-  end to end.
+  end to end, and every score chip on the dashboard opens to show exactly
+  which rules fired and which didn't.
 - **You control your time, not the algorithm.** There's no auto-scheduling
   of your day and no calendar it rearranges for you. Ariadne surfaces
   signals; you decide what to work on and when.
@@ -58,6 +59,8 @@ The app runs at `http://127.0.0.1:3000`. On first run, open **Settings** to
 add your GitHub and Azure DevOps personal access tokens (read-only scopes).
 These are stored locally in the SQLite `settings` table, not in environment
 variables.
+
+![Ariadne's first-run empty state, prompting to add tokens in Settings or add an ad-hoc request instead](docs/screenshot-empty-state.png)
 
 Data refresh is manual: use the **Refresh** button on the dashboard to pull
 the latest PRs, work items, and sprint status.
