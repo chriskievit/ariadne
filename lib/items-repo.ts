@@ -22,6 +22,10 @@ function rowToItem(row: any): Item {
     hasUnresolvedConversations: !!row.has_unresolved_conversations,
     parked: !!row.parked,
     todayDate: row.today_date,
+    starred: !!row.starred,
+    snoozedUntil: row.snoozed_until,
+    triageState: (row.triage_state ?? 'none') as Item['triageState'],
+    wokeEarly: !!row.woke_early,
   };
 }
 
@@ -107,6 +111,21 @@ export function setParked(db: Database.Database, id: number, parked: boolean): v
 
 export function setTodayDate(db: Database.Database, id: number, date: string | null): void {
   db.prepare('UPDATE items SET today_date = ? WHERE id = ?').run(date, id);
+}
+
+export function setStarred(db: Database.Database, id: number, starred: boolean): void {
+  db.prepare('UPDATE items SET starred = ? WHERE id = ?').run(starred ? 1 : 0, id);
+}
+
+// Setting a new snooze always clears any previous "woke early" marker -- a
+// fresh snooze is the user re-acknowledging the item, so the old surprise
+// no longer needs flagging.
+export function setSnoozedUntil(db: Database.Database, id: number, until: string | null): void {
+  db.prepare('UPDATE items SET snoozed_until = ?, woke_early = 0 WHERE id = ?').run(until, id);
+}
+
+export function setTriageState(db: Database.Database, id: number, state: Item['triageState']): void {
+  db.prepare('UPDATE items SET triage_state = ? WHERE id = ?').run(state, id);
 }
 
 export function getOpenGithubPrCandidates(db: Database.Database): { id: number; externalId: string }[] {

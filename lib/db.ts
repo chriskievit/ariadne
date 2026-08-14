@@ -141,6 +141,10 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'has_unresolved_conversations', 'INTEGER');
       addColumnIfMissing(db, 'items', 'parked', 'INTEGER');
       addColumnIfMissing(db, 'items', 'today_date', 'TEXT');
+      addColumnIfMissing(db, 'items', 'starred', 'INTEGER');
+      addColumnIfMissing(db, 'items', 'snoozed_until', 'TEXT');
+      addColumnIfMissing(db, 'items', 'triage_state', 'TEXT');
+      addColumnIfMissing(db, 'items', 'woke_early', 'INTEGER');
       migrateTimeLogsToHours(db);
 
       return db;

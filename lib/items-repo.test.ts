@@ -9,6 +9,9 @@ import {
   setStatus,
   setParked,
   setTodayDate,
+  setStarred,
+  setSnoozedUntil,
+  setTriageState,
   deleteItem,
   getOpenGithubPrCandidates,
   setPrStatus,
@@ -418,6 +421,43 @@ describe('setTodayDate', () => {
     setTodayDate(db, item.id, '2026-08-13');
     setTodayDate(db, item.id, null);
     expect(getItemById(db, item.id)?.todayDate).toBeNull();
+  });
+});
+
+describe('setStarred', () => {
+  it('toggles the starred flag', () => {
+    const item = createAdhocItem(db, { title: 'Star me' });
+    setStarred(db, item.id, true);
+    expect(getItemById(db, item.id)?.starred).toBe(true);
+    setStarred(db, item.id, false);
+    expect(getItemById(db, item.id)?.starred).toBe(false);
+  });
+});
+
+describe('setSnoozedUntil', () => {
+  it('sets and clears the snooze timestamp', () => {
+    const item = createAdhocItem(db, { title: 'Snooze me' });
+    setSnoozedUntil(db, item.id, '2026-09-01T09:00:00.000Z');
+    expect(getItemById(db, item.id)?.snoozedUntil).toBe('2026-09-01T09:00:00.000Z');
+    setSnoozedUntil(db, item.id, null);
+    expect(getItemById(db, item.id)?.snoozedUntil).toBeNull();
+  });
+
+  it('clears any woke_early marker when a new snooze is set', () => {
+    const item = createAdhocItem(db, { title: 'Woke early item' });
+    db.prepare('UPDATE items SET woke_early = 1 WHERE id = ?').run(item.id);
+    setSnoozedUntil(db, item.id, '2026-09-01T09:00:00.000Z');
+    expect(getItemById(db, item.id)?.wokeEarly).toBe(false);
+  });
+});
+
+describe('setTriageState', () => {
+  it('marks an item done locally and back to none', () => {
+    const item = createAdhocItem(db, { title: 'Done me' });
+    setTriageState(db, item.id, 'done');
+    expect(getItemById(db, item.id)?.triageState).toBe('done');
+    setTriageState(db, item.id, 'none');
+    expect(getItemById(db, item.id)?.triageState).toBe('none');
   });
 });
 
