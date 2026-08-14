@@ -50,8 +50,11 @@ import ScoreChip from './ScoreChip';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 
 // Row height is fixed per mode so content can never reflow it — comfortable
-// is 44px (11 * 4px grid), compact is 36px (9 * 4px grid).
+// is 44px (11 * 4px grid), compact is 36px (9 * 4px grid). Only applied from
+// the sm: breakpoint up -- below that the row wraps instead (see the main
+// row's className), so a fixed height would crop wrapped content.
 const ROW_HEIGHT_CLASS = { comfortable: 'h-11', compact: 'h-9' } as const;
+const SM_ROW_HEIGHT_CLASS = { comfortable: 'sm:h-11', compact: 'sm:h-9' } as const;
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
 
@@ -683,14 +686,15 @@ export default function ItemRow({
       data-row-id={item.id}
       onKeyDown={handleRowKeyDown}
       className={cn(
-        'group relative flex items-center justify-between gap-3 overflow-hidden border-b last:border-0',
+        'group relative flex flex-wrap items-start justify-between gap-x-3 gap-y-2 border-b py-2 last:border-0',
+        'sm:flex-nowrap sm:items-center sm:overflow-hidden sm:py-0',
         'border-l-2 border-l-transparent focus:border-l-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-        ROW_HEIGHT_CLASS[density],
+        SM_ROW_HEIGHT_CLASS[density],
         'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
         !isMatch && 'opacity-40'
       )}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
         <ScoreChip
           score={item.score}
           scoreBreakdown={item.scoreBreakdown ?? []}
@@ -739,7 +743,7 @@ export default function ItemRow({
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1 opacity-60 motion-safe:transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+      <div className="flex w-full shrink-0 items-center justify-end gap-1 opacity-100 motion-safe:transition-opacity sm:w-auto sm:opacity-60 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {item.status === 'inbox' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
