@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { BarChart3, Search, Settings } from 'lucide-react';
 import { AriadneMark } from '@/components/icons/ariadne-mark';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useSearch } from '@/components/SearchProvider';
+import { useCommandPalette } from '@/components/CommandPaletteProvider';
 
 export default function TopBar() {
-  const { query, setQuery } = useSearch();
+  const { setOpen } = useCommandPalette();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -22,17 +21,15 @@ export default function TopBar() {
           <span className="font-display text-xl leading-none tracking-wide text-foreground">Ariadne</span>
         </Link>
 
-        <div className="relative justify-self-stretch">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search work items, PRs, people…"
-            aria-label="Search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9 focus-visible:ring-[hsl(var(--brand-gold))]"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 justify-self-stretch rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <Search className="h-4 w-4" aria-hidden="true" />
+          Search or jump to
+          <kbd className="ml-auto font-mono text-xs">⌘K</kbd>
+        </button>
 
         <div className="flex items-center justify-end gap-1">
           <Button type="button" variant="ghost" size="icon" asChild aria-label="Report">

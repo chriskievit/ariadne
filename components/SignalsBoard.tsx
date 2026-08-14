@@ -10,7 +10,7 @@ import { groupOf, isKeptVisible, GROUP_ORDER, GROUP_LABEL, type ObligationGroup 
 import { parseQuery, applyQuery } from '@/lib/query';
 import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
 import { isTypingTarget } from '@/lib/keymap';
-import { fetchSavedViews, createSavedView, deleteSavedView } from '@/lib/api-client';
+import { createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
 import type { Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
@@ -69,6 +69,10 @@ interface Props {
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   currentSprintIteration: string | null;
+  queryText: string;
+  onQueryTextChange: (raw: string) => void;
+  savedViews: SavedView[];
+  onSavedViewsChange: (views: SavedView[]) => void;
 }
 
 export default function SignalsBoard({
@@ -83,6 +87,10 @@ export default function SignalsBoard({
   onUnsnooze,
   onDone,
   currentSprintIteration,
+  queryText,
+  onQueryTextChange,
+  savedViews,
+  onSavedViewsChange,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -90,13 +98,7 @@ export default function SignalsBoard({
     moving_without_you: false,
     lower_priority: false,
   });
-  const [queryText, setQueryText] = useState('');
   const [lastValidParsed, setLastValidParsed] = useState(parseQuery(''));
-  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-
-  useEffect(() => {
-    fetchSavedViews().then(setSavedViews);
-  }, []);
 
   const parsed = parseQuery(queryText);
   const activeParsed = parsed.errors.length === 0 ? parsed : lastValidParsed;
@@ -129,11 +131,11 @@ export default function SignalsBoard({
 
   async function handleSaveCurrentView(label: string) {
     const updated = await createSavedView({ label, query: queryText, shortcut: null });
-    setSavedViews(updated);
+    onSavedViewsChange(updated);
   }
 
   async function handleDeleteSavedView(id: string) {
-    setSavedViews(await deleteSavedView(id));
+    onSavedViewsChange(await deleteSavedView(id));
   }
 
   const grouped = useMemo(() => {
@@ -176,12 +178,12 @@ export default function SignalsBoard({
       </div>
       <QueryBar
         value={queryText}
-        onChange={setQueryText}
+        onChange={onQueryTextChange}
         errors={parsed.errors}
         savedViews={savedViews}
         sourceCounts={sourceCounts}
         onSaveCurrentView={handleSaveCurrentView}
-        onSelectSavedView={setQueryText}
+        onSelectSavedView={onQueryTextChange}
         onDeleteSavedView={handleDeleteSavedView}
       />
       {withoutHiddenTriage.length === 0 && (

@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/sonner';
 import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSearch } from './SearchProvider';
+import { useCommandPalette } from './CommandPaletteProvider';
 import { matchesQuery } from '@/lib/search';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
@@ -15,6 +16,7 @@ import TodaySection from './TodaySection';
 import ShutdownDialog from './ShutdownDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
 import KeymapHelpDialog from './KeymapHelpDialog';
+import CommandPalette from './CommandPalette';
 import {
   fetchDashboardData,
   triggerSync,
@@ -33,10 +35,12 @@ import {
   snoozeItem,
   unsnoozeItem,
   setItemDone,
+  fetchSavedViews,
 } from '@/lib/api-client';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
+import type { SavedView } from '@/lib/saved-views';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -56,7 +60,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [signalsQuery, setSignalsQuery] = useState('');
+  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -64,8 +69,13 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const preSearchAccordionRef = useRef<{ inProgress: string[] } | null>(null);
   const lastUndoRef = useRef<(() => void) | null>(null);
 
-  const { query } = useSearch();
+  const { query, setQuery } = useSearch();
+  const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
   const router = useRouter();
+
+  useEffect(() => {
+    fetchSavedViews().then(setSavedViews);
+  }, []);
 
   function scheduleAutoSync() {
     if (!isMountedRef.current) return;
@@ -308,9 +318,28 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onUnsnooze={handleUnsnooze}
         onDone={handleDone}
         currentSprintIteration={data.sprint.name}
+        queryText={signalsQuery}
+        onQueryTextChange={setSignalsQuery}
+        savedViews={savedViews}
+        onSavedViewsChange={setSavedViews}
       />
       <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
       <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        items={data.signals}
+        savedViews={savedViews}
+        search={query}
+        onSearchChange={setQuery}
+        onSelectItem={(item) => {
+          if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
+        }}
+        onSelectQuery={setSignalsQuery}
+        onGoToDashboard={() => router.push('/')}
+        onGoToSettings={() => router.push('/settings')}
+        onWrapUp={() => setReviewDayOpen(true)}
+      />
     </main>
     </GlobalKeymapProvider>
   );
