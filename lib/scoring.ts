@@ -34,20 +34,33 @@ export interface ScoreBreakdownEntry {
   points: number;
 }
 
-// Due-date urgency and staleness age are independent of *why* the item
-// exists, so they stack on top of the reason score rather than replacing it.
-export function scoreBreakdown(item: ScorableItem, now: Date): ScoreBreakdownEntry[] {
+export const MAX_SCORE = 105;
+
+interface ScoreExplanation {
+  entries: ScoreBreakdownEntry[];
+  notFired: string[];
+}
+
+// Single pass that produces both the fired breakdown (scoreBreakdown's
+// contract) and the rules that did NOT fire, so the score-chip popover can
+// show a user the whole formula, not just the part that happened to apply.
+function explainScore(item: ScorableItem, now: Date): ScoreExplanation {
   const entries: ScoreBreakdownEntry[] = [
     { label: REASON_LABEL[item.reason], points: REASON_SCORE[item.reason] },
   ];
+  const notFired: string[] = [];
 
   const deadline = item.dueDate ?? item.sprintEnd;
-  if (deadline) {
+  if (!deadline) {
+    notFired.push('No deadline');
+  } else {
     const daysUntil = (new Date(deadline).getTime() - now.getTime()) / 86_400_000;
     if (daysUntil <= 2) {
       const roundedDays = Math.max(0, Math.round(daysUntil));
       const label = daysUntil < 0 ? 'Overdue' : `Due in ${roundedDays} day${roundedDays === 1 ? '' : 's'}`;
       entries.push({ label, points: 25 });
+    } else {
+      notFired.push(`Not due yet (${Math.round(daysUntil)}d out)`);
     }
   }
 
@@ -55,34 +68,50 @@ export function scoreBreakdown(item: ScorableItem, now: Date): ScoreBreakdownEnt
     const ageDays = (now.getTime() - new Date(item.rawUpdatedAt).getTime()) / 86_400_000;
     if (ageDays > 5) {
       entries.push({ label: `Stale ${Math.round(ageDays)} days`, points: 15 });
+    } else {
+      notFired.push(`Not stale yet (${Math.round(ageDays)}d of 5)`);
     }
+  } else {
+    notFired.push('No activity timestamp');
   }
 
   if (item.hasUnresolvedConversations) {
     entries.push({ label: 'Unresolved conversations', points: 20 });
+  } else {
+    notFired.push('No unresolved conversations');
   }
 
-  return entries.sort((a, b) => b.points - a.points);
+  entries.sort((a, b) => b.points - a.points);
+  return { entries, notFired };
+}
+
+export function scoreBreakdown(item: ScorableItem, now: Date): ScoreBreakdownEntry[] {
+  return explainScore(item, now).entries;
 }
 
 export function scoreItem(item: ScorableItem, now: Date): number {
   return scoreBreakdown(item, now).reduce((sum, e) => sum + e.points, 0);
 }
 
+// Ties break by oldest activity first: items with no rawUpdatedAt carry no
+// staleness signal, so they sort after every item that has one.
 export function sortByUrgency<T extends ScorableItem>(
   items: T[],
   now: Date
-): (T & { score: number; scoreBreakdown: ScoreBreakdownEntry[] })[] {
+): (T & { score: number; scoreBreakdown: ScoreBreakdownEntry[]; notFired: string[] })[] {
   return items
     .map((item) => {
-      const breakdown = scoreBreakdown(item, now);
-      const score = breakdown.reduce((sum, e) => sum + e.points, 0);
-      return { ...item, score, scoreBreakdown: breakdown };
+      const { entries, notFired } = explainScore(item, now);
+      const score = entries.reduce((sum, e) => sum + e.points, 0);
+      return { ...item, score, scoreBreakdown: entries, notFired };
     })
     .sort((a, b) => {
       if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
       if (b.status === 'in_progress' && a.status !== 'in_progress') return 1;
-      return b.score - a.score;
+      if (b.score !== a.score) return b.score - a.score;
+      const aTime = a.rawUpdatedAt ? new Date(a.rawUpdatedAt).getTime() : Number.POSITIVE_INFINITY;
+      const bTime = b.rawUpdatedAt ? new Date(b.rawUpdatedAt).getTime() : Number.POSITIVE_INFINITY;
+      return aTime - bTime;
     });
 }
 
