@@ -177,7 +177,13 @@ export default function SignalsBoard({
           </span>
         </h2>
         <p className="text-sm text-muted-foreground">
-          <span className="font-mono tabular-nums">{needsYouCount}</span> need something from you
+          {needsYouCount === 0 && withoutHiddenTriage.length > 0 ? (
+            'nothing needs you right now'
+          ) : (
+            <>
+              <span className="font-mono tabular-nums">{needsYouCount}</span> need something from you
+            </>
+          )}
         </p>
       </div>
       <QueryBar
