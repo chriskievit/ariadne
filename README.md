@@ -36,10 +36,10 @@ you should do next.
 - **You control your time, not the algorithm.** There's no auto-scheduling
   of your day and no calendar it rearranges for you. Ariadne surfaces
   signals; you decide what to work on and when.
-- **Deliberately small surface.** One dashboard route plus Settings. New
-  features are scoped tightly, and real tradeoffs are accepted explicitly
-  rather than hidden. For example, access tokens are stored in plaintext
-  locally, the same trust model as a `.env` file.
+- **Deliberately small surface.** A dashboard route, a time report, and
+  Settings. New features are scoped tightly, and real tradeoffs are
+  accepted explicitly rather than hidden. For example, access tokens are
+  stored in plaintext locally, the same trust model as a `.env` file.
 
 ## Stack
 
@@ -62,8 +62,9 @@ variables.
 
 ![Ariadne's first-run empty state, prompting to add tokens in Settings or add an ad-hoc request instead](docs/screenshot-empty-state.png)
 
-Data refresh is manual: use the **Refresh** button on the dashboard to pull
-the latest PRs, work items, and sprint status.
+Ariadne syncs automatically every 5 minutes while the dashboard is open, and
+you can also click the **Refresh** button to pull the latest PRs, work
+items, and sprint status on demand.
 
 ## Self-hosting with Docker
 
