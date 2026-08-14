@@ -128,3 +128,52 @@ export function getPriorityTier(score: number): PriorityTier {
   if (score >= 25) return 'medium';
   return 'low';
 }
+
+export interface ScoringReferenceRow {
+  label: string;
+  points: number;
+}
+
+export interface ScoringReferenceBand {
+  tier: PriorityTier;
+  label: string;
+  range: string;
+}
+
+export interface ScoringReference {
+  primaryReasons: ScoringReferenceRow[];
+  stackingRules: ScoringReferenceRow[];
+  maxScore: number;
+  bands: ScoringReferenceBand[];
+  nonPointRules: string[];
+}
+
+// Generated from the exact tables scoreItem() itself reads, so this can
+// never drift from what the app actually does -- this is the artefact no
+// competitor in this market can publish, and that claim only holds if it's
+// generated, not hand-copied.
+export function getScoringReference(): ScoringReference {
+  const primaryReasons = (Object.keys(REASON_SCORE) as Reason[])
+    .map((reason) => ({ label: REASON_LABEL[reason], points: REASON_SCORE[reason] }))
+    .sort((a, b) => b.points - a.points);
+
+  return {
+    primaryReasons,
+    stackingRules: [
+      { label: 'Due, or overdue, within 2 days', points: 25 },
+      { label: 'Unresolved review conversations', points: 20 },
+      { label: 'No activity for more than 5 days', points: 15 },
+    ],
+    maxScore: MAX_SCORE,
+    bands: [
+      { tier: 'critical', label: 'Critical', range: '60–105' },
+      { tier: 'high', label: 'High', range: '40–59' },
+      { tier: 'medium', label: 'Medium', range: '25–39' },
+      { tier: 'low', label: 'Low', range: '0–24' },
+    ],
+    nonPointRules: [
+      'Anything you’ve started sorts first, whatever it scores. Work in progress outranks work you haven’t touched.',
+      'Ad-hoc requests stay visible below 25, because they have no upstream activity to earn points from. Rows held by that rule are marked "Kept visible".',
+    ],
+  };
+}
