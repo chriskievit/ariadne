@@ -5,6 +5,7 @@ import { Search, Star, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { parseQuery } from '@/lib/query';
+import { useDensity } from '@/components/DensityProvider';
 import type { SavedView } from '@/lib/saved-views';
 import type { Source } from '@/lib/types';
 
@@ -37,6 +38,7 @@ export default function QueryBar({
   onDeleteSavedView,
 }: Props) {
   const errorId = useId();
+  const density = useDensity();
   const activeSourceToken = SOURCE_TOKENS.find((t) => t.token && value.includes(t.token))?.source ?? 'all';
 
   function toggleSourceToken(token: string | null) {
@@ -78,6 +80,7 @@ export default function QueryBar({
             type="button"
             variant={activeSourceToken === source ? 'secondary' : 'outline'}
             size="sm"
+            className={density === 'comfortable' ? 'h-11' : undefined}
             aria-pressed={activeSourceToken === source}
             onClick={() => toggleSourceToken(token)}
           >

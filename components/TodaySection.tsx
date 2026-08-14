@@ -19,6 +19,7 @@ interface Props {
   onPlanDay: () => void;
   onReorder: (orderedItemIds: number[]) => void;
   failingSources?: Set<Item['source']>;
+  onOpenScoringReference: () => void;
 }
 
 function formatMinutes(minutes: number): string {
@@ -40,6 +41,7 @@ export default function TodaySection({
   onPlanDay,
   onReorder,
   failingSources,
+  onOpenScoringReference,
 }: Props) {
   const plannedMinutes = items.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
   const loggedMinutes = items.reduce((sum, i) => sum + i.loggedMinutesToday, 0);
@@ -71,7 +73,7 @@ export default function TodaySection({
         {items.length === 0 ? (
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">Nothing chosen yet.</p>
-            <Button type="button" size="lg" onClick={onPlanDay}>
+            <Button type="button" size="lg" className="h-11" onClick={onPlanDay}>
               Plan the day <kbd className="ml-2 font-mono text-xs opacity-70">P</kbd>
             </Button>
             <p className="text-xs text-muted-foreground">
@@ -111,6 +113,7 @@ export default function TodaySection({
                     onDelete={onDelete}
                     onUnpinToday={onUnpinToday}
                     sourceIsStale={failingSources?.has(item.source)}
+                    onOpenScoringReference={onOpenScoringReference}
                   />
                 </div>
                 {item.estimateMinutes !== null && (

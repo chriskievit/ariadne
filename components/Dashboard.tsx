@@ -19,6 +19,8 @@ import SwitchTimerDialog from './SwitchTimerDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
 import KeymapHelpDialog from './KeymapHelpDialog';
 import CommandPalette from './CommandPalette';
+import ScoringReferenceDialog from './ScoringReferenceDialog';
+import FirstRunCard from './FirstRunCard';
 import {
   fetchDashboardData,
   triggerSync,
@@ -70,7 +72,7 @@ interface DashboardData {
   sprint: SprintProgress;
 }
 
-export default function Dashboard({ initialData }: { initialData: DashboardData }) {
+export default function Dashboard({ initialData, hasTokens }: { initialData: DashboardData; hasTokens: boolean }) {
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
@@ -92,6 +94,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   });
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [calibration, setCalibration] = useState<CalibrationEntry[]>([]);
+  const [scoringReferenceOpen, setScoringReferenceOpen] = useState(false);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -235,7 +238,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   async function handleComplete(id: number, durationHours: number, note?: string) {
     await completeItem(id, { durationHours, note });
     await refresh();
-    toast('Marked complete.', {
+    toast('Completed.', {
       duration: 5000,
       action: {
         label: 'Undo',
@@ -355,6 +358,9 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const hasAnyMatch =
     trimmedQuery === '' ||
     [...data.today, ...data.signals, ...data.inProgress, ...data.parked].some((i) => matchesQuery(i.title, trimmedQuery));
+  const isEmptyEverywhere =
+    data.today.length === 0 && data.signals.length === 0 && data.inProgress.length === 0 && data.parked.length === 0;
+  const isFirstRun = !hasTokens && isEmptyEverywhere;
 
   return (
     <GlobalKeymapProvider
@@ -378,57 +384,66 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onAddClick={() => setQuickAddOpen(true)}
       />
       <QuickAddForm open={quickAddOpen} onOpenChange={setQuickAddOpen} onSubmit={handleQuickAdd} />
-      {!hasAnyMatch && <p className="text-sm text-muted-foreground">No matches for &ldquo;{trimmedQuery}&rdquo;.</p>}
-      <TodaySection
-        items={data.today}
-        capacityMinutes={plan.capacityMinutes}
-        onStart={handleStart}
-        onComplete={handleComplete}
-        onOpenClaude={handleOpenClaude}
-        onDelete={handleDelete}
-        onUnpinToday={handleUnpinToday}
-        onPlanDay={() => setPlanDayOpen(true)}
-        onReorder={handleReorderToday}
-        failingSources={failingSources}
-      />
-      <Card>
-        <CardContent className="pt-6">
-          <Accordion type="multiple" value={inProgressAccordion} onValueChange={setInProgressAccordion}>
-            <ItemSection
-              value="in-progress"
-              title="In progress"
-              items={data.inProgress}
-              parkedItems={data.parked}
-              emptyMessage="Nothing in progress — start something above."
-              onComplete={handleComplete}
-              onOpenClaude={handleOpenClaude}
-              onDelete={handleDelete}
-              onRequeue={handleRequeue}
-              onPark={handlePark}
-              onUnpark={handleUnpark}
-              failingSources={failingSources}
-            />
-          </Accordion>
-        </CardContent>
-      </Card>
-      <SignalsBoard
-        items={data.signals}
-        onStart={handleStart}
-        onComplete={handleComplete}
-        onOpenClaude={handleOpenClaude}
-        onDelete={handleDelete}
-        onPinToday={handlePinToday}
-        failingSources={failingSources}
-        onStar={handleStar}
-        onSnooze={handleSnooze}
-        onUnsnooze={handleUnsnooze}
-        onDone={handleDone}
-        currentSprintIteration={data.sprint.name}
-        queryText={signalsQuery}
-        onQueryTextChange={setSignalsQuery}
-        savedViews={savedViews}
-        onSavedViewsChange={setSavedViews}
-      />
+      {isFirstRun ? (
+        <FirstRunCard onAddClick={() => setQuickAddOpen(true)} />
+      ) : (
+        <>
+          {!hasAnyMatch && <p className="text-sm text-muted-foreground">No matches for &ldquo;{trimmedQuery}&rdquo;.</p>}
+          <TodaySection
+            items={data.today}
+            capacityMinutes={plan.capacityMinutes}
+            onStart={handleStart}
+            onComplete={handleComplete}
+            onOpenClaude={handleOpenClaude}
+            onDelete={handleDelete}
+            onUnpinToday={handleUnpinToday}
+            onPlanDay={() => setPlanDayOpen(true)}
+            onReorder={handleReorderToday}
+            failingSources={failingSources}
+            onOpenScoringReference={() => setScoringReferenceOpen(true)}
+          />
+          <Card>
+            <CardContent className="pt-6">
+              <Accordion type="multiple" value={inProgressAccordion} onValueChange={setInProgressAccordion}>
+                <ItemSection
+                  value="in-progress"
+                  title="In progress"
+                  items={data.inProgress}
+                  parkedItems={data.parked}
+                  emptyMessage="Nothing in progress — start something above."
+                  onComplete={handleComplete}
+                  onOpenClaude={handleOpenClaude}
+                  onDelete={handleDelete}
+                  onRequeue={handleRequeue}
+                  onPark={handlePark}
+                  onUnpark={handleUnpark}
+                  failingSources={failingSources}
+                  onOpenScoringReference={() => setScoringReferenceOpen(true)}
+                />
+              </Accordion>
+            </CardContent>
+          </Card>
+          <SignalsBoard
+            items={data.signals}
+            onStart={handleStart}
+            onComplete={handleComplete}
+            onOpenClaude={handleOpenClaude}
+            onDelete={handleDelete}
+            onPinToday={handlePinToday}
+            failingSources={failingSources}
+            onStar={handleStar}
+            onSnooze={handleSnooze}
+            onUnsnooze={handleUnsnooze}
+            onDone={handleDone}
+            currentSprintIteration={data.sprint.name}
+            queryText={signalsQuery}
+            onQueryTextChange={setSignalsQuery}
+            savedViews={savedViews}
+            onSavedViewsChange={setSavedViews}
+            onOpenScoringReference={() => setScoringReferenceOpen(true)}
+          />
+        </>
+      )}
       <ShutdownDialog
         open={reviewDayOpen}
         onOpenChange={setReviewDayOpen}
@@ -454,6 +469,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onReorder={handleReorderToday}
         onSetCapacity={handleSetCapacity}
         calibration={calibration}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
       />
       <SwitchTimerDialog
         open={switchTimerOpen}
@@ -463,6 +479,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onSwitch={handleSwitchTimer}
       />
       <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <ScoringReferenceDialog open={scoringReferenceOpen} onOpenChange={setScoringReferenceOpen} />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -477,6 +494,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onGoToDashboard={() => router.push('/')}
         onGoToSettings={() => router.push('/settings')}
         onWrapUp={() => setReviewDayOpen(true)}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
+        onOpenHelp={() => setHelpOpen(true)}
       />
     </main>
     </GlobalKeymapProvider>

@@ -31,10 +31,20 @@ interface Props {
   keptVisible: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenScoringReference: () => void;
   children?: React.ReactNode;
 }
 
-export default function ScoreChip({ score, scoreBreakdown, notFired, keptVisible, open, onOpenChange, children }: Props) {
+export default function ScoreChip({
+  score,
+  scoreBreakdown,
+  notFired,
+  keptVisible,
+  open,
+  onOpenChange,
+  onOpenScoringReference,
+  children,
+}: Props) {
   const tier = getPriorityTier(score);
   const titleId = useId();
 
@@ -90,6 +100,16 @@ export default function ScoreChip({ score, scoreBreakdown, notFired, keptVisible
             {TIER_LABEL[tier]} band. Ties break by oldest activity first.
             {keptVisible && ' Kept visible: ad-hoc items skip the needs-attention score threshold.'}
           </p>
+          <button
+            type="button"
+            className="text-xs text-primary underline-offset-2 hover:underline"
+            onClick={() => {
+              onOpenChange(false);
+              onOpenScoringReference();
+            }}
+          >
+            How urgency is scored →
+          </button>
         </div>
         {children}
       </PopoverContent>

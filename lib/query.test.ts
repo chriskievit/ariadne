@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseQuery, applyQuery, stateOf } from './query';
+import { parseQuery, applyQuery, stateOf, withoutFilter } from './query';
 import type { ScoredItem } from './dashboard';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z');
@@ -186,5 +186,22 @@ describe('stateOf', () => {
 
   it('returns null when there is nothing to map', () => {
     expect(stateOf({ source: 'adhoc', adoStatus: null, prStatus: null })).toBeNull();
+  });
+});
+
+describe('withoutFilter', () => {
+  it('removes exactly the matching filter token and keeps the rest', () => {
+    const result = withoutFilter('source:github group:blocked', { prefix: 'source', values: ['github'], negate: false });
+    expect(result).toBe('group:blocked');
+  });
+
+  it('keeps negation and multi-value filters intact when dropping a different one', () => {
+    const result = withoutFilter('-is:done source:github,ado', { prefix: 'is', values: ['done'], negate: true });
+    expect(result).toBe('source:github,ado');
+  });
+
+  it('returns an empty string when the only filter is dropped', () => {
+    const result = withoutFilter('source:github', { prefix: 'source', values: ['github'], negate: false });
+    expect(result).toBe('');
   });
 });

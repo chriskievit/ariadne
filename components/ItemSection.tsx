@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ItemRow from './ItemRow';
 import type { ScoredItem } from '@/lib/dashboard';
@@ -21,6 +22,7 @@ interface Props {
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   failingSources?: Set<Source>;
+  onOpenScoringReference: () => void;
 }
 
 export default function ItemSection({
@@ -39,8 +41,10 @@ export default function ItemSection({
   onPinToday,
   onUnpinToday,
   failingSources,
+  onOpenScoringReference,
 }: Props) {
   const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
+  const [parkedOpen, setParkedOpen] = useState(false);
   return (
     <AccordionItem value={value}>
       <AccordionTrigger>
@@ -70,24 +74,36 @@ export default function ItemSection({
                 onPinToday={onPinToday}
                 onUnpinToday={onUnpinToday}
                 sourceIsStale={failingSources?.has(item.source)}
+                onOpenScoringReference={onOpenScoringReference}
               />
             ))}
             {parkedItems && parkedItems.length > 0 && (
               <>
-                <p className="pb-1 pt-3 text-xs font-medium text-muted-foreground">
-                  Paused · <span className="font-mono tabular-nums">{parkedItems.length}</span>
-                </p>
-                {parkedItems.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    onComplete={onComplete}
-                    onOpenClaude={onOpenClaude}
-                    onDelete={onDelete}
-                    onRequeue={onRequeue}
-                    onUnpark={onUnpark}
-                  />
-                ))}
+                <button
+                  type="button"
+                  aria-expanded={parkedOpen}
+                  aria-controls={`${value}-paused`}
+                  onClick={() => setParkedOpen((prev) => !prev)}
+                  className="flex w-full items-center pb-1 pt-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Paused · <span className="ml-1 font-mono tabular-nums">{parkedItems.length}</span>
+                </button>
+                {parkedOpen && (
+                  <div id={`${value}-paused`}>
+                    {parkedItems.map((item) => (
+                      <ItemRow
+                        key={item.id}
+                        item={item}
+                        onComplete={onComplete}
+                        onOpenClaude={onOpenClaude}
+                        onDelete={onDelete}
+                        onRequeue={onRequeue}
+                        onUnpark={onUnpark}
+                        onOpenScoringReference={onOpenScoringReference}
+                      />
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>

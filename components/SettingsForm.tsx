@@ -83,6 +83,10 @@ export default function SettingsForm({ initialSettings }: Props) {
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Tokens are stored in plaintext in your local database — the same trust model as a{' '}
+                    <code className="font-mono">.env</code> file.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
@@ -96,6 +100,10 @@ export default function SettingsForm({ initialSettings }: Props) {
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Tokens are stored in plaintext in your local database — the same trust model as a{' '}
+                    <code className="font-mono">.env</code> file.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

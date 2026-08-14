@@ -207,3 +207,15 @@ export function queryToString(parsed: ParsedQuery): string {
   const filterTokens = parsed.filters.map((f) => `${f.negate ? '-' : ''}${f.prefix}:${f.values.join(',')}`);
   return [...filterTokens, ...parsed.bareWords].join(' ');
 }
+
+// Removes exactly one filter (by identity of prefix+values+negate, not by
+// position) and round-trips the remainder back to text via queryToString --
+// used by the "query matched nothing" empty state's one-click "Drop X" link,
+// so dropping a filter can never touch a sibling filter or a bare word.
+export function withoutFilter(query: string, filter: ParsedFilter): string {
+  const parsed = parseQuery(query);
+  const remaining = parsed.filters.filter(
+    (f) => !(f.prefix === filter.prefix && f.negate === filter.negate && f.values.join(',') === filter.values.join(','))
+  );
+  return queryToString({ filters: remaining, bareWords: parsed.bareWords, errors: [] });
+}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { scoreItem, scoreBreakdown, sortByUrgency, getPriorityTier } from './scoring';
+import { scoreItem, scoreBreakdown, sortByUrgency, getPriorityTier, getScoringReference } from './scoring';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
 
@@ -248,5 +248,47 @@ describe('getPriorityTier', () => {
   it('returns critical at 60 and above', () => {
     expect(getPriorityTier(60)).toBe('critical');
     expect(getPriorityTier(85)).toBe('critical');
+  });
+});
+
+describe('getScoringReference', () => {
+  it('generates the primary-reason rows from REASON_LABEL, one per reason', () => {
+    const ref = getScoringReference();
+    expect(ref.primaryReasons).toHaveLength(7);
+    const readyToMerge = ref.primaryReasons.find((r) => r.label === 'Ready to merge');
+    expect(readyToMerge?.points).toBe(45);
+  });
+
+  it('sorts primary reasons by points descending', () => {
+    const ref = getScoringReference();
+    const points = ref.primaryReasons.map((r) => r.points);
+    expect(points).toEqual([...points].sort((a, b) => b - a));
+  });
+
+  it('includes the three stacking rules with their point values', () => {
+    const ref = getScoringReference();
+    expect(ref.stackingRules).toEqual([
+      { label: 'Due, or overdue, within 2 days', points: 25 },
+      { label: 'Unresolved review conversations', points: 20 },
+      { label: 'No activity for more than 5 days', points: 15 },
+    ]);
+  });
+
+  it('reports the max score and the four bands matching getPriorityTier', () => {
+    const ref = getScoringReference();
+    expect(ref.maxScore).toBe(105);
+    expect(ref.bands).toEqual([
+      { tier: 'critical', label: 'Critical', range: '60–105' },
+      { tier: 'high', label: 'High', range: '40–59' },
+      { tier: 'medium', label: 'Medium', range: '25–39' },
+      { tier: 'low', label: 'Low', range: '0–24' },
+    ]);
+  });
+
+  it('discloses the two rules that are not points', () => {
+    const ref = getScoringReference();
+    expect(ref.nonPointRules).toHaveLength(2);
+    expect(ref.nonPointRules[0]).toMatch(/in progress/i);
+    expect(ref.nonPointRules[1]).toMatch(/ad-hoc/i);
   });
 });
