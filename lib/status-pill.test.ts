@@ -31,7 +31,7 @@ describe('getStatusPill', () => {
     ['Resolved', 'success'],
     ['Closed', 'success'],
     ['Removed', 'destructive'],
-    ['Blocked', 'warning'],
+    ['Blocked', 'blocked'],
   ] as const)('buckets ado_workitem state %s into variant %s', (adoStatus, variant) => {
     expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus })).toEqual({ label: adoStatus, variant });
   });
@@ -46,7 +46,7 @@ describe('getStatusPill', () => {
   it('treats blocked as more urgent than an unrecognized neutral state', () => {
     expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus: 'Blocked' })).toEqual({
       label: 'Blocked',
-      variant: 'warning',
+      variant: 'blocked',
     });
     expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus: 'To Do' })).toEqual({
       label: 'To Do',
@@ -59,5 +59,16 @@ describe('getStatusPill', () => {
       label: 'Some Custom State',
       variant: 'outline',
     });
+  });
+
+  it('never returns the default (indigo) variant', () => {
+    const adoStatuses = ['Blocked', 'In Progress', 'To Do', 'Code Review', 'Removed', 'Done'];
+    for (const adoStatus of adoStatuses) {
+      expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus })?.variant).not.toBe('default');
+    }
+    const prStatuses = ['draft', 'ready_for_review', 'changes_requested', 'approved', 'merged'] as const;
+    for (const prStatus of prStatuses) {
+      expect(getStatusPill({ source: 'github_pr', prStatus, adoStatus: null })?.variant).not.toBe('default');
+    }
   });
 });

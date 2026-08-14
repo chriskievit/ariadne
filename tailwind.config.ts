@@ -58,11 +58,14 @@ const config: Config = {
   				critical: 'hsl(var(--urgency-critical))',
   				high: 'hsl(var(--urgency-high))',
   				medium: 'hsl(var(--urgency-medium))',
-  				low: 'hsl(var(--urgency-low))'
+  				low: 'hsl(var(--urgency-low))',
+  				'critical-foreground': 'hsl(var(--urgency-critical-foreground))',
+  				'high-foreground': 'hsl(var(--urgency-high-foreground))'
   			},
   			status: {
   				blocked: 'hsl(var(--status-blocked))',
-  				neutral: 'hsl(var(--status-neutral))'
+  				neutral: 'hsl(var(--status-neutral))',
+  				'blocked-foreground': 'hsl(var(--status-blocked-foreground))'
   			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',

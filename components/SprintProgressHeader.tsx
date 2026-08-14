@@ -32,7 +32,7 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
           <span className="font-mono tabular-nums">
             {sprint.completedCount}/{sprint.totalCount}
           </span>{' '}
-          done
+          sprint items done
           {daysRemaining !== null ? (
             <>
               {' · '}

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import fc from 'fast-check';
 import { scoreItem, scoreBreakdown, sortByUrgency, getPriorityTier } from './scoring';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
@@ -172,6 +173,60 @@ describe('sortByUrgency', () => {
     const items = [baseItem({ reason: 'manual' }), baseItem({ reason: 'approved_unmerged' }), baseItem({ reason: 'mention' })];
     const sorted = sortByUrgency(items, NOW);
     expect(sorted.map((i) => i.reason)).toEqual(['approved_unmerged', 'mention', 'manual']);
+  });
+});
+
+describe('sortByUrgency tiebreak', () => {
+  it('breaks a score tie by oldest activity first', () => {
+    const items = [
+      baseItem({ reason: 'assigned', rawUpdatedAt: '2026-06-25T12:00:00.000Z' }),
+      baseItem({ reason: 'assigned', rawUpdatedAt: '2026-06-20T12:00:00.000Z' }),
+    ];
+    const sorted = sortByUrgency(items, NOW);
+    expect(sorted.map((i) => i.rawUpdatedAt)).toEqual([
+      '2026-06-20T12:00:00.000Z',
+      '2026-06-25T12:00:00.000Z',
+    ]);
+  });
+
+  it('sorts items with no timestamp after items that have one, when scores tie', () => {
+    const items = [
+      baseItem({ reason: 'assigned', rawUpdatedAt: null }),
+      baseItem({ reason: 'assigned', rawUpdatedAt: '2026-06-20T12:00:00.000Z' }),
+    ];
+    const sorted = sortByUrgency(items, NOW);
+    expect(sorted.map((i) => i.rawUpdatedAt)).toEqual(['2026-06-20T12:00:00.000Z', null]);
+  });
+});
+
+describe('scoreBreakdown property', () => {
+  it('always sums to scoreItem, for any generated item', () => {
+    const reasonArb = fc.constantFrom(
+      'mention', 'review_requested', 'assigned', 'authored', 'manual', 'stale_own_pr', 'approved_unmerged'
+    );
+    const statusArb = fc.constantFrom('inbox', 'in_progress', 'done');
+    const isoDateArb = fc.option(
+      fc
+        .date({ min: new Date('2026-01-01'), max: new Date('2026-12-31'), noInvalidDate: true })
+        .map((d) => d.toISOString()),
+      { nil: null }
+    );
+    const itemArb = fc.record({
+      reason: reasonArb,
+      status: statusArb,
+      dueDate: isoDateArb,
+      sprintEnd: isoDateArb,
+      rawUpdatedAt: isoDateArb,
+      hasUnresolvedConversations: fc.boolean(),
+    });
+
+    fc.assert(
+      fc.property(itemArb, (item) => {
+        const breakdown = scoreBreakdown(item, NOW);
+        const total = breakdown.reduce((sum, e) => sum + e.points, 0);
+        expect(total).toBe(scoreItem(item, NOW));
+      })
+    );
   });
 });
 
