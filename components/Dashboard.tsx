@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/sonner';
 import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import SignalsBoard from './SignalsBoard';
 import QuickAddForm from './QuickAddForm';
 import TodaySection from './TodaySection';
 import ShutdownDialog from './ShutdownDialog';
+import GlobalKeymapProvider from './GlobalKeymapProvider';
+import KeymapHelpDialog from './KeymapHelpDialog';
 import {
   fetchDashboardData,
   triggerSync,
@@ -52,13 +55,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const prevQueryRef = useRef('');
   const preSearchAccordionRef = useRef<{ inProgress: string[] } | null>(null);
+  const lastUndoRef = useRef<(() => void) | null>(null);
 
   const { query } = useSearch();
+  const router = useRouter();
 
   function scheduleAutoSync() {
     if (!isMountedRef.current) return;
@@ -150,15 +157,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   async function handleSnooze(id: number, option: SnoozeOption) {
     await snoozeItem(id, option);
     await refresh();
+    const undo = async () => {
+      await unsnoozeItem(id);
+      await refresh();
+    };
+    lastUndoRef.current = () => {
+      undo();
+    };
     toast(`Snoozed — ${SNOOZE_LABEL[option]}`, {
       duration: 10_000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          await unsnoozeItem(id);
-          await refresh();
-        },
-      },
+      action: { label: 'Undo', onClick: undo },
     });
   }
 
@@ -171,15 +179,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     await setItemDone(id, done);
     await refresh();
     if (done) {
+      const undo = async () => {
+        await setItemDone(id, false);
+        await refresh();
+      };
+      lastUndoRef.current = () => {
+        undo();
+      };
       toast('Marked done locally.', {
         duration: 10_000,
-        action: {
-          label: 'Undo',
-          onClick: async () => {
-            await setItemDone(id, false);
-            await refresh();
-          },
-        },
+        action: { label: 'Undo', onClick: undo },
       });
     }
   }
@@ -239,6 +248,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     [...data.today, ...data.signals, ...data.inProgress, ...data.parked].some((i) => matchesQuery(i.title, trimmedQuery));
 
   return (
+    <GlobalKeymapProvider
+      onOpenPalette={() => setPaletteOpen(true)}
+      onFocusQueryBar={() => document.getElementById('query-bar-input')?.focus()}
+      onUndo={() => lastUndoRef.current?.()}
+      onRefresh={handleRefresh}
+      onWrapUp={() => setReviewDayOpen(true)}
+      onOpenHelp={() => setHelpOpen(true)}
+      onGoToDashboard={() => router.push('/')}
+      onGoToSettings={() => router.push('/settings')}
+    >
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader
         sprint={data.sprint}
@@ -291,6 +310,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         currentSprintIteration={data.sprint.name}
       />
       <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
+      <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </main>
+    </GlobalKeymapProvider>
   );
 }
