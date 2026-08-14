@@ -25,7 +25,9 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete, onOpen
     <div>
       <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
         Needs attention
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+          {items.length}
+        </span>
       </h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {SOURCE_GROUPS.map((group) => {
@@ -36,7 +38,7 @@ export default function NeedsAttentionBoard({ items, onStart, onComplete, onOpen
               <CardHeader className="flex flex-row items-center gap-2 space-y-0 p-4">
                 <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 <CardTitle className="text-sm">{group.label}</CardTitle>
-                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
                   {groupItems.length}
                 </span>
               </CardHeader>

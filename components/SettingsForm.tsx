@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from '@/lib/config';
+import { SETTINGS_KEYS, DEFAULT_STALE_DAYS, DEFAULT_DENSITY } from '@/lib/config';
 
 // react-hook-form treats dots in a field `name` as a nested-path separator
 // (e.g. "ado.org" is stored as { ado: { org } }), so SETTINGS_KEYS' dotted
@@ -25,6 +25,7 @@ const settingsSchema = z.object({
   staleDays: z.string().optional(),
   localReposBaseDir: z.string().optional(),
   repoPathOverrides: z.string().optional(),
+  density: z.enum(['comfortable', 'compact']).optional(),
 });
 
 type SettingsValues = z.infer<typeof settingsSchema>;
@@ -46,6 +47,7 @@ export default function SettingsForm({ initialSettings }: Props) {
       staleDays: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
       localReposBaseDir: initialSettings[SETTINGS_KEYS.localReposBaseDir] ?? '',
       repoPathOverrides: initialSettings[SETTINGS_KEYS.repoPathOverrides] ?? '',
+      density: (initialSettings[SETTINGS_KEYS.density] as 'comfortable' | 'compact' | undefined) ?? DEFAULT_DENSITY,
     },
   });
 
@@ -61,6 +63,7 @@ export default function SettingsForm({ initialSettings }: Props) {
         [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
         [SETTINGS_KEYS.localReposBaseDir]: values.localReposBaseDir ?? '',
         [SETTINGS_KEYS.repoPathOverrides]: values.repoPathOverrides ?? '',
+        [SETTINGS_KEYS.density]: values.density ?? DEFAULT_DENSITY,
       }),
     });
     setSaved(true);
@@ -170,6 +173,25 @@ export default function SettingsForm({ initialSettings }: Props) {
                   <FormLabel>Repo path overrides (optional)</FormLabel>
                   <FormControl>
                     <Textarea placeholder="repo-name=/absolute/path (one per line)" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="density"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Row density</FormLabel>
+                  <FormControl>
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      {...field}
+                    >
+                      <option value="comfortable">Comfortable — 44px rows (default)</option>
+                      <option value="compact">Compact — 36px rows</option>
+                    </select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

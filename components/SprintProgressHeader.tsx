@@ -29,8 +29,18 @@ export default function SprintProgressHeader({ sprint, onRefresh, syncing, error
         <p className="min-w-0 truncate text-sm text-muted-foreground">
           <span className="font-medium text-foreground">{sprint.name ?? 'No active sprint'}</span>
           {' · '}
-          {sprint.completedCount}/{sprint.totalCount} done
-          {daysRemaining !== null ? ` · ${daysRemaining} days left` : ''}
+          <span className="font-mono tabular-nums">
+            {sprint.completedCount}/{sprint.totalCount}
+          </span>{' '}
+          done
+          {daysRemaining !== null ? (
+            <>
+              {' · '}
+              <span className="font-mono tabular-nums">{daysRemaining}</span> days left
+            </>
+          ) : (
+            ''
+          )}
           {' · '}
           {lastSyncedLabel}
         </p>

@@ -90,6 +90,9 @@ export type PriorityTier = 'low' | 'medium' | 'high' | 'critical';
 
 // Boundaries line up with NEEDS_ATTENTION_THRESHOLD (25) in lib/config.ts —
 // 'low' never appears in the Needs Attention UI, only medium/high/critical do.
+// Max achievable score is 105: approved_unmerged (45) + due-date urgency (25)
+// + unresolved conversations (20) + stale (15). The --urgency-* CSS tokens
+// (app/globals.css) are keyed to these same cuts.
 export function getPriorityTier(score: number): PriorityTier {
   if (score >= 60) return 'critical';
   if (score >= 40) return 'high';

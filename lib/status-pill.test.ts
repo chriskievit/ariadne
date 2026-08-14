@@ -15,22 +15,23 @@ describe('getStatusPill', () => {
   });
 
   it.each([
-    ['draft', 'Draft', 'secondary'],
-    ['ready_for_review', 'Ready for review', 'default'],
+    ['draft', 'Draft', 'outline'],
+    ['ready_for_review', 'Ready for review', 'outline'],
     ['changes_requested', 'Changes requested', 'warning'],
-    ['approved', 'Approved', 'success'],
+    ['approved', 'Approved', 'outline'],
     ['merged', 'Merged', 'outline'],
   ] as const)('maps github_pr prStatus %s to label %s and variant %s', (prStatus, label, variant) => {
     expect(getStatusPill({ source: 'github_pr', prStatus, adoStatus: null })).toEqual({ label, variant });
   });
 
   it.each([
-    ['New', 'secondary'],
-    ['Active', 'default'],
-    ['Committed', 'default'],
+    ['New', 'outline'],
+    ['Active', 'secondary'],
+    ['Committed', 'secondary'],
     ['Resolved', 'success'],
     ['Closed', 'success'],
     ['Removed', 'destructive'],
+    ['Blocked', 'warning'],
   ] as const)('buckets ado_workitem state %s into variant %s', (adoStatus, variant) => {
     expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus })).toEqual({ label: adoStatus, variant });
   });
@@ -38,7 +39,18 @@ describe('getStatusPill', () => {
   it('is case-insensitive when bucketing ado state', () => {
     expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus: 'ACTIVE' })).toEqual({
       label: 'ACTIVE',
-      variant: 'default',
+      variant: 'secondary',
+    });
+  });
+
+  it('treats blocked as more urgent than an unrecognized neutral state', () => {
+    expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus: 'Blocked' })).toEqual({
+      label: 'Blocked',
+      variant: 'warning',
+    });
+    expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus: 'To Do' })).toEqual({
+      label: 'To Do',
+      variant: 'outline',
     });
   });
 

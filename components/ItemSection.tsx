@@ -43,7 +43,9 @@ export default function ItemSection({
       <AccordionTrigger>
         <span className="flex items-center gap-2">
           {title}
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+            {items.length}
+          </span>
         </span>
       </AccordionTrigger>
       <AccordionContent>
@@ -68,7 +70,9 @@ export default function ItemSection({
             ))}
             {parkedItems && parkedItems.length > 0 && (
               <>
-                <p className="pb-1 pt-3 text-xs font-medium text-muted-foreground">Paused · {parkedItems.length}</p>
+                <p className="pb-1 pt-3 text-xs font-medium text-muted-foreground">
+                  Paused · <span className="font-mono tabular-nums">{parkedItems.length}</span>
+                </p>
                 {parkedItems.map((item) => (
                   <ItemRow
                     key={item.id}

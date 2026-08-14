@@ -30,7 +30,9 @@ export default function TodaySection({
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             Today
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
+              {items.length}
+            </span>
           </h2>
           <Button type="button" variant="ghost" size="sm" onClick={onReviewDay}>
             Review my day
