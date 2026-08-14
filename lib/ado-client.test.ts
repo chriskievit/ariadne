@@ -175,3 +175,47 @@ describe('fetchAdoData', () => {
     expect(result.items[0].adoStatus).toBe('Ready for Test');
   });
 });
+
+describe('read-only guard', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('never issues a non-GET request, except the read-only WIQL query endpoint', async () => {
+    const calls: { url: string; method: string }[] = [];
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.includes('teamsettings/iterations')) {
+        return jsonResponse({ value: [{ name: 'Sprint 42', attributes: { startDate: '2026-06-29', finishDate: '2026-07-12' } }] });
+      }
+      if (url.includes('/wiql')) return jsonResponse({ workItems: [{ id: 101 }] });
+      if (url.includes('/workitems?ids=101')) {
+        return jsonResponse({
+          value: [
+            {
+              id: 101,
+              fields: {
+                'System.Title': 'Fix login bug',
+                'Microsoft.VSTS.Scheduling.DueDate': null,
+                'System.IterationPath': 'Project\\Sprint 42',
+                'System.ChangedDate': '2026-07-01T00:00:00Z',
+              },
+              _links: { html: { href: 'https://dev.azure.com/org/project/_workitems/edit/101' } },
+            },
+          ],
+        });
+      }
+      if (url.includes('/comments')) return jsonResponse({ comments: [] });
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    await fetchAdoData({ pat: 'x', org: 'org', project: 'project' });
+
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const isReadOnlyWiqlQuery = call.method === 'POST' && call.url.includes('wiql');
+      expect(call.method === 'GET' || isReadOnlyWiqlQuery).toBe(true);
+    }
+  });
+});

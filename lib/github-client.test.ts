@@ -502,6 +502,48 @@ describe('fetchGithubItems linked ADO ids', () => {
   });
 });
 
+describe('read-only guard', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('never issues a non-GET request, except the read-only GraphQL review-threads query', async () => {
+    const calls: { url: string; method: string }[] = [];
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.endsWith('/user')) return jsonResponse({ login: 'chris' });
+      if (url.includes('author%3Achris')) {
+        return jsonResponse({
+          items: [
+            {
+              number: 42,
+              title: 'Add feature',
+              html_url: 'https://github.com/acme/widgets/pull/42',
+              repository_url: 'https://api.github.com/repos/acme/widgets',
+              updated_at: '2026-07-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (url.includes('/pulls/42/reviews')) return jsonResponse([{ user: { login: 'reviewer1' }, state: 'APPROVED' }]);
+      if (url.endsWith('/pulls/42')) return jsonResponse({ draft: false });
+      if (url.includes('review-requested%3Achris')) return jsonResponse({ items: [] });
+      if (url.includes('mentions%3Achris')) return jsonResponse({ items: [] });
+      if (url.endsWith('/graphql')) return NO_THREADS_RESPONSE;
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    await fetchGithubItems({ pat: 'x', staleDays: 3 });
+
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      const isReadOnlyGraphqlQuery = call.method === 'POST' && call.url.endsWith('/graphql');
+      expect(call.method === 'GET' || isReadOnlyGraphqlQuery).toBe(true);
+    }
+  });
+});
+
 describe('fetchMergedExternalIds', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
