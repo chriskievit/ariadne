@@ -1,7 +1,7 @@
 import type { TimeReport } from '@/lib/report';
 import type { LocalRepo } from '@/lib/warp';
 import { localDateString, addDays } from '@/lib/date';
-import type { Item } from '@/lib/types';
+import type { Item, Plan } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
 
 export async function fetchDashboardData() {
@@ -132,4 +132,44 @@ export async function fetchTimeReport(start: string, end: string): Promise<TimeR
     throw new Error(`Failed to fetch time report: ${res.status}`);
   }
   return res.json();
+}
+
+export async function fetchPlan(date: string) {
+  const res = await fetch(`/api/plan?date=${date}`);
+  return res.json();
+}
+
+export async function updatePlan(date: string, input: { capacityMinutes?: number; note?: string | null }): Promise<Plan> {
+  const res = await fetch('/api/plan', { method: 'POST', body: JSON.stringify({ date, ...input }) });
+  return res.json();
+}
+
+export async function addToPlan(date: string, itemId: number) {
+  const res = await fetch('/api/plan/items', { method: 'POST', body: JSON.stringify({ date, itemId }) });
+  return res.json();
+}
+
+export async function removeFromPlan(date: string, itemId: number) {
+  await fetch(`/api/plan/items?date=${date}&itemId=${itemId}`, { method: 'DELETE' });
+}
+
+export async function reorderPlan(date: string, orderedItemIds: number[]) {
+  const res = await fetch('/api/plan/items/reorder', {
+    method: 'PUT',
+    body: JSON.stringify({ date, orderedItemIds }),
+  });
+  return res.json();
+}
+
+export async function setEstimate(date: string, itemId: number, minutes: number | null) {
+  await fetch('/api/plan/items/estimate', { method: 'POST', body: JSON.stringify({ date, itemId, minutes }) });
+}
+
+export async function fetchRunningTimer() {
+  const res = await fetch('/api/timer/running');
+  return res.json();
+}
+
+export async function stopTimerRequest(id: number) {
+  await fetch(`/api/items/${id}/stop-timer`, { method: 'POST' });
 }
