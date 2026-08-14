@@ -746,7 +746,7 @@ export default function ItemRow({
           </Button>
         )}
         {item.status === 'in_progress' && (
-          <Button type="button" size="sm" onClick={() => setOpen(true)}>
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
             Complete
           </Button>
         )}
