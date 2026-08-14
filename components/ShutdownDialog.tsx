@@ -50,7 +50,10 @@ export default function ShutdownDialog({ open, onOpenChange, onCarried }: Props)
         {summary && (
           <div className="space-y-4">
             <p className="text-sm font-medium">
-              {doneCount} of {total} planned item{total === 1 ? '' : 's'} done
+              <span className="font-mono tabular-nums">
+                {doneCount} of {total}
+              </span>{' '}
+              planned item{total === 1 ? '' : 's'} done
             </p>
             <div>
               <h3 className="mb-1.5 text-sm font-semibold text-muted-foreground">Done</h3>
@@ -61,7 +64,7 @@ export default function ShutdownDialog({ open, onOpenChange, onCarried }: Props)
                   {summary.doneToday.map((item) => (
                     <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
                       <span className="min-w-0 truncate">{item.title}</span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                      <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
                         {item.hoursLoggedToday.toFixed(2)}h
                       </span>
                     </li>
@@ -90,7 +93,10 @@ export default function ShutdownDialog({ open, onOpenChange, onCarried }: Props)
         )}
         <DialogFooter className="sm:justify-between">
           <span className="text-sm text-muted-foreground">
-            Total hours logged today: {summary ? summary.hoursLoggedToday.toFixed(2) : '0.00'}h
+            Total hours logged today:{' '}
+            <span className="font-mono tabular-nums">
+              {summary ? summary.hoursLoggedToday.toFixed(2) : '0.00'}h
+            </span>
           </span>
           <Button type="button" onClick={() => onOpenChange(false)}>
             Close

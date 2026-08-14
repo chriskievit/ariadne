@@ -46,11 +46,19 @@ import { matchesQuery } from '@/lib/search';
 import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
+import { useDensity } from '@/components/DensityProvider';
+
+// Row height is fixed per mode so content can never reflow it — comfortable
+// is 44px (11 * 4px grid), compact is 36px (9 * 4px grid).
+const ROW_HEIGHT_CLASS = { comfortable: 'h-11', compact: 'h-9' } as const;
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
 
+// Indigo ('default') never appears on a badge — that channel is
+// interactive-only. approved_unmerged's urgency is already carried by the
+// priority dot, so its reason pill is neutral outline like the others.
 const REASON_VARIANT: Record<Item['reason'], ReasonVariant> = {
-  approved_unmerged: 'default',
+  approved_unmerged: 'outline',
   mention: 'warning',
   review_requested: 'secondary',
   stale_own_pr: 'destructive',
@@ -101,11 +109,15 @@ const TIER_LABEL: Record<PriorityTier, string> = {
   critical: 'Critical',
 };
 
+// Urgency bands per docs/wireframes/phase-0-foundation.html: only the top two
+// bands are filled, medium is an outline, low has no border at all — so
+// visual weight falls off in the same direction the score does. Indigo never
+// appears here; that channel is interactive-only.
 const TIER_DOT_CLASS: Record<PriorityTier, string> = {
-  low: 'bg-muted-foreground/40',
-  medium: 'bg-primary',
-  high: 'bg-warning',
-  critical: 'bg-destructive',
+  low: 'bg-urgency-low/40',
+  medium: 'border-2 border-urgency-medium bg-transparent',
+  high: 'bg-urgency-high',
+  critical: 'bg-urgency-critical',
 };
 
 interface Props {
@@ -284,6 +296,7 @@ export default function ItemRow({
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
   const { query } = useSearch();
+  const density = useDensity();
   const isMatch = matchesQuery(item.title, query);
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState('');
@@ -538,7 +551,8 @@ export default function ItemRow({
     return (
       <div
         className={cn(
-          'flex items-center justify-between gap-3 border-b py-3 last:border-0',
+          'flex items-center justify-between gap-3 overflow-hidden border-b last:border-0',
+          ROW_HEIGHT_CLASS[density],
           'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
           isMatch ? 'opacity-55' : 'opacity-30'
         )}
@@ -566,7 +580,8 @@ export default function ItemRow({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 border-b py-3 last:border-0',
+        'flex items-center justify-between gap-3 overflow-hidden border-b last:border-0',
+        ROW_HEIGHT_CLASS[density],
         'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
         !isMatch && 'opacity-40'
       )}
@@ -593,7 +608,9 @@ export default function ItemRow({
               </Badge>
             )}
           </div>
-          {item.repo && <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>}
+          {item.repo && density === 'comfortable' && (
+            <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
+          )}
         </div>
         <HoverCard openDelay={150}>
           <HoverCardTrigger asChild>
@@ -608,7 +625,7 @@ export default function ItemRow({
               {item.scoreBreakdown?.map((entry, i) => (
                 <div key={i} className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">{entry.label}</span>
-                  <span className="font-medium tabular-nums">+{entry.points}</span>
+                  <span className="font-mono font-medium tabular-nums">+{entry.points}</span>
                 </div>
               ))}
             </div>

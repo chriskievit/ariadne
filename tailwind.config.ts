@@ -54,6 +54,16 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--success))',
   				foreground: 'hsl(var(--success-foreground))'
   			},
+  			urgency: {
+  				critical: 'hsl(var(--urgency-critical))',
+  				high: 'hsl(var(--urgency-high))',
+  				medium: 'hsl(var(--urgency-medium))',
+  				low: 'hsl(var(--urgency-low))'
+  			},
+  			status: {
+  				blocked: 'hsl(var(--status-blocked))',
+  				neutral: 'hsl(var(--status-neutral))'
+  			},
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',

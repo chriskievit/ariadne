@@ -42,6 +42,19 @@
     --sidebar-border: 240 5.9% 90%;
     --sidebar-ring: 240 5.5% 64.3%;
     --brand-gold: 41.4 53.8% 54.1%;
+
+    /* Urgency bands mirror getPriorityTier()'s cuts at 60/40/25 (lib/scoring.ts).
+       critical and high share hue with --destructive/--warning; medium and low
+       are neutral grays so only the top two bands compete for attention. */
+    --urgency-critical: 358 75% 46%;
+    --urgency-high: 38 92% 50%;
+    --urgency-medium: 240 5% 45%;
+    --urgency-low: 240 4.2% 46.3%;
+
+    /* Status is neutral outline by default; a fill is reserved for states
+       that demand action (blocked). See lib/status-pill.ts. */
+    --status-blocked: 38 92% 50%;
+    --status-neutral: 240 5% 45%;
   }
   .dark {
     --background: 240 10% 3.9%;
@@ -79,7 +92,15 @@
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 0 0% 100% / 10%;
-    --sidebar-ring: 240 4.2% 46.3%
+    --sidebar-ring: 240 4.2% 46.3%;
+
+    --urgency-critical: 358 75% 59%;
+    --urgency-high: 38 92% 55%;
+    --urgency-medium: 240 5% 65%;
+    --urgency-low: 240 5.5% 64.3%;
+
+    --status-blocked: 38 92% 55%;
+    --status-neutral: 240 5% 65%;
   }
 }
 
