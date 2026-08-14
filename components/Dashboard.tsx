@@ -340,7 +340,13 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         savedViews={savedViews}
         onSavedViewsChange={setSavedViews}
       />
-      <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
+      <ShutdownDialog
+        open={reviewDayOpen}
+        onOpenChange={setReviewDayOpen}
+        onCarried={refresh}
+        onSnooze={handleSnooze}
+        onDrop={handleUnpinToday}
+      />
       <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
       <CommandPalette
         open={paletteOpen}

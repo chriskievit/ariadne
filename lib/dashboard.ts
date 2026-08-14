@@ -5,9 +5,9 @@ import { sortByUrgency, type ScoreBreakdownEntry } from './scoring';
 import { getLinksForItems, type LinkedRef } from './links-repo';
 import { localDateString } from './date';
 import { sumHoursLoggedOn, sumHoursLoggedOnByItem } from './time-logs-repo';
-import { getPlanItems } from './plans-repo';
+import { getPlan, getPlanItems } from './plans-repo';
 import { SETTINGS_KEYS } from './config';
-import type { Item } from './types';
+import type { Item, Plan } from './types';
 
 export type ScoredItem = Item & {
   score: number;
@@ -66,6 +66,8 @@ export interface TodaySummary {
   planned: Item[];
   doneToday: Item[];
   hoursLoggedToday: number;
+  plan: Plan;
+  plannedMinutes: number;
 }
 
 // `now` is accepted (not just `date`) to mirror getGroupedItems's signature
@@ -78,6 +80,8 @@ export function getTodaySummary(db: Database.Database, date: string, now: Date):
     (i) => i.status === 'done' && i.completedAt !== null && localDateString(new Date(i.completedAt)) === date
   );
   const hoursLoggedToday = sumHoursLoggedOn(db, date);
+  const plan = getPlan(db, date);
+  const plannedMinutes = getPlanItems(db, date).reduce((sum, pi) => sum + (pi.estimateMinutes ?? 0), 0);
   void now;
-  return { planned, doneToday, hoursLoggedToday };
+  return { planned, doneToday, hoursLoggedToday, plan, plannedMinutes };
 }

@@ -330,3 +330,18 @@ describe('getGroupedItems today ordering', () => {
     expect(found?.loggedMinutesToday).toBe(30);
   });
 });
+
+describe('getTodaySummary plan integration', () => {
+  it('includes the plan and its planned minutes total', () => {
+    const now = new Date(2026, 7, 14, 20, 0);
+    const dateStr = localDateString(now);
+    const item = createAdhocItem(db, { title: 'Planned' });
+    setTodayDate(db, item.id, dateStr);
+    addPlanItem(db, dateStr, item.id);
+    setPlanItemEstimate(db, dateStr, item.id, 45);
+
+    const summary = getTodaySummary(db, dateStr, now);
+    expect(summary.plan.capacityMinutes).toBeGreaterThan(0);
+    expect(summary.plannedMinutes).toBe(45);
+  });
+});

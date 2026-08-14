@@ -44,8 +44,10 @@ export async function unparkItem(id: number) {
 
 export interface TodaySummaryResponse {
   planned: Item[];
-  doneToday: (Item & { hoursLoggedToday: number })[];
+  doneToday: (Item & { hoursLoggedToday: number; estimateMinutes: number | null })[];
   hoursLoggedToday: number;
+  plan: Plan;
+  plannedMinutes: number;
 }
 
 export async function pinToday(id: number, date?: string) {
@@ -143,6 +145,10 @@ export async function fetchPlan(date: string) {
 export async function updatePlan(date: string, input: { capacityMinutes?: number; note?: string | null }): Promise<Plan> {
   const res = await fetch('/api/plan', { method: 'POST', body: JSON.stringify({ date, ...input }) });
   return res.json();
+}
+
+export async function saveWrapUpNote(date: string, note: string) {
+  return updatePlan(date, { note });
 }
 
 export async function addToPlan(date: string, itemId: number) {
