@@ -36,11 +36,14 @@ import {
   unsnoozeItem,
   setItemDone,
   fetchSavedViews,
+  fetchSourceStatuses,
 } from '@/lib/api-client';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
+import { groupOf } from '@/lib/grouping';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
+import type { SourceStatus } from '@/lib/sync-status';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -55,13 +58,13 @@ interface DashboardData {
 export default function Dashboard({ initialData }: { initialData: DashboardData }) {
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
-  const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
   const [helpOpen, setHelpOpen] = useState(false);
   const [signalsQuery, setSignalsQuery] = useState('');
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [sourceStatuses, setSourceStatuses] = useState<SourceStatus[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -75,6 +78,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   useEffect(() => {
     fetchSavedViews().then(setSavedViews);
+    fetchSourceStatuses().then(setSourceStatuses);
   }, []);
 
   function scheduleAutoSync() {
@@ -86,19 +90,16 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }
 
   async function refresh() {
-    const fresh = await fetchDashboardData();
+    const [fresh, statuses] = await Promise.all([fetchDashboardData(), fetchSourceStatuses()]);
     setData(fresh);
+    setSourceStatuses(statuses);
   }
 
   async function handleRefresh() {
     setSyncing(true);
-    setSyncErrors([]);
     try {
-      const { outcomes } = await triggerSync();
-      setSyncErrors(outcomes.filter((o: any) => o.error).map((o: any) => `${o.source}: ${o.error}`));
+      await triggerSync();
       await refresh();
-    } catch (err) {
-      setSyncErrors([`Sync failed: ${err instanceof Error ? err.message : 'unknown error'}`]);
     } finally {
       setSyncing(false);
       scheduleAutoSync();
@@ -252,6 +253,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, data]);
 
+  const needsYouCount = data.signals.filter((i) => groupOf(i) === 'blocked' || groupOf(i) === 'waiting_on_you').length;
+
   const trimmedQuery = query.trim();
   const hasAnyMatch =
     trimmedQuery === '' ||
@@ -271,9 +274,10 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader
         sprint={data.sprint}
+        sourceStatuses={sourceStatuses}
+        needsYouCount={needsYouCount}
         onRefresh={handleRefresh}
         syncing={syncing}
-        errors={syncErrors}
         onAddClick={() => setQuickAddOpen(true)}
       />
       <QuickAddForm open={quickAddOpen} onOpenChange={setQuickAddOpen} onSubmit={handleQuickAdd} />

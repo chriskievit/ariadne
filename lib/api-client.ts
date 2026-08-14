@@ -3,6 +3,7 @@ import type { LocalRepo } from '@/lib/warp';
 import { localDateString, addDays } from '@/lib/date';
 import type { Item, Plan } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
+import type { SourceStatus } from '@/lib/sync-status';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -172,4 +173,9 @@ export async function fetchRunningTimer() {
 
 export async function stopTimerRequest(id: number) {
   await fetch(`/api/items/${id}/stop-timer`, { method: 'POST' });
+}
+
+export async function fetchSourceStatuses(): Promise<SourceStatus[]> {
+  const res = await fetch('/api/sync-status');
+  return res.json();
 }
