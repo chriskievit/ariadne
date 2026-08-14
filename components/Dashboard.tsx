@@ -8,7 +8,7 @@ import { useSearch } from './SearchProvider';
 import { matchesQuery } from '@/lib/search';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
-import NeedsAttentionBoard from './NeedsAttentionBoard';
+import SignalsBoard from './SignalsBoard';
 import QuickAddForm from './QuickAddForm';
 import TodaySection from './TodaySection';
 import ShutdownDialog from './ShutdownDialog';
@@ -34,10 +34,9 @@ const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
 interface DashboardData {
   today: ScoredItem[];
-  needsAttention: ScoredItem[];
+  signals: ScoredItem[];
   inProgress: ScoredItem[];
   parked: ScoredItem[];
-  everythingElse: ScoredItem[];
   sprint: SprintProgress;
 }
 
@@ -48,12 +47,11 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
-  const [everythingElseAccordion, setEverythingElseAccordion] = useState<string[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const prevQueryRef = useRef('');
-  const preSearchAccordionRef = useRef<{ inProgress: string[]; everythingElse: string[] } | null>(null);
+  const preSearchAccordionRef = useRef<{ inProgress: string[] } | null>(null);
 
   const { query } = useSearch();
 
@@ -169,10 +167,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     const wasSearching = prevQueryRef.current.trim() !== '';
 
     if (isSearching && !wasSearching) {
-      preSearchAccordionRef.current = {
-        inProgress: inProgressAccordion,
-        everythingElse: everythingElseAccordion,
-      };
+      preSearchAccordionRef.current = { inProgress: inProgressAccordion };
     }
 
     if (isSearching) {
@@ -182,13 +177,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       if (inProgressHasMatch) {
         setInProgressAccordion((prev) => (prev.includes('in-progress') ? prev : [...prev, 'in-progress']));
       }
-      const everythingElseHasMatch = data.everythingElse.some((i) => matchesQuery(i.title, trimmed));
-      if (everythingElseHasMatch) {
-        setEverythingElseAccordion((prev) => (prev.includes('everything-else') ? prev : [...prev, 'everything-else']));
-      }
     } else if (wasSearching && preSearchAccordionRef.current) {
       setInProgressAccordion(preSearchAccordionRef.current.inProgress);
-      setEverythingElseAccordion(preSearchAccordionRef.current.everythingElse);
       preSearchAccordionRef.current = null;
     }
 
@@ -199,9 +189,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const trimmedQuery = query.trim();
   const hasAnyMatch =
     trimmedQuery === '' ||
-    [...data.today, ...data.needsAttention, ...data.inProgress, ...data.parked, ...data.everythingElse].some((i) =>
-      matchesQuery(i.title, trimmedQuery)
-    );
+    [...data.today, ...data.signals, ...data.inProgress, ...data.parked].some((i) => matchesQuery(i.title, trimmedQuery));
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
@@ -242,31 +230,14 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
           </Accordion>
         </CardContent>
       </Card>
-      <NeedsAttentionBoard
-        items={data.needsAttention}
+      <SignalsBoard
+        items={data.signals}
         onStart={handleStart}
         onComplete={handleComplete}
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
         onPinToday={handlePinToday}
       />
-      <Card>
-        <CardContent className="pt-6">
-          <Accordion type="multiple" value={everythingElseAccordion} onValueChange={setEverythingElseAccordion}>
-            <ItemSection
-              value="everything-else"
-              title="Everything else"
-              items={data.everythingElse}
-              emptyMessage="Nothing else queued."
-              onStart={handleStart}
-              onComplete={handleComplete}
-              onOpenClaude={handleOpenClaude}
-              onDelete={handleDelete}
-              onPinToday={handlePinToday}
-            />
-          </Accordion>
-        </CardContent>
-      </Card>
       <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
     </main>
   );
