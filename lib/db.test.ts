@@ -127,6 +127,57 @@ describe('openDb', () => {
   });
 });
 
+describe('items.starred / snoozed_until / triage_state / woke_early migration', () => {
+  it('adds all four columns to a fresh database', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toContain('starred');
+    expect(columns).toContain('snoozed_until');
+    expect(columns).toContain('triage_state');
+    expect(columns).toContain('woke_early');
+    db.close();
+  });
+
+  it('adds all four columns to a pre-existing database that lacks them, without erroring on reopen', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
+    const dbPath = join(dir, 'legacy.db');
+    try {
+      const legacy = new Database(dbPath);
+      legacy.exec(`
+        CREATE TABLE items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source TEXT NOT NULL,
+          external_id TEXT,
+          title TEXT NOT NULL,
+          url TEXT,
+          reason TEXT NOT NULL,
+          category TEXT,
+          due_date TEXT,
+          sprint_iteration TEXT,
+          raw_updated_at TEXT,
+          status TEXT NOT NULL DEFAULT 'inbox',
+          created_at TEXT NOT NULL,
+          completed_at TEXT,
+          UNIQUE(source, external_id)
+        );
+      `);
+      legacy.close();
+
+      const reopened = openDb(dbPath);
+      const columns = (reopened.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map((c) => c.name);
+      expect(columns).toContain('starred');
+      expect(columns).toContain('snoozed_until');
+      expect(columns).toContain('triage_state');
+      expect(columns).toContain('woke_early');
+      reopened.close();
+
+      expect(() => openDb(dbPath).close()).not.toThrow();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('addColumnTolerant', () => {
   it('adds the column when missing', () => {
     const db = new Database(':memory:');

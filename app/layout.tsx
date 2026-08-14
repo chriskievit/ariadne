@@ -3,6 +3,7 @@ import { Inter, Marcellus } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { SearchProvider } from '@/components/SearchProvider';
+import { CommandPaletteProvider } from '@/components/CommandPaletteProvider';
 import { DensityProvider } from '@/components/DensityProvider';
 import TopBar from '@/components/TopBar';
 import { db } from '@/lib/db-instance';
@@ -34,8 +35,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <DensityProvider density={density}>
             <SearchProvider>
-              <TopBar />
-              {children}
+              <CommandPaletteProvider>
+                <TopBar />
+                {children}
+              </CommandPaletteProvider>
             </SearchProvider>
           </DensityProvider>
           <Toaster />

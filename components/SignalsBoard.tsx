@@ -1,24 +1,21 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import ItemRow, { SOURCE_ICON } from './ItemRow';
+import ItemRow from './ItemRow';
+import QueryBar from './QueryBar';
 import { groupOf, isKeptVisible, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
+import { parseQuery, applyQuery } from '@/lib/query';
+import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
+import { isTypingTarget } from '@/lib/keymap';
+import { createSavedView, deleteSavedView } from '@/lib/api-client';
+import type { SavedView } from '@/lib/saved-views';
 import type { Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
 
 const VISIBLE_PER_GROUP = 5;
-
-type SourceFilter = Source | 'all';
-
-const SOURCE_FILTERS: { source: SourceFilter; label: string; Icon?: typeof SOURCE_ICON.github_pr }[] = [
-  { source: 'all', label: 'All' },
-  { source: 'github_pr', label: 'GitHub', Icon: SOURCE_ICON.github_pr },
-  { source: 'ado_workitem', label: 'Azure DevOps', Icon: SOURCE_ICON.ado_workitem },
-  { source: 'adhoc', label: 'Ad-hoc', Icon: SOURCE_ICON.adhoc },
-];
 
 const STATUS_KEY: { label: string; description: string }[] = [
   { label: 'Blocked', description: 'Needs a nudge, not work.' },
@@ -67,30 +64,79 @@ interface Props {
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete: (id: number) => void;
   onPinToday?: (id: number) => void;
+  onStar?: (id: number, starred: boolean) => void;
+  onSnooze?: (id: number, option: SnoozeOption) => void;
+  onUnsnooze?: (id: number) => void;
+  onDone?: (id: number, done: boolean) => void;
+  currentSprintIteration: string | null;
+  queryText: string;
+  onQueryTextChange: (raw: string) => void;
+  savedViews: SavedView[];
+  onSavedViewsChange: (views: SavedView[]) => void;
 }
 
-export default function SignalsBoard({ items, onStart, onComplete, onOpenClaude, onDelete, onPinToday }: Props) {
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+export default function SignalsBoard({
+  items,
+  onStart,
+  onComplete,
+  onOpenClaude,
+  onDelete,
+  onPinToday,
+  onStar,
+  onSnooze,
+  onUnsnooze,
+  onDone,
+  currentSprintIteration,
+  queryText,
+  onQueryTextChange,
+  savedViews,
+  onSavedViewsChange,
+}: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
     blocked: false,
     moving_without_you: false,
     lower_priority: false,
   });
+  const [lastValidParsed, setLastValidParsed] = useState(parseQuery(''));
+
+  const parsed = parseQuery(queryText);
+  const activeParsed = parsed.errors.length === 0 ? parsed : lastValidParsed;
+
+  useEffect(() => {
+    if (parsed.errors.length === 0) setLastValidParsed(parsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryText]);
+
+  const context = { now: new Date(), currentSprintIteration };
+  const withoutHiddenTriage = items.filter(
+    (item) =>
+      (activeParsed.filters.some((f) => f.prefix === 'is' && f.values.includes('snoozed')) ||
+        !isSnoozed(item.snoozedUntil, context.now)) &&
+      (activeParsed.filters.some((f) => f.prefix === 'is' && f.values.includes('done')) || item.triageState !== 'done')
+  );
+  const filtered = applyQuery(withoutHiddenTriage, activeParsed, context);
 
   const needsYouCount = useMemo(
-    () => items.filter((item) => groupOf(item) === 'blocked' || groupOf(item) === 'waiting_on_you').length,
-    [items]
+    () => withoutHiddenTriage.filter((item) => groupOf(item) === 'blocked' || groupOf(item) === 'waiting_on_you').length,
+    [withoutHiddenTriage]
   );
 
-  const sourceCounts: Record<SourceFilter, number> = {
-    all: items.length,
-    github_pr: items.filter((i) => i.source === 'github_pr').length,
-    ado_workitem: items.filter((i) => i.source === 'ado_workitem').length,
-    adhoc: items.filter((i) => i.source === 'adhoc').length,
+  const sourceCounts: Record<Source | 'all', number> = {
+    all: withoutHiddenTriage.length,
+    github_pr: withoutHiddenTriage.filter((i) => i.source === 'github_pr').length,
+    ado_workitem: withoutHiddenTriage.filter((i) => i.source === 'ado_workitem').length,
+    adhoc: withoutHiddenTriage.filter((i) => i.source === 'adhoc').length,
   };
 
-  const filtered = sourceFilter === 'all' ? items : items.filter((item) => item.source === sourceFilter);
+  async function handleSaveCurrentView(label: string) {
+    const updated = await createSavedView({ label, query: queryText, shortcut: null });
+    onSavedViewsChange(updated);
+  }
+
+  async function handleDeleteSavedView(id: string) {
+    onSavedViewsChange(await deleteSavedView(id));
+  }
 
   const grouped = useMemo(() => {
     const buckets: Record<ObligationGroup, ScoredItem[]> = {
@@ -100,38 +146,49 @@ export default function SignalsBoard({ items, onStart, onComplete, onOpenClaude,
       lower_priority: [],
     };
     for (const item of filtered) buckets[groupOf(item)].push(item);
+    for (const key of Object.keys(buckets) as ObligationGroup[]) {
+      buckets[key].sort((a, b) => Number(b.starred) - Number(a.starred));
+    }
     return buckets;
   }, [filtered]);
 
   return (
-    <div aria-labelledby="signals-heading">
+    <div
+      aria-labelledby="signals-heading"
+      onKeyDown={(e) => {
+        if (isTypingTarget(document.activeElement)) return;
+        if (e.key !== 'j' && e.key !== 'k') return;
+        e.preventDefault();
+        const rows = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-row-id]'));
+        const currentIndex = rows.findIndex((el) => el === document.activeElement);
+        const nextIndex = e.key === 'j' ? Math.min(rows.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+        rows[nextIndex === -1 ? 0 : nextIndex]?.focus();
+      }}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 id="signals-heading" className="flex items-center gap-2 text-base font-semibold">
           Signals
           <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-xs tabular-nums text-muted-foreground">
-            {items.length}
+            {withoutHiddenTriage.length}
           </span>
         </h2>
         <p className="text-sm text-muted-foreground">
           <span className="font-mono tabular-nums">{needsYouCount}</span> need something from you
         </p>
       </div>
-      <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Filter by source">
-        {SOURCE_FILTERS.map(({ source, label, Icon }) => (
-          <Button
-            key={source}
-            type="button"
-            variant={sourceFilter === source ? 'secondary' : 'outline'}
-            size="sm"
-            aria-pressed={sourceFilter === source}
-            onClick={() => setSourceFilter(source)}
-          >
-            {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
-            {label} <span className="font-mono tabular-nums">{sourceCounts[source]}</span>
-          </Button>
-        ))}
-      </div>
-      {items.length === 0 && <p className="text-sm text-muted-foreground">Nothing needs your attention right now.</p>}
+      <QueryBar
+        value={queryText}
+        onChange={onQueryTextChange}
+        errors={parsed.errors}
+        savedViews={savedViews}
+        sourceCounts={sourceCounts}
+        onSaveCurrentView={handleSaveCurrentView}
+        onSelectSavedView={onQueryTextChange}
+        onDeleteSavedView={handleDeleteSavedView}
+      />
+      {withoutHiddenTriage.length === 0 && (
+        <p className="text-sm text-muted-foreground">Nothing needs your attention right now.</p>
+      )}
       {GROUP_ORDER.map((group) => {
         const groupItems = grouped[group];
         if (groupItems.length === 0) return null;
@@ -160,6 +217,10 @@ export default function SignalsBoard({ items, onStart, onComplete, onOpenClaude,
                   onOpenClaude={onOpenClaude}
                   onDelete={onDelete}
                   onPinToday={onPinToday}
+                  onStar={onStar}
+                  onSnooze={onSnooze}
+                  onUnsnooze={onUnsnooze}
+                  onDone={onDone}
                 />
               ))}
             </div>

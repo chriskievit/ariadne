@@ -9,6 +9,7 @@ export type Reason =
   | 'approved_unmerged';
 export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved' | 'merged';
 export type Status = 'inbox' | 'in_progress' | 'done';
+export type TriageState = 'none' | 'done';
 
 export interface Item {
   id: number;
@@ -30,6 +31,10 @@ export interface Item {
   hasUnresolvedConversations: boolean;
   parked: boolean;
   todayDate: string | null;
+  starred: boolean;
+  snoozedUntil: string | null;
+  triageState: TriageState;
+  wokeEarly: boolean;
 }
 
 export interface NewSyncedItemInput {

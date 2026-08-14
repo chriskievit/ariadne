@@ -11,6 +11,7 @@ export const SETTINGS_KEYS = {
   localReposBaseDir: 'warp.localReposBaseDir',
   repoPathOverrides: 'warp.repoPathOverrides',
   density: 'ui.density',
+  savedViews: 'ui.savedViews',
 } as const;
 
 export const DEFAULT_STALE_DAYS = 3;

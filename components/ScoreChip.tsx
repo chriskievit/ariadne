@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getPriorityTier, MAX_SCORE, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
@@ -29,16 +29,17 @@ interface Props {
   scoreBreakdown: ScoreBreakdownEntry[];
   notFired: string[];
   keptVisible: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   children?: React.ReactNode;
 }
 
-export default function ScoreChip({ score, scoreBreakdown, notFired, keptVisible, children }: Props) {
-  const [open, setOpen] = useState(false);
+export default function ScoreChip({ score, scoreBreakdown, notFired, keptVisible, open, onOpenChange, children }: Props) {
   const tier = getPriorityTier(score);
   const titleId = useId();
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -51,7 +52,7 @@ export default function ScoreChip({ score, scoreBreakdown, notFired, keptVisible
           onKeyDown={(e) => {
             if (e.key.toLowerCase() === 'x') {
               e.preventDefault();
-              setOpen(true);
+              onOpenChange(true);
             }
           }}
         >

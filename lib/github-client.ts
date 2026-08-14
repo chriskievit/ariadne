@@ -22,7 +22,7 @@ async function githubFetch(pat: string, path: string): Promise<any> {
 
 async function githubGraphql(pat: string, query: string, variables: Record<string, unknown>): Promise<any> {
   const res = await fetch(`${GITHUB_API}/graphql`, {
-    method: 'POST',
+    method: 'POST', // READ-ONLY-QUERY: GraphQL requires POST for a query body; this never mutates
     headers: {
       Authorization: `token ${pat}`,
       'Content-Type': 'application/json',
