@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import ItemRow from './ItemRow';
 import QueryBar from './QueryBar';
 import { groupOf, isKeptVisible, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
-import { parseQuery, applyQuery } from '@/lib/query';
+import { parseQuery, applyQuery, withoutFilter } from '@/lib/query';
 import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
 import { isTypingTarget } from '@/lib/keymap';
 import { createSavedView, deleteSavedView } from '@/lib/api-client';
@@ -192,6 +192,37 @@ export default function SignalsBoard({
       />
       {withoutHiddenTriage.length === 0 && (
         <p className="text-sm text-muted-foreground">Nothing needs your attention right now.</p>
+      )}
+      {withoutHiddenTriage.length > 0 && filtered.length === 0 && (
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>
+            No signals match. There {withoutHiddenTriage.length === 1 ? 'is' : 'are'}{' '}
+            <span className="font-medium text-foreground">
+              {withoutHiddenTriage.length} signal{withoutHiddenTriage.length === 1 ? '' : 's'}
+            </span>{' '}
+            without this filter.
+          </p>
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            {activeParsed.filters.map((filter) => (
+              <button
+                key={`${filter.negate ? '-' : ''}${filter.prefix}:${filter.values.join(',')}`}
+                type="button"
+                className="text-primary underline-offset-2 hover:underline"
+                onClick={() => onQueryTextChange(withoutFilter(queryText, filter))}
+              >
+                Drop {filter.negate ? '-' : ''}
+                {filter.prefix}:{filter.values.join(',')}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="text-primary underline-offset-2 hover:underline"
+              onClick={() => onQueryTextChange('')}
+            >
+              Clear the query
+            </button>
+          </p>
+        </div>
       )}
       {GROUP_ORDER.map((group) => {
         const groupItems = grouped[group];
