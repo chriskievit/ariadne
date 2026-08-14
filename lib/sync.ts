@@ -11,7 +11,7 @@ export interface SyncOutcome {
   error: string | null;
 }
 
-function logSyncResult(db: Database.Database, source: string, itemCount: number, error: string | null): void {
+export function logSyncResult(db: Database.Database, source: string, itemCount: number, error: string | null): void {
   db.prepare('INSERT INTO sync_log (source, ran_at, item_count, error) VALUES (?, ?, ?, ?)').run(
     source,
     new Date().toISOString(),
