@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Marcellus } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
+import { SearchProvider } from '@/components/SearchProvider';
 import TopBar from '@/components/TopBar';
 import './globals.css';
 
@@ -20,8 +21,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${inter.variable} ${marcellus.variable} bg-background font-sans text-foreground antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <TopBar />
-          {children}
+          <SearchProvider>
+            <TopBar />
+            {children}
+          </SearchProvider>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -9,6 +9,29 @@ and log time against it.
 Single-user, runs on your machine only. GitHub and Azure DevOps access is
 read-only — Ariadne never writes back to either system.
 
+## Philosophy
+
+Ariadne's job is to give you a clear, at-a-glance overview of your work and
+the mental space to process it — not to manage your calendar or decide what
+you should do next.
+
+- **Personal, local-only, single-user.** No account, no cloud sync, no
+  multi-tenant backend — just a SQLite file on your machine.
+- **Read-only, always.** Ariadne never writes back to GitHub or Azure
+  DevOps. Actions like Start/Complete, even when they cascade to linked
+  items, only ever touch Ariadne's own local `items` table.
+- **Transparent, not AI-driven.** Urgency is a deterministic, visible point
+  formula (own PR approved, mentioned, stale, due soon, ...), not an opaque
+  ML ranking — the whole scoring table lives in `lib/scoring.ts`, readable
+  end to end.
+- **You control your time, not the algorithm.** There's no auto-scheduling
+  of your day and no calendar it rearranges for you. Ariadne surfaces
+  signals; you decide what to work on and when.
+- **Deliberately small surface.** One dashboard route plus Settings. New
+  features are scoped tightly, and real tradeoffs are accepted explicitly
+  rather than hidden — e.g. access tokens are stored in plaintext locally,
+  the same trust model as a `.env` file.
+
 ## Stack
 
 - Next.js (App Router, TypeScript) — one app for frontend and API routes

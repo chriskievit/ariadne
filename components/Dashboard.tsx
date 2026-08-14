@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
+import { useSearch } from './SearchProvider';
+import { matchesQuery } from '@/lib/search';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
 import NeedsAttentionBoard from './NeedsAttentionBoard';
@@ -45,9 +47,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
+  const [everythingElseAccordion, setEverythingElseAccordion] = useState<string[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const prevQueryRef = useRef('');
+  const preSearchAccordionRef = useRef<{ inProgress: string[]; everythingElse: string[] } | null>(null);
+
+  const { query } = useSearch();
 
   function scheduleAutoSync() {
     if (!isMountedRef.current) return;
@@ -151,6 +159,50 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-expand a collapsed section as soon as it contains a search match,
+  // but never auto-collapse one — closing sections mid-type would be
+  // disorienting. Whatever was expanded before the search started is
+  // restored once the query is cleared.
+  useEffect(() => {
+    const trimmed = query.trim();
+    const isSearching = trimmed !== '';
+    const wasSearching = prevQueryRef.current.trim() !== '';
+
+    if (isSearching && !wasSearching) {
+      preSearchAccordionRef.current = {
+        inProgress: inProgressAccordion,
+        everythingElse: everythingElseAccordion,
+      };
+    }
+
+    if (isSearching) {
+      const inProgressHasMatch =
+        data.inProgress.some((i) => matchesQuery(i.title, trimmed)) ||
+        data.parked.some((i) => matchesQuery(i.title, trimmed));
+      if (inProgressHasMatch) {
+        setInProgressAccordion((prev) => (prev.includes('in-progress') ? prev : [...prev, 'in-progress']));
+      }
+      const everythingElseHasMatch = data.everythingElse.some((i) => matchesQuery(i.title, trimmed));
+      if (everythingElseHasMatch) {
+        setEverythingElseAccordion((prev) => (prev.includes('everything-else') ? prev : [...prev, 'everything-else']));
+      }
+    } else if (wasSearching && preSearchAccordionRef.current) {
+      setInProgressAccordion(preSearchAccordionRef.current.inProgress);
+      setEverythingElseAccordion(preSearchAccordionRef.current.everythingElse);
+      preSearchAccordionRef.current = null;
+    }
+
+    prevQueryRef.current = query;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, data]);
+
+  const trimmedQuery = query.trim();
+  const hasAnyMatch =
+    trimmedQuery === '' ||
+    [...data.today, ...data.needsAttention, ...data.inProgress, ...data.parked, ...data.everythingElse].some((i) =>
+      matchesQuery(i.title, trimmedQuery)
+    );
+
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader
@@ -161,6 +213,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onAddClick={() => setQuickAddOpen(true)}
       />
       <QuickAddForm open={quickAddOpen} onOpenChange={setQuickAddOpen} onSubmit={handleQuickAdd} />
+      {!hasAnyMatch && <p className="text-sm text-muted-foreground">No matches for &ldquo;{trimmedQuery}&rdquo;.</p>}
       <TodaySection
         items={data.today}
         onStart={handleStart}
@@ -172,7 +225,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple" defaultValue={['in-progress']}>
+          <Accordion type="multiple" value={inProgressAccordion} onValueChange={setInProgressAccordion}>
             <ItemSection
               value="in-progress"
               title="In progress"
@@ -199,7 +252,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       />
       <Card>
         <CardContent className="pt-6">
-          <Accordion type="multiple">
+          <Accordion type="multiple" value={everythingElseAccordion} onValueChange={setEverythingElseAccordion}>
             <ItemSection
               value="everything-else"
               title="Everything else"

@@ -1,11 +1,16 @@
+'use client';
+
 import Link from 'next/link';
 import { BarChart3, Search, Settings } from 'lucide-react';
 import { AriadneMark } from '@/components/icons/ariadne-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useSearch } from '@/components/SearchProvider';
 
 export default function TopBar() {
+  const { query, setQuery } = useSearch();
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_minmax(0,28rem)_1fr] items-center gap-6 px-6">
@@ -23,6 +28,8 @@ export default function TopBar() {
             type="search"
             placeholder="Search work items, PRs, people…"
             aria-label="Search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             className="pl-9 focus-visible:ring-[hsl(var(--brand-gold))]"
           />
         </div>

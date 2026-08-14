@@ -42,8 +42,10 @@ import {
 import { cn } from '@/lib/utils';
 import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
+import { matchesQuery } from '@/lib/search';
 import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
+import { useSearch } from '@/components/SearchProvider';
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
 
@@ -248,6 +250,25 @@ function PinToggle({
   );
 }
 
+// Wraps the first case-insensitive occurrence of `query` in the title with
+// <mark>, so a match is visible at a glance even when the row is surrounded
+// by dimmed, non-matching rows.
+function renderTitle(title: string, query: string) {
+  const q = query.trim();
+  if (!q) return title;
+  const index = title.toLowerCase().indexOf(q.toLowerCase());
+  if (index === -1) return title;
+  return (
+    <>
+      {title.slice(0, index)}
+      <mark className="rounded-sm bg-[hsl(var(--brand-gold))]/30 text-inherit">
+        {title.slice(index, index + q.length)}
+      </mark>
+      {title.slice(index + q.length)}
+    </>
+  );
+}
+
 export default function ItemRow({
   item,
   onStart,
@@ -262,6 +283,8 @@ export default function ItemRow({
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const tier = getPriorityTier(item.score);
+  const { query } = useSearch();
+  const isMatch = matchesQuery(item.title, query);
   const [open, setOpen] = useState(false);
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
@@ -513,13 +536,19 @@ export default function ItemRow({
   // just the title and a one-click way back in.
   if (item.parked) {
     return (
-      <div className="flex items-center justify-between gap-3 border-b py-3 opacity-55 last:border-0">
+      <div
+        className={cn(
+          'flex items-center justify-between gap-3 border-b py-3 last:border-0',
+          'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
+          isMatch ? 'opacity-55' : 'opacity-30'
+        )}
+      >
         {item.url ? (
           <a href={item.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-sm hover:underline">
-            {item.title}
+            {renderTitle(item.title, query)}
           </a>
         ) : (
-          <span className="min-w-0 truncate text-sm">{item.title}</span>
+          <span className="min-w-0 truncate text-sm">{renderTitle(item.title, query)}</span>
         )}
         <button
           type="button"
@@ -535,7 +564,13 @@ export default function ItemRow({
   const inlineBadge = getInlineBadge(item);
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b py-3 last:border-0">
+    <div
+      className={cn(
+        'flex items-center justify-between gap-3 border-b py-3 last:border-0',
+        'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
+        !isMatch && 'opacity-40'
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
@@ -547,10 +582,10 @@ export default function ItemRow({
                 rel="noreferrer"
                 className="min-w-0 truncate font-medium hover:underline"
               >
-                {item.title}
+                {renderTitle(item.title, query)}
               </a>
             ) : (
-              <span className="min-w-0 truncate font-medium">{item.title}</span>
+              <span className="min-w-0 truncate font-medium">{renderTitle(item.title, query)}</span>
             )}
             {inlineBadge && (
               <Badge variant={inlineBadge.variant} title={inlineBadge.label} className="max-w-[9rem] shrink-0">
