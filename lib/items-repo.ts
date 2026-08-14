@@ -37,6 +37,10 @@ function replaceItemLinks(db: Database.Database, prItemId: number, adoExternalId
 
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
   const now = new Date().toISOString();
+  const before = db
+    .prepare('SELECT raw_updated_at, snoozed_until FROM items WHERE source = ? AND external_id = ?')
+    .get(input.source, input.externalId) as { raw_updated_at: string | null; snoozed_until: string | null } | undefined;
+
   db.prepare(
     `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, pr_status, repo, has_unresolved_conversations, status, created_at)
      VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
@@ -63,11 +67,21 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
   const row = db.prepare('SELECT * FROM items WHERE source = ? AND external_id = ?').get(input.source, input.externalId);
   const item = rowToItem(row);
 
+  // A snooze is a promise the item will stay quiet -- new upstream activity
+  // breaks that promise, so it wakes the item early rather than silently
+  // keeping it hidden. The row is marked woke_early instead of just clearing
+  // the snooze, so the surprise is labelled instead of silent.
+  const wasSnoozed = before?.snoozed_until != null;
+  const activityChanged = before !== undefined && before.raw_updated_at !== input.rawUpdatedAt;
+  if (wasSnoozed && activityChanged) {
+    db.prepare('UPDATE items SET snoozed_until = NULL, woke_early = 1 WHERE id = ?').run(item.id);
+  }
+
   if (input.source === 'github_pr' && input.linkedAdoExternalIds) {
     replaceItemLinks(db, item.id, input.linkedAdoExternalIds);
   }
 
-  return item;
+  return wasSnoozed && activityChanged ? { ...item, snoozedUntil: null, wokeEarly: true } : item;
 }
 
 export function createAdhocItem(db: Database.Database, input: NewAdhocItemInput): Item {
