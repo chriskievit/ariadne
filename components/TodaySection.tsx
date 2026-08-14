@@ -19,6 +19,7 @@ interface Props {
   onPlanDay: () => void;
   onReorder: (orderedItemIds: number[]) => void;
   failingSources?: Set<Item['source']>;
+  onOpenScoringReference: () => void;
 }
 
 function formatMinutes(minutes: number): string {
@@ -40,6 +41,7 @@ export default function TodaySection({
   onPlanDay,
   onReorder,
   failingSources,
+  onOpenScoringReference,
 }: Props) {
   const plannedMinutes = items.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
   const loggedMinutes = items.reduce((sum, i) => sum + i.loggedMinutesToday, 0);
@@ -111,6 +113,7 @@ export default function TodaySection({
                     onDelete={onDelete}
                     onUnpinToday={onUnpinToday}
                     sourceIsStale={failingSources?.has(item.source)}
+                    onOpenScoringReference={onOpenScoringReference}
                   />
                 </div>
                 {item.estimateMinutes !== null && (

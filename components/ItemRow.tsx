@@ -131,6 +131,7 @@ interface Props {
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   sourceIsStale?: boolean;
+  onOpenScoringReference: () => void;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -325,6 +326,7 @@ export default function ItemRow({
   onUnsnooze,
   onDone,
   sourceIsStale,
+  onOpenScoringReference,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
@@ -696,6 +698,7 @@ export default function ItemRow({
           keptVisible={keptVisible}
           open={chipOpen}
           onOpenChange={setChipOpen}
+          onOpenScoringReference={onOpenScoringReference}
         >
           <HoverExtras item={item} keptVisible={keptVisible} />
         </ScoreChip>

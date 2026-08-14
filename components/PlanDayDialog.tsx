@@ -30,6 +30,7 @@ interface Props {
   onReorder: (orderedIds: number[]) => void;
   onSetCapacity: (minutes: number) => void;
   calibration: CalibrationEntry[];
+  onOpenScoringReference: () => void;
 }
 
 function formatMinutes(minutes: number): string {
@@ -66,6 +67,7 @@ export default function PlanDayDialog({
   onReorder,
   onSetCapacity,
   calibration,
+  onOpenScoringReference,
 }: Props) {
   const [step, setStep] = useState<Step>(1);
   const pickedIds = new Set(today.map((i) => i.id));
@@ -146,6 +148,7 @@ export default function PlanDayDialog({
                             keptVisible={false}
                             open={false}
                             onOpenChange={() => {}}
+                            onOpenScoringReference={onOpenScoringReference}
                           />
                           <span className="min-w-0 truncate">{item.title}</span>
                         </span>

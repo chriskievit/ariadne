@@ -74,6 +74,7 @@ interface Props {
   savedViews: SavedView[];
   onSavedViewsChange: (views: SavedView[]) => void;
   failingSources?: Set<Source>;
+  onOpenScoringReference: () => void;
 }
 
 export default function SignalsBoard({
@@ -93,6 +94,7 @@ export default function SignalsBoard({
   savedViews,
   onSavedViewsChange,
   failingSources,
+  onOpenScoringReference,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -224,6 +226,7 @@ export default function SignalsBoard({
                   onUnsnooze={onUnsnooze}
                   onDone={onDone}
                   sourceIsStale={failingSources?.has(item.source)}
+                  onOpenScoringReference={onOpenScoringReference}
                 />
               ))}
             </div>

@@ -19,6 +19,7 @@ import SwitchTimerDialog from './SwitchTimerDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
 import KeymapHelpDialog from './KeymapHelpDialog';
 import CommandPalette from './CommandPalette';
+import ScoringReferenceDialog from './ScoringReferenceDialog';
 import {
   fetchDashboardData,
   triggerSync,
@@ -92,6 +93,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   });
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [calibration, setCalibration] = useState<CalibrationEntry[]>([]);
+  const [scoringReferenceOpen, setScoringReferenceOpen] = useState(false);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -390,6 +392,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onPlanDay={() => setPlanDayOpen(true)}
         onReorder={handleReorderToday}
         failingSources={failingSources}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
       />
       <Card>
         <CardContent className="pt-6">
@@ -407,6 +410,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onPark={handlePark}
               onUnpark={handleUnpark}
               failingSources={failingSources}
+              onOpenScoringReference={() => setScoringReferenceOpen(true)}
             />
           </Accordion>
         </CardContent>
@@ -428,6 +432,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onQueryTextChange={setSignalsQuery}
         savedViews={savedViews}
         onSavedViewsChange={setSavedViews}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
       />
       <ShutdownDialog
         open={reviewDayOpen}
@@ -454,6 +459,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onReorder={handleReorderToday}
         onSetCapacity={handleSetCapacity}
         calibration={calibration}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
       />
       <SwitchTimerDialog
         open={switchTimerOpen}
@@ -463,6 +469,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onSwitch={handleSwitchTimer}
       />
       <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <ScoringReferenceDialog open={scoringReferenceOpen} onOpenChange={setScoringReferenceOpen} />
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
@@ -477,6 +484,8 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onGoToDashboard={() => router.push('/')}
         onGoToSettings={() => router.push('/settings')}
         onWrapUp={() => setReviewDayOpen(true)}
+        onOpenScoringReference={() => setScoringReferenceOpen(true)}
+        onOpenHelp={() => setHelpOpen(true)}
       />
     </main>
     </GlobalKeymapProvider>

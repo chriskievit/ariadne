@@ -21,6 +21,7 @@ interface Props {
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   failingSources?: Set<Source>;
+  onOpenScoringReference: () => void;
 }
 
 export default function ItemSection({
@@ -39,6 +40,7 @@ export default function ItemSection({
   onPinToday,
   onUnpinToday,
   failingSources,
+  onOpenScoringReference,
 }: Props) {
   const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
   return (
@@ -70,6 +72,7 @@ export default function ItemSection({
                 onPinToday={onPinToday}
                 onUnpinToday={onUnpinToday}
                 sourceIsStale={failingSources?.has(item.source)}
+                onOpenScoringReference={onOpenScoringReference}
               />
             ))}
             {parkedItems && parkedItems.length > 0 && (
@@ -86,6 +89,7 @@ export default function ItemSection({
                     onDelete={onDelete}
                     onRequeue={onRequeue}
                     onUnpark={onUnpark}
+                    onOpenScoringReference={onOpenScoringReference}
                   />
                 ))}
               </>
