@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
+import { cn, formatRelativeTime } from '@/lib/utils';
 import { REASON_LABEL, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
 import { isKeptVisible } from '@/lib/grouping';
@@ -124,6 +124,7 @@ interface Props {
   onSnooze?: (id: number, option: SnoozeOption) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
+  sourceIsStale?: boolean;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -317,6 +318,7 @@ export default function ItemRow({
   onSnooze,
   onUnsnooze,
   onDone,
+  sourceIsStale,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
@@ -710,11 +712,15 @@ export default function ItemRow({
               </Badge>
             )}
           </div>
-          {(item.repo || item.wokeEarly) && density === 'comfortable' && (
+          {(item.repo || item.wokeEarly || sourceIsStale) && density === 'comfortable' && (
             <span className="block truncate text-xs text-muted-foreground" title={item.repo ?? undefined}>
               {item.repo}
-              {item.repo && item.wokeEarly && ' · '}
+              {item.repo && (item.wokeEarly || sourceIsStale) && ' · '}
               {item.wokeEarly && 'woke early'}
+              {item.wokeEarly && sourceIsStale && ' · '}
+              {sourceIsStale && item.rawUpdatedAt && (
+                <span className="text-warning">stale · read {formatRelativeTime(new Date(item.rawUpdatedAt).getTime())}</span>
+              )}
             </span>
           )}
         </div>

@@ -3,6 +3,7 @@
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ItemRow from './ItemRow';
 import type { ScoredItem } from '@/lib/dashboard';
+import type { Source } from '@/lib/types';
 
 interface Props {
   value: string;
@@ -19,6 +20,7 @@ interface Props {
   onUnpark?: (id: number) => void;
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
+  failingSources?: Set<Source>;
 }
 
 export default function ItemSection({
@@ -36,6 +38,7 @@ export default function ItemSection({
   onUnpark,
   onPinToday,
   onUnpinToday,
+  failingSources,
 }: Props) {
   const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
   return (
@@ -66,6 +69,7 @@ export default function ItemSection({
                 onUnpark={onUnpark}
                 onPinToday={onPinToday}
                 onUnpinToday={onUnpinToday}
+                sourceIsStale={failingSources?.has(item.source)}
               />
             ))}
             {parkedItems && parkedItems.length > 0 && (

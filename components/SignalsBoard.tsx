@@ -73,6 +73,7 @@ interface Props {
   onQueryTextChange: (raw: string) => void;
   savedViews: SavedView[];
   onSavedViewsChange: (views: SavedView[]) => void;
+  failingSources?: Set<Source>;
 }
 
 export default function SignalsBoard({
@@ -91,6 +92,7 @@ export default function SignalsBoard({
   onQueryTextChange,
   savedViews,
   onSavedViewsChange,
+  failingSources,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -221,6 +223,7 @@ export default function SignalsBoard({
                   onSnooze={onSnooze}
                   onUnsnooze={onUnsnooze}
                   onDone={onDone}
+                  sourceIsStale={failingSources?.has(item.source)}
                 />
               ))}
             </div>

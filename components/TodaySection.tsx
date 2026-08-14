@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ItemRow from './ItemRow';
 import type { ScoredItem } from '@/lib/dashboard';
+import type { Source } from '@/lib/types';
 
 interface Props {
   items: ScoredItem[];
@@ -13,6 +14,7 @@ interface Props {
   onDelete: (id: number) => void;
   onUnpinToday: (id: number) => void;
   onReviewDay: () => void;
+  failingSources?: Set<Source>;
 }
 
 export default function TodaySection({
@@ -23,6 +25,7 @@ export default function TodaySection({
   onDelete,
   onUnpinToday,
   onReviewDay,
+  failingSources,
 }: Props) {
   return (
     <Card>
@@ -51,6 +54,7 @@ export default function TodaySection({
                 onOpenClaude={onOpenClaude}
                 onDelete={onDelete}
                 onUnpinToday={onUnpinToday}
+                sourceIsStale={failingSources?.has(item.source)}
               />
             ))}
           </div>

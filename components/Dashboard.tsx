@@ -44,6 +44,7 @@ import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
 import type { SourceStatus } from '@/lib/sync-status';
+import type { Item } from '@/lib/types';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -254,6 +255,15 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }, [query, data]);
 
   const needsYouCount = data.signals.filter((i) => groupOf(i) === 'blocked' || groupOf(i) === 'waiting_on_you').length;
+  const SOURCE_STATUS_TO_ITEM_SOURCE: Record<SourceStatus['source'], Item['source']> = {
+    github: 'github_pr',
+    ado: 'ado_workitem',
+  };
+  const failingSources = new Set(
+    sourceStatuses
+      .filter((s) => s.state === 'error' || s.state === 'partial')
+      .map((s) => SOURCE_STATUS_TO_ITEM_SOURCE[s.source])
+  );
 
   const trimmedQuery = query.trim();
   const hasAnyMatch =
@@ -290,6 +300,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onDelete={handleDelete}
         onUnpinToday={handleUnpinToday}
         onReviewDay={() => setReviewDayOpen(true)}
+        failingSources={failingSources}
       />
       <Card>
         <CardContent className="pt-6">
@@ -306,6 +317,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onRequeue={handleRequeue}
               onPark={handlePark}
               onUnpark={handleUnpark}
+              failingSources={failingSources}
             />
           </Accordion>
         </CardContent>
@@ -317,6 +329,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
         onPinToday={handlePinToday}
+        failingSources={failingSources}
         onStar={handleStar}
         onSnooze={handleSnooze}
         onUnsnooze={handleUnsnooze}
