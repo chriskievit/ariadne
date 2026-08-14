@@ -12,7 +12,7 @@ describe('openDb', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all()
       .map((row: any) => row.name);
-    expect(tables).toEqual(['item_links', 'items', 'settings', 'sync_log', 'time_logs']);
+    expect(tables).toEqual(['item_links', 'items', 'plan_items', 'plans', 'settings', 'sync_log', 'time_logs']);
     db.close();
   });
 
@@ -175,6 +175,37 @@ describe('items.starred / snoozed_until / triage_state / woke_early migration', 
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('plans / plan_items schema', () => {
+  it('creates the plans table with date as primary key', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(plans)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(['date', 'capacity_minutes', 'note']));
+    db.close();
+  });
+
+  it('creates the plan_items table with no time-of-day column', () => {
+    const db = openDb(':memory:');
+    const columns = (db.prepare('PRAGMA table_info(plan_items)').all() as { name: string }[]).map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(['plan_date', 'item_id', 'sort_order', 'estimate_minutes']));
+    expect(columns).not.toContain('time_of_day');
+    expect(columns).not.toContain('scheduled_at');
+    expect(columns).not.toContain('start_time');
+    db.close();
+  });
+
+  it('allows only one plan_items row per (plan_date, item_id)', () => {
+    const db = openDb(':memory:');
+    db.prepare(
+      'INSERT INTO items (source, external_id, title, reason, status, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run('adhoc', null, 'Test', 'manual', 'inbox', new Date().toISOString());
+    db.prepare('INSERT INTO plan_items (plan_date, item_id, sort_order) VALUES (?, ?, ?)').run('2026-08-14', 1, 0);
+    expect(() =>
+      db.prepare('INSERT INTO plan_items (plan_date, item_id, sort_order) VALUES (?, ?, ?)').run('2026-08-14', 1, 1)
+    ).toThrow();
+    db.close();
   });
 });
 

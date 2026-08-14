@@ -67,3 +67,16 @@ export interface TimeLog {
   durationHours: number | null;
   note: string | null;
 }
+
+export interface Plan {
+  date: string;
+  capacityMinutes: number;
+  note: string | null;
+}
+
+export interface PlanItem {
+  planDate: string;
+  itemId: number;
+  sortOrder: number;
+  estimateMinutes: number | null;
+}

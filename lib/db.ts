@@ -51,6 +51,20 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS plans (
+  date TEXT PRIMARY KEY,
+  capacity_minutes INTEGER NOT NULL,
+  note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS plan_items (
+  plan_date TEXT NOT NULL,
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  sort_order INTEGER NOT NULL,
+  estimate_minutes INTEGER,
+  PRIMARY KEY (plan_date, item_id)
+);
 `;
 
 function sleepSync(ms: number): void {

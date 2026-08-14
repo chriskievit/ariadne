@@ -12,10 +12,14 @@ export const SETTINGS_KEYS = {
   repoPathOverrides: 'warp.repoPathOverrides',
   density: 'ui.density',
   savedViews: 'ui.savedViews',
+  dailyCapacityMinutes: 'plan.dailyCapacityMinutes',
+  longRunNudgeHours: 'plan.longRunNudgeHours',
 } as const;
 
 export const DEFAULT_STALE_DAYS = 3;
 export const NEEDS_ATTENTION_THRESHOLD = 25;
+export const DEFAULT_CAPACITY_MINUTES = 360; // 6h, per the wireframe's default
+export const DEFAULT_LONG_RUN_NUDGE_HOURS = 2;
 
 export type Density = 'comfortable' | 'compact';
 
