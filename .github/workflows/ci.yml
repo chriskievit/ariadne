@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx tsc --noEmit
+      - name: Guard against non-GET calls in the read-only provider clients
+        run: |
+          # Both files are read-only in effect. Each has exactly one
+          # legitimate exception -- a read-only query submitted via POST,
+          # which HTTP requires for a request body (GitHub GraphQL, Azure
+          # DevOps WIQL). Anything else matching a non-GET method string
+          # fails the build.
+          for file in lib/github-client.ts lib/ado-client.ts; do
+            matches=$(grep -nE "method:\s*['\"](POST|PUT|PATCH|DELETE)['\"]" "$file" | grep -v "READ-ONLY-QUERY" || true)
+            if [ -n "$matches" ]; then
+              echo "::error file=$file::Non-GET method string found outside an explicitly marked read-only query:"
+              echo "$matches"
+              exit 1
+            fi
+          done

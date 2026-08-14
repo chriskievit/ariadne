@@ -53,7 +53,7 @@ async function fetchAssignedWorkItemIds(config: AdoConfig): Promise<number[]> {
   const result = await adoFetch(
     config,
     `https://dev.azure.com/${config.org}/${config.project}/${team}/_apis/wit/wiql?api-version=7.1`,
-    { method: 'POST', body: JSON.stringify(wiql) }
+    { method: 'POST', body: JSON.stringify(wiql) } // READ-ONLY-QUERY: Azure DevOps requires POST to submit a WIQL query body; this never mutates
   );
   return (result.workItems ?? []).map((wi: any) => wi.id);
 }
