@@ -13,6 +13,7 @@ interface Props {
   onOpenHelp: () => void;
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
+  onPlanDay: () => void;
 }
 
 export default function GlobalKeymapProvider({
@@ -25,6 +26,7 @@ export default function GlobalKeymapProvider({
   onOpenHelp,
   onGoToDashboard,
   onGoToSettings,
+  onPlanDay,
 }: Props) {
   useEffect(() => {
     let pendingG = false;
@@ -68,6 +70,9 @@ export default function GlobalKeymapProvider({
         case 'w':
           onWrapUp();
           return;
+        case 'p':
+          onPlanDay();
+          return;
         case 'g':
           pendingG = true;
           pendingGTimeout = setTimeout(() => {
@@ -82,7 +87,17 @@ export default function GlobalKeymapProvider({
       document.removeEventListener('keydown', handleKeyDown);
       if (pendingGTimeout) clearTimeout(pendingGTimeout);
     };
-  }, [onOpenPalette, onFocusQueryBar, onUndo, onRefresh, onWrapUp, onOpenHelp, onGoToDashboard, onGoToSettings]);
+  }, [
+    onOpenPalette,
+    onFocusQueryBar,
+    onUndo,
+    onRefresh,
+    onWrapUp,
+    onOpenHelp,
+    onGoToDashboard,
+    onGoToSettings,
+    onPlanDay,
+  ]);
 
   return <>{children}</>;
 }

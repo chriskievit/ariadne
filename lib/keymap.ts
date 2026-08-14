@@ -27,6 +27,7 @@ export const KEYMAP: KeyBinding[] = [
   { keys: 'd', description: 'Mark done (local only)', scope: 'row' },
   { keys: 't', description: 'Pin to Today', scope: 'row' },
   { keys: '/', description: 'Focus the query bar', scope: 'global' },
+  { keys: 'P', description: 'Plan the day', scope: 'global' },
   { keys: '⌘K / Ctrl+K', description: 'Search or jump to', scope: 'global' },
   { keys: '⌘Z', description: 'Undo the last triage action', scope: 'global' },
   { keys: 'g d', description: 'Go to the dashboard', scope: 'global' },
