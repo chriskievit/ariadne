@@ -110,7 +110,13 @@ export const SOURCE_ICON = {
 } as const;
 
 interface Props {
-  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[]; notFired?: string[]; links?: LinkedRef[] };
+  item: Item & {
+    score: number;
+    scoreBreakdown?: ScoreBreakdownEntry[];
+    notFired?: string[];
+    links?: LinkedRef[];
+    estimateMinutes?: number | null;
+  };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
@@ -438,6 +444,11 @@ export default function ItemRow({
           <DialogTitle>Mark complete</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
+          {item.estimateMinutes != null && (
+            <p className="text-sm text-muted-foreground">
+              Estimated {Math.floor(item.estimateMinutes / 60)}h {item.estimateMinutes % 60}m
+            </p>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor={`duration-${item.id}`}>Hours spent</Label>
             <Input
