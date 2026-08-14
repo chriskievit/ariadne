@@ -4,6 +4,7 @@ import { localDateString, addDays } from '@/lib/date';
 import type { Item, Plan } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
 import type { SourceStatus } from '@/lib/sync-status';
+import type { CalibrationEntry } from '@/lib/calibration';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -104,6 +105,11 @@ export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
   return res.json();
 }
 
+export async function fetchTodaySummaryFor(date: string): Promise<TodaySummaryResponse> {
+  const res = await fetch(`/api/today/summary?date=${date}`);
+  return res.json();
+}
+
 export async function fetchLocalRepos(): Promise<LocalRepo[]> {
   const res = await fetch('/api/local-repos');
   return res.json();
@@ -188,5 +194,10 @@ export async function fetchSourceStatuses(): Promise<SourceStatus[]> {
 
 export async function fetchSettings(): Promise<Record<string, string>> {
   const res = await fetch('/api/settings');
+  return res.json();
+}
+
+export async function fetchCalibration(start: string, end: string): Promise<CalibrationEntry[]> {
+  const res = await fetch(`/api/calibration?start=${start}&end=${end}`);
   return res.json();
 }

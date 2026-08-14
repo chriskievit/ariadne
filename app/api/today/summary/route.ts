@@ -5,9 +5,10 @@ import { sumHoursLoggedOnByItem } from '@/lib/time-logs-repo';
 import { getPlanItems } from '@/lib/plans-repo';
 import { localDateString } from '@/lib/date';
 
-export async function GET() {
+export async function GET(request: Request) {
   const now = new Date();
-  const date = localDateString(now);
+  const dateParam = new URL(request.url).searchParams.get('date');
+  const date = dateParam ?? localDateString(now);
   const summary = getTodaySummary(db, date, now);
   const hoursByItem = sumHoursLoggedOnByItem(db, date);
   const estimateByItem = new Map(getPlanItems(db, date).map((pi) => [pi.itemId, pi.estimateMinutes]));
