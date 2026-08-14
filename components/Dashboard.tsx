@@ -26,7 +26,12 @@ import {
   openInClaude,
   pinToday,
   unpinToday,
+  starItem,
+  snoozeItem,
+  unsnoozeItem,
+  setItemDone,
 } from '@/lib/api-client';
+import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 
@@ -137,6 +142,48 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     });
   }
 
+  async function handleStar(id: number, starred: boolean) {
+    await starItem(id, starred);
+    await refresh();
+  }
+
+  async function handleSnooze(id: number, option: SnoozeOption) {
+    await snoozeItem(id, option);
+    await refresh();
+    toast(`Snoozed — ${SNOOZE_LABEL[option]}`, {
+      duration: 10_000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await unsnoozeItem(id);
+          await refresh();
+        },
+      },
+    });
+  }
+
+  async function handleUnsnooze(id: number) {
+    await unsnoozeItem(id);
+    await refresh();
+  }
+
+  async function handleDone(id: number, done: boolean) {
+    await setItemDone(id, done);
+    await refresh();
+    if (done) {
+      toast('Marked done locally.', {
+        duration: 10_000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            await setItemDone(id, false);
+            await refresh();
+          },
+        },
+      });
+    }
+  }
+
   async function handleQuickAdd(input: { title: string; category?: string; dueDate?: string }) {
     await createAdhocItemRequest(input);
     await refresh();
@@ -237,6 +284,11 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
         onPinToday={handlePinToday}
+        onStar={handleStar}
+        onSnooze={handleSnooze}
+        onUnsnooze={handleUnsnooze}
+        onDone={handleDone}
+        currentSprintIteration={data.sprint.name}
       />
       <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
     </main>

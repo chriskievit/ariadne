@@ -147,6 +147,14 @@ describe('applyQuery', () => {
     expect(applyQuery(items, parseQuery('sprint:current'), context).map((i) => i.id)).toEqual([1]);
   });
 
+  it('matches sprint:current against a full ADO iteration path ending in the current sprint name', () => {
+    const items = [
+      item({ id: 1, sprintIteration: 'Project\\Sprint 42' }),
+      item({ id: 2, sprintIteration: 'Project\\Sprint 41' }),
+    ];
+    expect(applyQuery(items, parseQuery('sprint:current'), context).map((i) => i.id)).toEqual([1]);
+  });
+
   it('returns items unchanged for an empty query', () => {
     const items = [item({ id: 1 }), item({ id: 2 })];
     expect(applyQuery(items, parseQuery(''), context).map((i) => i.id)).toEqual([1, 2]);

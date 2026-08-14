@@ -142,9 +142,16 @@ function matchesFilter(item: ScoredItem, filter: ParsedFilter, context: QueryCon
     case 'repo':
       return values.some((v) => (item.repo ?? '').toLowerCase().includes(v.toLowerCase()));
     case 'sprint':
-      return values.some((v) =>
-        v === 'current' ? item.sprintIteration === context.currentSprintIteration : item.sprintIteration === v
-      );
+      return values.some((v) => {
+        if (v !== 'current') return item.sprintIteration === v;
+        const current = context.currentSprintIteration;
+        if (!current || !item.sprintIteration) return false;
+        // sprint.name (e.g. "Sprint 42") is a short display name; an ADO
+        // item's sprintIteration is the full iteration path (e.g.
+        // "Project\Sprint 42") -- mirrors getSprintProgress's own matching
+        // in lib/sprint.ts so "current" means the same thing everywhere.
+        return item.sprintIteration === current || item.sprintIteration.endsWith('\\' + current);
+      });
     case 'is':
       return values.some((v) => {
         if (v === 'starred') return item.starred;

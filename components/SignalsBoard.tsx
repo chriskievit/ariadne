@@ -9,6 +9,7 @@ import QueryBar from './QueryBar';
 import { groupOf, isKeptVisible, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
 import { parseQuery, applyQuery } from '@/lib/query';
 import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
+import { isTypingTarget } from '@/lib/keymap';
 import { fetchSavedViews, createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
 import type { Source } from '@/lib/types';
@@ -150,7 +151,18 @@ export default function SignalsBoard({
   }, [filtered]);
 
   return (
-    <div aria-labelledby="signals-heading">
+    <div
+      aria-labelledby="signals-heading"
+      onKeyDown={(e) => {
+        if (isTypingTarget(document.activeElement)) return;
+        if (e.key !== 'j' && e.key !== 'k') return;
+        e.preventDefault();
+        const rows = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-row-id]'));
+        const currentIndex = rows.findIndex((el) => el === document.activeElement);
+        const nextIndex = e.key === 'j' ? Math.min(rows.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+        rows[nextIndex === -1 ? 0 : nextIndex]?.focus();
+      }}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 id="signals-heading" className="flex items-center gap-2 text-base font-semibold">
           Signals
