@@ -12,6 +12,9 @@ import {
   Pause,
   MoreHorizontal,
   Pin,
+  Star,
+  Clock,
+  Check,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +47,7 @@ import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
 import { useDensity } from '@/components/DensityProvider';
 import ScoreChip from './ScoreChip';
+import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 
 // Row height is fixed per mode so content can never reflow it — comfortable
 // is 44px (11 * 4px grid), compact is 36px (9 * 4px grid).
@@ -116,6 +120,10 @@ interface Props {
   onUnpark?: (id: number) => void;
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
+  onStar?: (id: number, starred: boolean) => void;
+  onSnooze?: (id: number, option: SnoozeOption) => void;
+  onUnsnooze?: (id: number) => void;
+  onDone?: (id: number, done: boolean) => void;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -182,6 +190,11 @@ function OverflowMenu({
   onDelete,
   onPinToday,
   onUnpinToday,
+  onStar,
+  onOpenSnooze,
+  onUnsnooze,
+  onDone,
+  snoozed,
 }: {
   item: Item;
   onRequeue?: (id: number) => void;
@@ -190,6 +203,11 @@ function OverflowMenu({
   onDelete?: () => void;
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
+  onStar?: (id: number, starred: boolean) => void;
+  onOpenSnooze?: () => void;
+  onUnsnooze?: (id: number) => void;
+  onDone?: (id: number, done: boolean) => void;
+  snoozed: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -199,6 +217,34 @@ function OverflowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {onStar && (
+          <DropdownMenuItem onSelect={() => onStar(item.id, !item.starred)}>
+            <Star aria-hidden="true" className={item.starred ? 'fill-current' : undefined} />
+            <span className="flex-1">{item.starred ? 'Unstar' : 'Star'}</span>
+            <kbd className="font-mono text-xs text-muted-foreground">s</kbd>
+          </DropdownMenuItem>
+        )}
+        {snoozed && onUnsnooze ? (
+          <DropdownMenuItem onSelect={() => onUnsnooze(item.id)}>
+            <Clock aria-hidden="true" />
+            <span className="flex-1">Unsnooze</span>
+          </DropdownMenuItem>
+        ) : (
+          onOpenSnooze && (
+            <DropdownMenuItem onSelect={onOpenSnooze}>
+              <Clock aria-hidden="true" />
+              <span className="flex-1">Snooze…</span>
+              <kbd className="font-mono text-xs text-muted-foreground">e</kbd>
+            </DropdownMenuItem>
+          )
+        )}
+        {onDone && (
+          <DropdownMenuItem onSelect={() => onDone(item.id, item.triageState !== 'done')}>
+            <Check aria-hidden="true" />
+            <span className="flex-1">{item.triageState === 'done' ? 'Mark not done' : 'Mark done'}</span>
+            <kbd className="font-mono text-xs text-muted-foreground">d</kbd>
+          </DropdownMenuItem>
+        )}
         {item.status === 'inbox' && onUnpinToday && (
           <DropdownMenuItem onSelect={() => onUnpinToday(item.id)}>
             <Pin aria-hidden="true" className="fill-current" /> Unpin from today
@@ -226,6 +272,11 @@ function OverflowMenu({
           <DropdownMenuItem onSelect={onDelete} className="text-destructive focus:text-destructive">
             <Trash2 aria-hidden="true" /> Delete
           </DropdownMenuItem>
+        )}
+        {(onStar || onOpenSnooze || onDone) && (
+          <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
+            Starred, snoozed and done are local. Ariadne never changes anything in GitHub or Azure DevOps.
+          </div>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -262,12 +313,18 @@ export default function ItemRow({
   onUnpark,
   onPinToday,
   onUnpinToday,
+  onStar,
+  onSnooze,
+  onUnsnooze,
+  onDone,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
   const density = useDensity();
   const isMatch = matchesQuery(item.title, query);
   const [open, setOpen] = useState(false);
+  const [chipOpen, setChipOpen] = useState(false);
+  const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -341,6 +398,35 @@ export default function ItemRow({
     if (!selectedRepoPath) return;
     onOpenClaude(item.id, selectedRepoPath);
     setClaudeDialogOpen(false);
+  }
+
+  // Row-scoped shortcuts (see lib/keymap.ts). Naturally inert while typing
+  // elsewhere: this handler only fires when the row div itself is the
+  // keydown target, and focus never lands here while an input has it.
+  function handleRowKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return;
+    switch (e.key.toLowerCase()) {
+      case 'enter':
+      case 'o':
+        if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
+        return;
+      case 'x':
+        setChipOpen(true);
+        return;
+      case 's':
+        onStar?.(item.id, !item.starred);
+        return;
+      case 'e':
+        setSnoozeDialogOpen(true);
+        return;
+      case 'd':
+        onDone?.(item.id, item.triageState !== 'done');
+        return;
+      case 't':
+        if (item.todayDate) onUnpinToday?.(item.id);
+        else onPinToday?.(item.id);
+        return;
+    }
   }
 
   const completeDialog = (
@@ -485,6 +571,35 @@ export default function ItemRow({
     </Dialog>
   );
 
+  const snoozeDialog = (
+    <Dialog open={snoozeDialogOpen} onOpenChange={setSnoozeDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Snooze</DialogTitle>
+          <DialogDescription>
+            Starred, snoozed and done are local. Ariadne never changes anything in GitHub or Azure DevOps.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2 py-2">
+          {(Object.keys(SNOOZE_LABEL) as SnoozeOption[]).map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant="outline"
+              className="justify-start"
+              onClick={() => {
+                onSnooze?.(item.id, option);
+                setSnoozeDialogOpen(false);
+              }}
+            >
+              {SNOOZE_LABEL[option]}
+            </Button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   const completeCascadeDialog = (
     <Dialog
       open={completeCascadeOpen}
@@ -549,8 +664,12 @@ export default function ItemRow({
 
   return (
     <div
+      tabIndex={0}
+      data-row-id={item.id}
+      onKeyDown={handleRowKeyDown}
       className={cn(
-        'flex items-center justify-between gap-3 overflow-hidden border-b last:border-0',
+        'group relative flex items-center justify-between gap-3 overflow-hidden border-b last:border-0',
+        'border-l-2 border-l-transparent focus:border-l-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         ROW_HEIGHT_CLASS[density],
         'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
         !isMatch && 'opacity-40'
@@ -562,6 +681,8 @@ export default function ItemRow({
           scoreBreakdown={item.scoreBreakdown ?? []}
           notFired={item.notFired ?? []}
           keptVisible={keptVisible}
+          open={chipOpen}
+          onOpenChange={setChipOpen}
         >
           <HoverExtras item={item} keptVisible={keptVisible} />
         </ScoreChip>
@@ -589,14 +710,16 @@ export default function ItemRow({
               </Badge>
             )}
           </div>
-          {item.repo && density === 'comfortable' && (
-            <span className="block truncate text-xs text-muted-foreground" title={item.repo}>
+          {(item.repo || item.wokeEarly) && density === 'comfortable' && (
+            <span className="block truncate text-xs text-muted-foreground" title={item.repo ?? undefined}>
               {item.repo}
+              {item.repo && item.wokeEarly && ' · '}
+              {item.wokeEarly && 'woke early'}
             </span>
           )}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1 opacity-60 motion-safe:transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         {item.status === 'inbox' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
@@ -615,6 +738,11 @@ export default function ItemRow({
           onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
           onPinToday={onPinToday}
           onUnpinToday={onUnpinToday}
+          onStar={onStar}
+          onOpenSnooze={onSnooze ? () => setSnoozeDialogOpen(true) : undefined}
+          onUnsnooze={onUnsnooze}
+          onDone={onDone}
+          snoozed={Boolean(item.snoozedUntil)}
         />
       </div>
       {completeDialog}
@@ -622,6 +750,7 @@ export default function ItemRow({
       {claudeDialog}
       {startCascadeDialog}
       {completeCascadeDialog}
+      {snoozeDialog}
     </div>
   );
 }
