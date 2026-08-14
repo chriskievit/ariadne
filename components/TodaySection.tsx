@@ -73,7 +73,7 @@ export default function TodaySection({
         {items.length === 0 ? (
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">Nothing chosen yet.</p>
-            <Button type="button" size="lg" onClick={onPlanDay}>
+            <Button type="button" size="lg" className="h-11" onClick={onPlanDay}>
               Plan the day <kbd className="ml-2 font-mono text-xs opacity-70">P</kbd>
             </Button>
             <p className="text-xs text-muted-foreground">

@@ -46,6 +46,7 @@ import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
 import { useDensity } from '@/components/DensityProvider';
+import type { Density } from '@/lib/config';
 import ScoreChip from './ScoreChip';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 
@@ -206,6 +207,7 @@ function OverflowMenu({
   onUnsnooze,
   onDone,
   snoozed,
+  density,
 }: {
   item: Item;
   onRequeue?: (id: number) => void;
@@ -219,11 +221,19 @@ function OverflowMenu({
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   snoozed: boolean;
+  density: Density;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label="More actions" title="More actions">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={density === 'comfortable' ? 'h-11 w-11' : undefined}
+          aria-label="More actions"
+          title="More actions"
+        >
           <MoreHorizontal aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
@@ -745,12 +755,24 @@ export default function ItemRow({
       </div>
       <div className="flex w-full shrink-0 items-center justify-end gap-1 opacity-100 motion-safe:transition-opacity sm:w-auto sm:opacity-60 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         {item.status === 'inbox' && onStart && (
-          <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={density === 'comfortable' ? 'h-11' : undefined}
+            onClick={handleStartClick}
+          >
             Start
           </Button>
         )}
         {item.status === 'in_progress' && (
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={density === 'comfortable' ? 'h-11' : undefined}
+            onClick={() => setOpen(true)}
+          >
             Complete
           </Button>
         )}
@@ -767,6 +789,7 @@ export default function ItemRow({
           onUnsnooze={onUnsnooze}
           onDone={onDone}
           snoozed={Boolean(item.snoozedUntil)}
+          density={density}
         />
       </div>
       {completeDialog}
