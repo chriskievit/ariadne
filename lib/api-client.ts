@@ -185,3 +185,8 @@ export async function fetchSourceStatuses(): Promise<SourceStatus[]> {
   const res = await fetch('/api/sync-status');
   return res.json();
 }
+
+export async function fetchSettings(): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings');
+  return res.json();
+}
