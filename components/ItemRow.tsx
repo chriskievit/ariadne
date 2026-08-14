@@ -29,24 +29,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { getPriorityTier, REASON_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
+import { REASON_LABEL, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
+import { isKeptVisible } from '@/lib/grouping';
 import { matchesQuery } from '@/lib/search';
 import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
 import { useDensity } from '@/components/DensityProvider';
+import ScoreChip from './ScoreChip';
 
 // Row height is fixed per mode so content can never reflow it — comfortable
 // is 44px (11 * 4px grid), compact is 36px (9 * 4px grid).
@@ -80,19 +77,25 @@ function getReasonPills(item: Item): { label: string; variant: ReasonVariant }[]
   return [{ label: REASON_LABEL[item.reason], variant: REASON_VARIANT[item.reason] }];
 }
 
-// Inline badge precedence: exactly one badge shows on the row — the status
-// pill if there is one, else the item's primary reason pill, else none.
-// Everything not chosen here still shows up in the hover-card (see
-// HoverExtras below) rather than being dropped.
-function getInlineBadge(item: Item): { label: string; variant: BadgeVariant | ReasonVariant } | null {
+// Inline badge precedence: exactly one badge shows on the row. A row kept
+// visible only by the ad-hoc score-threshold exemption says so, taking
+// priority over its status/reason pill (which moves to the hover-extras
+// area instead of being dropped). Otherwise: the status pill if there is
+// one, else the item's primary reason pill, else none.
+function getInlineBadge(
+  item: Item,
+  keptVisible: boolean
+): { label: string; variant: BadgeVariant | ReasonVariant } | null {
+  if (keptVisible) return { label: 'Kept visible', variant: 'outline' };
   const statusPill = getStatusPill(item);
   if (statusPill) return statusPill;
   return getReasonPills(item)[0] ?? null;
 }
 
-function getOverflowPills(item: Item): { label: string; variant: ReasonVariant }[] {
+function getOverflowPills(item: Item, keptVisible: boolean): { label: string; variant: ReasonVariant }[] {
   const statusPill = getStatusPill(item);
   const reasonPills = getReasonPills(item);
+  if (keptVisible) return reasonPills;
   return statusPill ? reasonPills : reasonPills.slice(1);
 }
 
@@ -102,26 +105,8 @@ export const SOURCE_ICON = {
   adhoc: MessageSquare,
 } as const;
 
-const TIER_LABEL: Record<PriorityTier, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  critical: 'Critical',
-};
-
-// Urgency bands per docs/wireframes/phase-0-foundation.html: only the top two
-// bands are filled, medium is an outline, low has no border at all — so
-// visual weight falls off in the same direction the score does. Indigo never
-// appears here; that channel is interactive-only.
-const TIER_DOT_CLASS: Record<PriorityTier, string> = {
-  low: 'bg-urgency-low/40',
-  medium: 'border-2 border-urgency-medium bg-transparent',
-  high: 'bg-urgency-high',
-  critical: 'bg-urgency-critical',
-};
-
 interface Props {
-  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[]; links?: LinkedRef[] };
+  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[]; notFired?: string[]; links?: LinkedRef[] };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
@@ -140,8 +125,8 @@ function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): 
 // The second, lower-priority section of the row's hover-card: everything
 // that didn't make the one-badge inline cut — remaining reason pills, the
 // unresolved-conversations flag, and linked ADO work item / GitHub PR chips.
-function HoverExtras({ item }: { item: Item & { links?: LinkedRef[] } }) {
-  const overflowPills = getOverflowPills(item);
+function HoverExtras({ item, keptVisible }: { item: Item & { links?: LinkedRef[] }; keptVisible: boolean }) {
+  const overflowPills = getOverflowPills(item, keptVisible);
   const hasExtras = overflowPills.length > 0 || item.hasUnresolvedConversations || (item.links?.length ?? 0) > 0;
   if (!hasExtras) return null;
   return (
@@ -168,6 +153,7 @@ function HoverExtras({ item }: { item: Item & { links?: LinkedRef[] } }) {
               href={link.url}
               target="_blank"
               rel="noreferrer"
+              title={`${link.shortLabel} — ${link.title}`}
               className="flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
             >
               <Link2 className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -186,19 +172,24 @@ function HoverExtras({ item }: { item: Item & { links?: LinkedRef[] } }) {
 // used to be always-visible buttons. Only ever mounted for non-parked rows;
 // parked rows get their own minimal "Resume" treatment instead (see the
 // `item.parked` branch in ItemRow), so this never needs an
-// in-progress-and-parked case.
+// in-progress-and-parked case. Pin/unpin lives here too, keeping the row's
+// action cluster to exactly one primary action plus this one menu.
 function OverflowMenu({
   item,
   onRequeue,
   onPark,
   onOpenClaude,
   onDelete,
+  onPinToday,
+  onUnpinToday,
 }: {
   item: Item;
   onRequeue?: (id: number) => void;
   onPark?: (id: number) => void;
   onOpenClaude: () => void;
   onDelete?: () => void;
+  onPinToday?: (id: number) => void;
+  onUnpinToday?: (id: number) => void;
 }) {
   return (
     <DropdownMenu>
@@ -208,6 +199,16 @@ function OverflowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {item.status === 'inbox' && onUnpinToday && (
+          <DropdownMenuItem onSelect={() => onUnpinToday(item.id)}>
+            <Pin aria-hidden="true" className="fill-current" /> Unpin from today
+          </DropdownMenuItem>
+        )}
+        {item.status === 'inbox' && !onUnpinToday && onPinToday && (
+          <DropdownMenuItem onSelect={() => onPinToday(item.id)}>
+            <Pin aria-hidden="true" /> Pin to today
+          </DropdownMenuItem>
+        )}
         {item.status === 'in_progress' && onRequeue && (
           <DropdownMenuItem onSelect={() => onRequeue(item.id)}>
             <Undo2 aria-hidden="true" /> Back to queue
@@ -228,37 +229,6 @@ function OverflowMenu({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function PinToggle({
-  onPinToday,
-  onUnpinToday,
-  itemId,
-  size,
-}: {
-  onPinToday?: (id: number) => void;
-  onUnpinToday?: (id: number) => void;
-  itemId: number;
-  size: 'icon-sm' | 'icon';
-}) {
-  if (!onPinToday && !onUnpinToday) return null;
-  const label = onUnpinToday ? 'Unpin from today' : 'Pin to today';
-  return (
-    <Button
-      type="button"
-      variant={onUnpinToday ? 'secondary' : 'outline'}
-      size="icon"
-      className={size === 'icon-sm' ? 'h-6 w-6' : undefined}
-      aria-label={label}
-      title={label}
-      onClick={() => (onUnpinToday ? onUnpinToday(itemId) : onPinToday?.(itemId))}
-    >
-      <Pin
-        className={cn(size === 'icon-sm' ? 'h-3.5 w-3.5' : 'h-4 w-4', onUnpinToday && 'fill-current')}
-        aria-hidden="true"
-      />
-    </Button>
   );
 }
 
@@ -294,7 +264,6 @@ export default function ItemRow({
   onUnpinToday,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
-  const tier = getPriorityTier(item.score);
   const { query } = useSearch();
   const density = useDensity();
   const isMatch = matchesQuery(item.title, query);
@@ -575,7 +544,8 @@ export default function ItemRow({
     );
   }
 
-  const inlineBadge = getInlineBadge(item);
+  const keptVisible = isKeptVisible(item, item.score);
+  const inlineBadge = getInlineBadge(item, keptVisible);
 
   return (
     <div
@@ -587,6 +557,14 @@ export default function ItemRow({
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
+        <ScoreChip
+          score={item.score}
+          scoreBreakdown={item.scoreBreakdown ?? []}
+          notFired={item.notFired ?? []}
+          keptVisible={keptVisible}
+        >
+          <HoverExtras item={item} keptVisible={keptVisible} />
+        </ScoreChip>
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -596,11 +574,14 @@ export default function ItemRow({
                 target="_blank"
                 rel="noreferrer"
                 className="min-w-0 truncate font-medium hover:underline"
+                title={item.title}
               >
                 {renderTitle(item.title, query)}
               </a>
             ) : (
-              <span className="min-w-0 truncate font-medium">{renderTitle(item.title, query)}</span>
+              <span className="min-w-0 truncate font-medium" title={item.title}>
+                {renderTitle(item.title, query)}
+              </span>
             )}
             {inlineBadge && (
               <Badge variant={inlineBadge.variant} title={inlineBadge.label} className="max-w-[9rem] shrink-0">
@@ -609,32 +590,13 @@ export default function ItemRow({
             )}
           </div>
           {item.repo && density === 'comfortable' && (
-            <span className="block truncate text-xs text-muted-foreground">{item.repo}</span>
+            <span className="block truncate text-xs text-muted-foreground" title={item.repo}>
+              {item.repo}
+            </span>
           )}
         </div>
-        <HoverCard openDelay={150}>
-          <HoverCardTrigger asChild>
-            <span
-              className={cn('h-2.5 w-2.5 shrink-0 cursor-default rounded-full', TIER_DOT_CLASS[tier])}
-              aria-label={`Priority: ${TIER_LABEL[tier]}`}
-            />
-          </HoverCardTrigger>
-          <HoverCardContent className="w-64">
-            <div className="space-y-1 text-sm">
-              <div className="font-medium">{TIER_LABEL[tier]} priority</div>
-              {item.scoreBreakdown?.map((entry, i) => (
-                <div key={i} className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground">{entry.label}</span>
-                  <span className="font-mono font-medium tabular-nums">+{entry.points}</span>
-                </div>
-              ))}
-            </div>
-            <HoverExtras item={item} />
-          </HoverCardContent>
-        </HoverCard>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <PinToggle onPinToday={onPinToday} onUnpinToday={onUnpinToday} itemId={item.id} size="icon" />
         {item.status === 'inbox' && onStart && (
           <Button type="button" variant="outline" size="sm" onClick={handleStartClick}>
             Start
@@ -651,6 +613,8 @@ export default function ItemRow({
           onPark={onPark}
           onOpenClaude={handleOpenClaudeClick}
           onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+          onPinToday={onPinToday}
+          onUnpinToday={onUnpinToday}
         />
       </div>
       {completeDialog}
