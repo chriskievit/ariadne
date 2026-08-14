@@ -3,6 +3,9 @@ import Database from 'better-sqlite3';
 import { openDb } from './db';
 import { upsertSyncedItem, createAdhocItem, setStatus, setParked, setTodayDate } from './items-repo';
 import { getGroupedItems, getTodaySummary } from './dashboard';
+import { localDateString } from './date';
+import { addPlanItem, setPlanItemEstimate, reorderPlanItems } from './plans-repo';
+import { startTimer, completeTimer } from './time-logs-repo';
 
 let db: Database.Database;
 
@@ -266,5 +269,64 @@ describe('getTodaySummary', () => {
     const now = new Date(2026, 7, 13, 20, 0);
     const summary = getTodaySummary(db, '2026-08-13', now);
     expect(summary.hoursLoggedToday).toBe(1.25);
+  });
+});
+
+describe('getGroupedItems today ordering', () => {
+  it('orders today items by plan_items.sort_order, not by score', () => {
+    const now = new Date(2026, 7, 14, 9, 0);
+    const todayStr = localDateString(now);
+
+    const highScore = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: '1@a/b',
+      title: 'High score, picked second',
+      url: null,
+      reason: 'approved_unmerged',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    const lowScore = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: '2',
+      title: 'Low score, picked first',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    setTodayDate(db, highScore.id, todayStr);
+    setTodayDate(db, lowScore.id, todayStr);
+    addPlanItem(db, todayStr, highScore.id);
+    addPlanItem(db, todayStr, lowScore.id);
+    reorderPlanItems(db, todayStr, [lowScore.id, highScore.id]);
+
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([lowScore.id, highScore.id]);
+  });
+
+  it('carries estimateMinutes and loggedMinutesToday onto each today item', () => {
+    const now = new Date(2026, 7, 14, 9, 0);
+    const todayStr = localDateString(now);
+    const item = createAdhocItem(db, { title: 'Estimated' });
+    setTodayDate(db, item.id, todayStr);
+    addPlanItem(db, todayStr, item.id);
+    setPlanItemEstimate(db, todayStr, item.id, 90);
+    startTimer(db, item.id);
+    completeTimer(db, item.id, { durationHours: 0.5 });
+    db.prepare('UPDATE time_logs SET started_at = ?, ended_at = ? WHERE item_id = ?').run(
+      now.toISOString(),
+      now.toISOString(),
+      item.id
+    );
+
+    const grouped = getGroupedItems(db, now);
+    const found = grouped.today.find((i) => i.id === item.id);
+    expect(found?.estimateMinutes).toBe(90);
+    expect(found?.loggedMinutesToday).toBe(30);
   });
 });
