@@ -1,0 +1,12 @@
+services:
+  ariadne:
+    build: .
+    ports:
+      # Loopback-only by default. Change to "3000:3000" to reach Ariadne
+      # from other devices on your network.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - ARIADNE_DB_PATH=/data/ariadne.db
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.github
+.superpowers
+docs
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env*.local
+tsconfig.tsbuildinfo

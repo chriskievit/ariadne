@@ -65,6 +65,29 @@ variables.
 Data refresh is manual: use the **Refresh** button on the dashboard to pull
 the latest PRs, work items, and sprint status.
 
+## Self-hosting with Docker
+
+```bash
+docker compose up
+```
+
+This builds the image and starts Ariadne at `http://127.0.0.1:3000`. The
+SQLite database lives at `./data/ariadne.db` on the host (via a bind mount),
+so it persists across container restarts and rebuilds.
+
+By default the port is only published on the host's loopback interface
+(`127.0.0.1`), matching Ariadne's local-only philosophy. If you want to
+reach it from other devices on your network, change the port mapping in
+`docker-compose.yml` from `"127.0.0.1:3000:3000"` to `"3000:3000"`.
+
+Without compose:
+
+```bash
+docker build -t ariadne .
+docker run -d -p 127.0.0.1:3000:3000 -v $(pwd)/data:/data \
+  -e ARIADNE_DB_PATH=/data/ariadne.db ariadne
+```
+
 ## Scripts
 
 | Command | Description |
