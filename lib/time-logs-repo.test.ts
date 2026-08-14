@@ -11,6 +11,8 @@ import {
   elapsedHoursSinceStart,
   sumHoursLoggedOn,
   sumHoursLoggedOnByItem,
+  stopTimer,
+  getRunningTimer,
 } from './time-logs-repo';
 
 let db: Database.Database;
@@ -112,5 +114,45 @@ describe('sumHoursLoggedOn / sumHoursLoggedOnByItem', () => {
     expect(sumHoursLoggedOn(testDb, '2026-08-13')).toBe(0);
     expect(sumHoursLoggedOnByItem(testDb, '2026-08-13').size).toBe(0);
     testDb.close();
+  });
+});
+
+describe('stopTimer', () => {
+  it('closes the open log and banks the elapsed time, without requiring a status change', () => {
+    const item = createAdhocItem(db, { title: 'Timed' });
+    startTimer(db, item.id);
+    stopTimer(db, item.id);
+    const logs = listLogsByItem(db, item.id);
+    expect(logs).toHaveLength(1);
+    expect(logs[0].endedAt).not.toBeNull();
+    expect(logs[0].durationHours).not.toBeNull();
+  });
+
+  it('is a no-op when there is no open timer', () => {
+    const item = createAdhocItem(db, { title: 'Never started' });
+    expect(() => stopTimer(db, item.id)).not.toThrow();
+    expect(listLogsByItem(db, item.id)).toHaveLength(0);
+  });
+});
+
+describe('getRunningTimer', () => {
+  it('returns null when nothing is running', () => {
+    expect(getRunningTimer(db)).toBeNull();
+  });
+
+  it('returns the running item id, title, and start time', () => {
+    const item = createAdhocItem(db, { title: 'Active work' });
+    startTimer(db, item.id);
+    const running = getRunningTimer(db);
+    expect(running?.itemId).toBe(item.id);
+    expect(running?.itemTitle).toBe('Active work');
+    expect(running?.startedAt).toBeTruthy();
+  });
+
+  it('returns null again after the timer is stopped', () => {
+    const item = createAdhocItem(db, { title: 'Active work' });
+    startTimer(db, item.id);
+    stopTimer(db, item.id);
+    expect(getRunningTimer(db)).toBeNull();
   });
 });

@@ -14,6 +14,8 @@ import SignalsBoard from './SignalsBoard';
 import QuickAddForm from './QuickAddForm';
 import TodaySection from './TodaySection';
 import ShutdownDialog from './ShutdownDialog';
+import PlanDayDialog from './PlanDayDialog';
+import SwitchTimerDialog from './SwitchTimerDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
 import KeymapHelpDialog from './KeymapHelpDialog';
 import CommandPalette from './CommandPalette';
@@ -36,11 +38,27 @@ import {
   unsnoozeItem,
   setItemDone,
   fetchSavedViews,
+  fetchSourceStatuses,
+  fetchRunningTimer,
+  stopTimerRequest,
+  fetchPlan,
+  updatePlan,
+  reorderPlan,
+  setEstimate,
+  fetchTodaySummaryFor,
+  fetchCalibration,
 } from '@/lib/api-client';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
+import { groupOf } from '@/lib/grouping';
+import { localDateString, addDays } from '@/lib/date';
+import { DEFAULT_CAPACITY_MINUTES } from '@/lib/config';
+import type { RunningTimer } from '@/lib/time-logs-repo';
+import type { CalibrationEntry } from '@/lib/calibration';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
+import type { SourceStatus } from '@/lib/sync-status';
+import type { Item, Plan, PlanItem } from '@/lib/types';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -55,13 +73,25 @@ interface DashboardData {
 export default function Dashboard({ initialData }: { initialData: DashboardData }) {
   const [data, setData] = useState<DashboardData>(initialData);
   const [syncing, setSyncing] = useState(false);
-  const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
   const [helpOpen, setHelpOpen] = useState(false);
   const [signalsQuery, setSignalsQuery] = useState('');
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
+  const [sourceStatuses, setSourceStatuses] = useState<SourceStatus[]>([]);
+  const [planDayOpen, setPlanDayOpen] = useState(false);
+  const [runningTimer, setRunningTimer] = useState<RunningTimer | null>(null);
+  const [switchTimerOpen, setSwitchTimerOpen] = useState(false);
+  const [pendingStartId, setPendingStartId] = useState<number | null>(null);
+  const [yesterdayItems, setYesterdayItems] = useState<Item[]>([]);
+  const [plan, setPlan] = useState<Plan>({
+    date: localDateString(new Date()),
+    capacityMinutes: DEFAULT_CAPACITY_MINUTES,
+    note: null,
+  });
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  const [calibration, setCalibration] = useState<CalibrationEntry[]>([]);
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -75,6 +105,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
 
   useEffect(() => {
     fetchSavedViews().then(setSavedViews);
+    const today = localDateString(new Date());
+    const yesterday = addDays(today, -1);
+    fetchSourceStatuses().then(setSourceStatuses);
+    fetchRunningTimer().then(setRunningTimer);
+    fetchPlan(today).then((planResponse) => {
+      setPlan(planResponse.plan);
+      setPlanItems(planResponse.items);
+    });
+    fetchTodaySummaryFor(yesterday).then((summary) => setYesterdayItems(summary.planned));
+    fetchCalibration(today, today).then(setCalibration);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function scheduleAutoSync() {
@@ -86,19 +127,30 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }
 
   async function refresh() {
-    const fresh = await fetchDashboardData();
+    const today = localDateString(new Date());
+    const yesterday = addDays(today, -1);
+    const [fresh, statuses, timer, planResponse, yesterdaySummary, calibrationSummary] = await Promise.all([
+      fetchDashboardData(),
+      fetchSourceStatuses(),
+      fetchRunningTimer(),
+      fetchPlan(today),
+      fetchTodaySummaryFor(yesterday),
+      fetchCalibration(today, today),
+    ]);
     setData(fresh);
+    setSourceStatuses(statuses);
+    setRunningTimer(timer);
+    setPlan(planResponse.plan);
+    setPlanItems(planResponse.items);
+    setYesterdayItems(yesterdaySummary.planned);
+    setCalibration(calibrationSummary);
   }
 
   async function handleRefresh() {
     setSyncing(true);
-    setSyncErrors([]);
     try {
-      const { outcomes } = await triggerSync();
-      setSyncErrors(outcomes.filter((o: any) => o.error).map((o: any) => `${o.source}: ${o.error}`));
+      await triggerSync();
       await refresh();
-    } catch (err) {
-      setSyncErrors([`Sync failed: ${err instanceof Error ? err.message : 'unknown error'}`]);
     } finally {
       setSyncing(false);
       scheduleAutoSync();
@@ -106,7 +158,43 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
   }
 
   async function handleStart(id: number) {
+    if (runningTimer && runningTimer.itemId !== id) {
+      setPendingStartId(id);
+      setSwitchTimerOpen(true);
+      return;
+    }
     await startItem(id);
+    await refresh();
+  }
+
+  async function handleJustStopTimer() {
+    if (runningTimer) await stopTimerRequest(runningTimer.itemId);
+    setSwitchTimerOpen(false);
+    setPendingStartId(null);
+    await refresh();
+  }
+
+  async function handleSwitchTimer() {
+    if (runningTimer) await stopTimerRequest(runningTimer.itemId);
+    if (pendingStartId !== null) await startItem(pendingStartId);
+    setSwitchTimerOpen(false);
+    setPendingStartId(null);
+    await refresh();
+  }
+
+  async function handleReorderToday(orderedItemIds: number[]) {
+    const today = localDateString(new Date());
+    await reorderPlan(today, orderedItemIds);
+    await refresh();
+  }
+
+  async function handleSetEstimate(id: number, minutes: number | null) {
+    await setEstimate(localDateString(new Date()), id, minutes);
+    await refresh();
+  }
+
+  async function handleSetCapacity(minutes: number) {
+    await updatePlan(localDateString(new Date()), { capacityMinutes: minutes });
     await refresh();
   }
 
@@ -252,6 +340,17 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, data]);
 
+  const needsYouCount = data.signals.filter((i) => groupOf(i) === 'blocked' || groupOf(i) === 'waiting_on_you').length;
+  const SOURCE_STATUS_TO_ITEM_SOURCE: Record<SourceStatus['source'], Item['source']> = {
+    github: 'github_pr',
+    ado: 'ado_workitem',
+  };
+  const failingSources = new Set(
+    sourceStatuses
+      .filter((s) => s.state === 'error' || s.state === 'partial')
+      .map((s) => SOURCE_STATUS_TO_ITEM_SOURCE[s.source])
+  );
+
   const trimmedQuery = query.trim();
   const hasAnyMatch =
     trimmedQuery === '' ||
@@ -267,25 +366,30 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
       onOpenHelp={() => setHelpOpen(true)}
       onGoToDashboard={() => router.push('/')}
       onGoToSettings={() => router.push('/settings')}
+      onPlanDay={() => setPlanDayOpen(true)}
     >
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader
         sprint={data.sprint}
+        sourceStatuses={sourceStatuses}
+        needsYouCount={needsYouCount}
         onRefresh={handleRefresh}
         syncing={syncing}
-        errors={syncErrors}
         onAddClick={() => setQuickAddOpen(true)}
       />
       <QuickAddForm open={quickAddOpen} onOpenChange={setQuickAddOpen} onSubmit={handleQuickAdd} />
       {!hasAnyMatch && <p className="text-sm text-muted-foreground">No matches for &ldquo;{trimmedQuery}&rdquo;.</p>}
       <TodaySection
         items={data.today}
+        capacityMinutes={plan.capacityMinutes}
         onStart={handleStart}
         onComplete={handleComplete}
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
         onUnpinToday={handleUnpinToday}
-        onReviewDay={() => setReviewDayOpen(true)}
+        onPlanDay={() => setPlanDayOpen(true)}
+        onReorder={handleReorderToday}
+        failingSources={failingSources}
       />
       <Card>
         <CardContent className="pt-6">
@@ -302,6 +406,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
               onRequeue={handleRequeue}
               onPark={handlePark}
               onUnpark={handleUnpark}
+              failingSources={failingSources}
             />
           </Accordion>
         </CardContent>
@@ -313,6 +418,7 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         onOpenClaude={handleOpenClaude}
         onDelete={handleDelete}
         onPinToday={handlePinToday}
+        failingSources={failingSources}
         onStar={handleStar}
         onSnooze={handleSnooze}
         onUnsnooze={handleUnsnooze}
@@ -323,7 +429,39 @@ export default function Dashboard({ initialData }: { initialData: DashboardData 
         savedViews={savedViews}
         onSavedViewsChange={setSavedViews}
       />
-      <ShutdownDialog open={reviewDayOpen} onOpenChange={setReviewDayOpen} onCarried={refresh} />
+      <ShutdownDialog
+        open={reviewDayOpen}
+        onOpenChange={setReviewDayOpen}
+        onCarried={refresh}
+        onSnooze={handleSnooze}
+        onDrop={handleUnpinToday}
+        calibration={calibration}
+      />
+      <PlanDayDialog
+        open={planDayOpen}
+        onOpenChange={setPlanDayOpen}
+        today={data.today}
+        signals={data.signals}
+        yesterday={yesterdayItems}
+        plan={plan}
+        planItems={planItems}
+        onKeep={handlePinToday}
+        onSnooze={handleSnooze}
+        onDone={handleDone}
+        onDrop={handleUnpinToday}
+        onAdd={handlePinToday}
+        onSetEstimate={handleSetEstimate}
+        onReorder={handleReorderToday}
+        onSetCapacity={handleSetCapacity}
+        calibration={calibration}
+      />
+      <SwitchTimerDialog
+        open={switchTimerOpen}
+        onOpenChange={setSwitchTimerOpen}
+        currentTitle={runningTimer?.itemTitle ?? ''}
+        onJustStop={handleJustStopTimer}
+        onSwitch={handleSwitchTimer}
+      />
       <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
       <CommandPalette
         open={paletteOpen}

@@ -64,6 +64,45 @@ export function elapsedHoursSinceStart(db: Database.Database, itemId: number): n
   return (Date.now() - new Date(openLog.started_at).getTime()) / 3_600_000;
 }
 
+// Closes the currently open timer for an item, banking elapsed time as a
+// log entry, without touching the item's status. This is "pause the
+// clock, not the work" -- used by park (which used to leave a timer open
+// indefinitely) and by the timer-switch flow when the user starts a
+// different item while one is already running.
+export function stopTimer(db: Database.Database, itemId: number): void {
+  const openLog = db
+    .prepare('SELECT * FROM time_logs WHERE item_id = ? AND ended_at IS NULL ORDER BY id DESC LIMIT 1')
+    .get(itemId) as any;
+  if (!openLog) return;
+  const elapsed = elapsedHoursSinceStart(db, itemId);
+  db.prepare('UPDATE time_logs SET ended_at = ?, duration_hours = ? WHERE id = ?').run(
+    new Date().toISOString(),
+    elapsed,
+    openLog.id
+  );
+}
+
+export interface RunningTimer {
+  itemId: number;
+  itemTitle: string;
+  startedAt: string;
+}
+
+// At most one row should ever satisfy ended_at IS NULL across the whole
+// table -- every path that starts a timer (start, and the switch flow)
+// stops whatever was running first.
+export function getRunningTimer(db: Database.Database): RunningTimer | null {
+  const row = db
+    .prepare(
+      `SELECT tl.item_id as itemId, tl.started_at as startedAt, i.title as itemTitle
+       FROM time_logs tl JOIN items i ON i.id = tl.item_id
+       WHERE tl.ended_at IS NULL
+       ORDER BY tl.started_at DESC LIMIT 1`
+    )
+    .get() as RunningTimer | undefined;
+  return row ?? null;
+}
+
 export function undoLastCompletion(db: Database.Database, itemId: number): void {
   const lastLog = db.prepare('SELECT * FROM time_logs WHERE item_id = ? ORDER BY id DESC LIMIT 1').get(itemId) as any;
   if (lastLog) {

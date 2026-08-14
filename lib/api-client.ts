@@ -1,8 +1,10 @@
 import type { TimeReport } from '@/lib/report';
 import type { LocalRepo } from '@/lib/warp';
 import { localDateString, addDays } from '@/lib/date';
-import type { Item } from '@/lib/types';
+import type { Item, Plan } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
+import type { SourceStatus } from '@/lib/sync-status';
+import type { CalibrationEntry } from '@/lib/calibration';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -43,8 +45,10 @@ export async function unparkItem(id: number) {
 
 export interface TodaySummaryResponse {
   planned: Item[];
-  doneToday: (Item & { hoursLoggedToday: number })[];
+  doneToday: (Item & { hoursLoggedToday: number; estimateMinutes: number | null })[];
   hoursLoggedToday: number;
+  plan: Plan;
+  plannedMinutes: number;
 }
 
 export async function pinToday(id: number, date?: string) {
@@ -101,6 +105,11 @@ export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
   return res.json();
 }
 
+export async function fetchTodaySummaryFor(date: string): Promise<TodaySummaryResponse> {
+  const res = await fetch(`/api/today/summary?date=${date}`);
+  return res.json();
+}
+
 export async function fetchLocalRepos(): Promise<LocalRepo[]> {
   const res = await fetch('/api/local-repos');
   return res.json();
@@ -131,5 +140,64 @@ export async function fetchTimeReport(start: string, end: string): Promise<TimeR
   if (!res.ok) {
     throw new Error(`Failed to fetch time report: ${res.status}`);
   }
+  return res.json();
+}
+
+export async function fetchPlan(date: string) {
+  const res = await fetch(`/api/plan?date=${date}`);
+  return res.json();
+}
+
+export async function updatePlan(date: string, input: { capacityMinutes?: number; note?: string | null }): Promise<Plan> {
+  const res = await fetch('/api/plan', { method: 'POST', body: JSON.stringify({ date, ...input }) });
+  return res.json();
+}
+
+export async function saveWrapUpNote(date: string, note: string) {
+  return updatePlan(date, { note });
+}
+
+export async function addToPlan(date: string, itemId: number) {
+  const res = await fetch('/api/plan/items', { method: 'POST', body: JSON.stringify({ date, itemId }) });
+  return res.json();
+}
+
+export async function removeFromPlan(date: string, itemId: number) {
+  await fetch(`/api/plan/items?date=${date}&itemId=${itemId}`, { method: 'DELETE' });
+}
+
+export async function reorderPlan(date: string, orderedItemIds: number[]) {
+  const res = await fetch('/api/plan/items/reorder', {
+    method: 'PUT',
+    body: JSON.stringify({ date, orderedItemIds }),
+  });
+  return res.json();
+}
+
+export async function setEstimate(date: string, itemId: number, minutes: number | null) {
+  await fetch('/api/plan/items/estimate', { method: 'POST', body: JSON.stringify({ date, itemId, minutes }) });
+}
+
+export async function fetchRunningTimer() {
+  const res = await fetch('/api/timer/running');
+  return res.json();
+}
+
+export async function stopTimerRequest(id: number) {
+  await fetch(`/api/items/${id}/stop-timer`, { method: 'POST' });
+}
+
+export async function fetchSourceStatuses(): Promise<SourceStatus[]> {
+  const res = await fetch('/api/sync-status');
+  return res.json();
+}
+
+export async function fetchSettings(): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings');
+  return res.json();
+}
+
+export async function fetchCalibration(start: string, end: string): Promise<CalibrationEntry[]> {
+  const res = await fetch(`/api/calibration?start=${start}&end=${end}`);
   return res.json();
 }

@@ -33,6 +33,8 @@ function item(overrides: Partial<ScoredItem> = {}): ScoredItem {
     scoreBreakdown: [],
     notFired: [],
     links: [],
+    estimateMinutes: null,
+    loggedMinutesToday: 0,
     ...overrides,
   };
 }

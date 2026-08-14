@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils';
+import { cn, formatRelativeTime } from '@/lib/utils';
 import { REASON_LABEL, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
 import { isKeptVisible } from '@/lib/grouping';
@@ -110,7 +110,13 @@ export const SOURCE_ICON = {
 } as const;
 
 interface Props {
-  item: Item & { score: number; scoreBreakdown?: ScoreBreakdownEntry[]; notFired?: string[]; links?: LinkedRef[] };
+  item: Item & {
+    score: number;
+    scoreBreakdown?: ScoreBreakdownEntry[];
+    notFired?: string[];
+    links?: LinkedRef[];
+    estimateMinutes?: number | null;
+  };
   onStart?: (id: number) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
@@ -124,6 +130,7 @@ interface Props {
   onSnooze?: (id: number, option: SnoozeOption) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
+  sourceIsStale?: boolean;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -317,6 +324,7 @@ export default function ItemRow({
   onSnooze,
   onUnsnooze,
   onDone,
+  sourceIsStale,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
@@ -436,6 +444,11 @@ export default function ItemRow({
           <DialogTitle>Mark complete</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-2">
+          {item.estimateMinutes != null && (
+            <p className="text-sm text-muted-foreground">
+              Estimated {Math.floor(item.estimateMinutes / 60)}h {item.estimateMinutes % 60}m
+            </p>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor={`duration-${item.id}`}>Hours spent</Label>
             <Input
@@ -710,11 +723,15 @@ export default function ItemRow({
               </Badge>
             )}
           </div>
-          {(item.repo || item.wokeEarly) && density === 'comfortable' && (
+          {(item.repo || item.wokeEarly || sourceIsStale) && density === 'comfortable' && (
             <span className="block truncate text-xs text-muted-foreground" title={item.repo ?? undefined}>
               {item.repo}
-              {item.repo && item.wokeEarly && ' · '}
+              {item.repo && (item.wokeEarly || sourceIsStale) && ' · '}
               {item.wokeEarly && 'woke early'}
+              {item.wokeEarly && sourceIsStale && ' · '}
+              {sourceIsStale && item.rawUpdatedAt && (
+                <span className="text-warning">stale · read {formatRelativeTime(new Date(item.rawUpdatedAt).getTime())}</span>
+              )}
             </span>
           )}
         </div>
