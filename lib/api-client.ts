@@ -2,6 +2,7 @@ import type { TimeReport } from '@/lib/report';
 import type { LocalRepo } from '@/lib/warp';
 import { localDateString, addDays } from '@/lib/date';
 import type { Item } from '@/lib/types';
+import type { SnoozeOption } from '@/lib/snooze';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -57,6 +58,22 @@ export async function unpinToday(id: number) {
 export async function carryToTomorrow(id: number) {
   const tomorrow = addDays(localDateString(new Date()), 1);
   return pinToday(id, tomorrow);
+}
+
+export async function starItem(id: number, starred: boolean) {
+  await fetch(`/api/items/${id}/star`, { method: 'POST', body: JSON.stringify({ starred }) });
+}
+
+export async function snoozeItem(id: number, option: SnoozeOption) {
+  await fetch(`/api/items/${id}/snooze`, { method: 'POST', body: JSON.stringify({ option }) });
+}
+
+export async function unsnoozeItem(id: number) {
+  await fetch(`/api/items/${id}/snooze`, { method: 'DELETE' });
+}
+
+export async function setItemDone(id: number, done: boolean) {
+  await fetch(`/api/items/${id}/done`, { method: 'POST', body: JSON.stringify({ done }) });
 }
 
 export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
