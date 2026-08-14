@@ -76,6 +76,26 @@ export async function setItemDone(id: number, done: boolean) {
   await fetch(`/api/items/${id}/done`, { method: 'POST', body: JSON.stringify({ done }) });
 }
 
+export async function fetchSavedViews() {
+  const res = await fetch('/api/saved-views');
+  return res.json();
+}
+
+export async function createSavedView(input: { label: string; query: string; shortcut: string | null }) {
+  const res = await fetch('/api/saved-views', { method: 'POST', body: JSON.stringify(input) });
+  return res.json();
+}
+
+export async function deleteSavedView(id: string) {
+  const res = await fetch(`/api/saved-views?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return res.json();
+}
+
+export async function reorderSavedViewsRequest(orderedIds: string[]) {
+  const res = await fetch('/api/saved-views', { method: 'PUT', body: JSON.stringify({ orderedIds }) });
+  return res.json();
+}
+
 export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
   const res = await fetch('/api/today/summary');
   return res.json();
