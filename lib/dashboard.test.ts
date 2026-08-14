@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 
 describe('getGroupedItems', () => {
-  it('splits items into needsAttention, inProgress, and everythingElse', () => {
+  it('splits items into signals and inProgress', () => {
     const urgent = upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: '1@a/b',
@@ -48,17 +48,15 @@ describe('getGroupedItems', () => {
     setStatus(db, active.id, 'in_progress');
 
     const grouped = getGroupedItems(db, new Date());
-    expect(grouped.needsAttention.map((i) => i.id)).toEqual([urgent.id]);
+    expect(grouped.signals.map((i) => i.id).sort()).toEqual([low.id, urgent.id].sort());
     expect(grouped.inProgress.map((i) => i.id)).toEqual([active.id]);
-    expect(grouped.everythingElse.map((i) => i.id)).toEqual([low.id]);
   });
 
-  it('always puts inbox ad-hoc items in needsAttention, regardless of score', () => {
+  it('always includes inbox ad-hoc items in signals, regardless of score', () => {
     const adhoc = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
 
     const grouped = getGroupedItems(db, new Date());
-    expect(grouped.needsAttention.map((i) => i.id)).toEqual([adhoc.id]);
-    expect(grouped.everythingElse.map((i) => i.id)).toEqual([]);
+    expect(grouped.signals.map((i) => i.id)).toEqual([adhoc.id]);
   });
 });
 
@@ -114,7 +112,7 @@ describe('getGroupedItems today bucket', () => {
     const now = new Date(2026, 7, 13, 9, 0);
     const grouped = getGroupedItems(db, now);
     expect(grouped.today.map((i) => i.id)).toEqual([urgent.id]);
-    expect(grouped.needsAttention.map((i) => i.id)).toEqual([]);
+    expect(grouped.signals.map((i) => i.id)).toEqual([]);
   });
 
   it('does not put a stale (past) today_date item in the today bucket', () => {
@@ -134,7 +132,7 @@ describe('getGroupedItems today bucket', () => {
     const now = new Date(2026, 7, 13, 9, 0);
     const grouped = getGroupedItems(db, now);
     expect(grouped.today.map((i) => i.id)).toEqual([]);
-    expect(grouped.everythingElse.map((i) => i.id)).toEqual([item.id]);
+    expect(grouped.signals.map((i) => i.id)).toEqual([item.id]);
   });
 
   it('never puts an in-progress item in the today bucket even if today_date is still set', () => {
@@ -178,7 +176,7 @@ describe('getGroupedItems links', () => {
     });
 
     const grouped = getGroupedItems(db, new Date());
-    const all = [...grouped.needsAttention, ...grouped.inProgress, ...grouped.everythingElse];
+    const all = [...grouped.signals, ...grouped.inProgress];
     const wiItem = all.find((i) => i.id === wi.id);
     const prItem = all.find((i) => i.id === pr.id);
 
@@ -193,7 +191,7 @@ describe('getGroupedItems links', () => {
   it('defaults links to an empty array when there are none', () => {
     const adhoc = createAdhocItem(db, { title: 'Reply to Sarah re: deploy window' });
     const grouped = getGroupedItems(db, new Date());
-    expect(grouped.needsAttention.find((i) => i.id === adhoc.id)?.links).toEqual([]);
+    expect(grouped.signals.find((i) => i.id === adhoc.id)?.links).toEqual([]);
   });
 });
 

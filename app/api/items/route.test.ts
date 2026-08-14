@@ -27,9 +27,8 @@ describe('GET /api/items', () => {
 
     const res = await GET();
     const body = await res.json();
-    expect(body.needsAttention.map((i: any) => i.id)).toEqual([urgent.id]);
+    expect(body.signals.map((i: any) => i.id)).toEqual([urgent.id]);
     expect(body.inProgress).toEqual([]);
-    expect(body.everythingElse).toEqual([]);
   });
 });
 
