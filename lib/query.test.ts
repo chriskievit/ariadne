@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseQuery, applyQuery, stateOf, withoutFilter } from './query';
+import { parseQuery, applyQuery, stateOf, withoutFilter, withoutBareWord } from './query';
 import type { ScoredItem } from './dashboard';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z');
@@ -203,5 +203,17 @@ describe('withoutFilter', () => {
   it('returns an empty string when the only filter is dropped', () => {
     const result = withoutFilter('source:github', { prefix: 'source', values: ['github'], negate: false });
     expect(result).toBe('');
+  });
+});
+
+describe('withoutBareWord', () => {
+  it('drops a bare word by position and keeps filters intact', () => {
+    const result = withoutBareWord('source:github flaky test', 0);
+    expect(result).toBe('source:github test');
+  });
+
+  it('drops the correct occurrence when the same word appears twice', () => {
+    const result = withoutBareWord('flaky flaky', 1);
+    expect(result).toBe('flaky');
   });
 });

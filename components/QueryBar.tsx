@@ -4,7 +4,7 @@ import { useId } from 'react';
 import { Search, Star, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { parseQuery } from '@/lib/query';
+import { parseQuery, withoutFilter, withoutBareWord, type ParsedFilter } from '@/lib/query';
 import { useDensity } from '@/components/DensityProvider';
 import type { SavedView } from '@/lib/saved-views';
 import type { Source } from '@/lib/types';
@@ -40,6 +40,12 @@ export default function QueryBar({
   const errorId = useId();
   const density = useDensity();
   const activeSourceToken = SOURCE_TOKENS.find((t) => t.token && value.includes(t.token))?.source ?? 'all';
+  const parsed = parseQuery(value);
+  const hasActiveQuery = value.trim().length > 0;
+
+  function filterPillLabel(filter: ParsedFilter): string {
+    return `${filter.negate ? '-' : ''}${filter.prefix}:${filter.values.join(',')}`;
+  }
 
   function toggleSourceToken(token: string | null) {
     const withoutSourceTokens = value
@@ -72,6 +78,42 @@ export default function QueryBar({
             Clear the query
           </button>
         </p>
+      )}
+      {(parsed.filters.length > 0 || parsed.bareWords.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Active filters">
+          {parsed.filters.map((filter) => (
+            <span
+              key={filterPillLabel(filter)}
+              className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-mono text-xs text-secondary-foreground"
+            >
+              {filterPillLabel(filter)}
+              <button
+                type="button"
+                aria-label={`Remove filter ${filterPillLabel(filter)}`}
+                className="rounded hover:bg-muted"
+                onClick={() => onChange(withoutFilter(value, filter))}
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+          {parsed.bareWords.map((word, index) => (
+            <span
+              key={`${word}-${index}`}
+              className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground"
+            >
+              {word}
+              <button
+                type="button"
+                aria-label={`Remove search word ${word}`}
+                className="rounded hover:bg-muted"
+                onClick={() => onChange(withoutBareWord(value, index))}
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
       )}
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by source and saved view">
         {SOURCE_TOKENS.map(({ source, label, token }) => (
@@ -120,9 +162,15 @@ export default function QueryBar({
             </span>
           </Button>
         ))}
-        {value.trim() && parseQuery(value).errors.length === 0 && (
+        {hasActiveQuery && parsed.errors.length === 0 && (
           <Button type="button" variant="ghost" size="sm" onClick={() => onSaveCurrentView(value.trim())}>
             Save this view
+          </Button>
+        )}
+        {hasActiveQuery && (
+          <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={() => onChange('')}>
+            <X className="h-3 w-3" aria-hidden="true" />
+            Clear filters
           </Button>
         )}
       </div>
