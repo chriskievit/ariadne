@@ -28,7 +28,7 @@ describe('POST /api/items/:id/park', () => {
     setStatus(testDb, item.id, 'in_progress');
     startTimer(testDb, item.id);
 
-    await POST(new Request('http://localhost', { method: 'POST' }), { params: { id: String(item.id) } });
+    await POST(new Request('http://localhost', { method: 'POST' }), { params: Promise.resolve({ id: String(item.id) }) });
 
     const logs = listLogsByItem(testDb, item.id);
     expect(logs).toHaveLength(1);

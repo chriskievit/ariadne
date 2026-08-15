@@ -36,7 +36,7 @@ describe('POST /api/items/[id]/open-claude', () => {
     });
 
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: String(item.id) },
+      params: Promise.resolve({ id: String(item.id) }),
     });
 
     expect(res.status).toBe(200);
@@ -50,7 +50,7 @@ describe('POST /api/items/[id]/open-claude', () => {
 
     const res = await POST(
       new Request('http://localhost', { method: 'POST', body: JSON.stringify({ workingDir: '/explicit/path' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
 
     expect(res.status).toBe(200);
@@ -65,7 +65,7 @@ describe('POST /api/items/[id]/open-claude', () => {
         method: 'POST',
         body: JSON.stringify({ workingDir: '/some/attacker/path' }),
       }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
 
     expect(res.status).toBe(400);
@@ -76,7 +76,7 @@ describe('POST /api/items/[id]/open-claude', () => {
     const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
 
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: String(item.id) },
+      params: Promise.resolve({ id: String(item.id) }),
     });
 
     expect(res.status).toBe(400);
@@ -85,7 +85,7 @@ describe('POST /api/items/[id]/open-claude', () => {
 
   it('returns 404 for a missing item', async () => {
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: '999999' },
+      params: Promise.resolve({ id: '999999' }),
     });
 
     expect(res.status).toBe(404);
@@ -100,7 +100,7 @@ describe('POST /api/items/[id]/open-claude', () => {
 
     const res = await POST(
       new Request('http://localhost', { method: 'POST', body: JSON.stringify({ workingDir: '/explicit/path' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
 
     expect(res.status).toBe(500);

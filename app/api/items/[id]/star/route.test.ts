@@ -16,7 +16,7 @@ describe('POST /api/items/:id/star', () => {
     const item = createAdhocItem(testDb, { title: 'Star me' });
     const res = await POST(
       new Request('http://localhost/api/items/1/star', { method: 'POST', body: JSON.stringify({ starred: true }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
     const body = await res.json();
     expect(body.starred).toBe(true);
@@ -26,11 +26,11 @@ describe('POST /api/items/:id/star', () => {
     const item = createAdhocItem(testDb, { title: 'Unstar me' });
     await POST(
       new Request('http://localhost/api/items/1/star', { method: 'POST', body: JSON.stringify({ starred: true }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
     const res = await POST(
       new Request('http://localhost/api/items/1/star', { method: 'POST', body: JSON.stringify({ starred: false }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
     const body = await res.json();
     expect(body.starred).toBe(false);

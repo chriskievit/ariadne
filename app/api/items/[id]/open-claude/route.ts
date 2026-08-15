@@ -4,8 +4,9 @@ import { getItemById } from '@/lib/items-repo';
 import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
 import { writeLaunchConfig, WARP_LAUNCH_URL } from '@/lib/warp-launch';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idParam } = await params;
+  const id = Number(idParam);
   const item = getItemById(db, id);
 
   if (!item) {
