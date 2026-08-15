@@ -121,7 +121,7 @@ interface Props {
     links?: LinkedRef[];
     estimateMinutes?: number | null;
   };
-  onStart?: (id: number) => void;
+  onStart?: (id: number, alsoStartIds?: number[]) => void;
   onRequeue?: (id: number) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
@@ -585,10 +585,10 @@ export default function ItemRow({
           <Button
             type="button"
             onClick={() => {
-              onStart?.(item.id);
-              pendingStartLinks.forEach((link) => {
-                if (link.itemId !== null) onStart?.(link.itemId);
-              });
+              const linkIds = pendingStartLinks
+                .map((link) => link.itemId)
+                .filter((id): id is number => id !== null);
+              onStart?.(item.id, linkIds);
               setStartCascadeOpen(false);
             }}
           >

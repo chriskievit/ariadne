@@ -85,6 +85,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [switchTimerOpen, setSwitchTimerOpen] = useState(false);
   const [pendingStartId, setPendingStartId] = useState<number | null>(null);
+  const [pendingStartAlsoIds, setPendingStartAlsoIds] = useState<number[]>([]);
   const [yesterdayItems, setYesterdayItems] = useState<Item[]>([]);
   const [plan, setPlan] = useState<Plan>({
     date: localDateString(new Date()),
@@ -157,13 +158,17 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     }
   }
 
-  async function handleStart(id: number) {
+  async function handleStart(id: number, alsoStartIds: number[] = []) {
     if (runningTimer && runningTimer.itemId !== id) {
       setPendingStartId(id);
+      setPendingStartAlsoIds(alsoStartIds);
       setSwitchTimerOpen(true);
       return;
     }
     await startItem(id);
+    for (const linkId of alsoStartIds) {
+      await startItem(linkId);
+    }
     await refresh();
   }
 
@@ -171,14 +176,21 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     if (runningTimer) await stopTimerRequest(runningTimer.itemId);
     setSwitchTimerOpen(false);
     setPendingStartId(null);
+    setPendingStartAlsoIds([]);
     await refresh();
   }
 
   async function handleSwitchTimer() {
     if (runningTimer) await stopTimerRequest(runningTimer.itemId);
-    if (pendingStartId !== null) await startItem(pendingStartId);
+    if (pendingStartId !== null) {
+      await startItem(pendingStartId);
+      for (const linkId of pendingStartAlsoIds) {
+        await startItem(linkId);
+      }
+    }
     setSwitchTimerOpen(false);
     setPendingStartId(null);
+    setPendingStartAlsoIds([]);
     await refresh();
   }
 
