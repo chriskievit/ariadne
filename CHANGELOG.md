@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/chriskievit/ariadne/compare/v1.0.0...v1.0.1) (2026-08-15)
+
+
+### Bug Fixes
+
+* grant issues/pull-requests write for semantic-release's comment step ([7d9026b](https://github.com/chriskievit/ariadne/commit/7d9026b7440aa3a826e55d99e92c079391d49031))
+
 # 1.0.0 (2026-08-15)
 
 
