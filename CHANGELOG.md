@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/chriskievit/ariadne/compare/v1.0.5...v1.0.6) (2026-08-15)
+
+
+### Bug Fixes
+
+* stop header Pause button from being masked by a cached timer status ([0b45c0e](https://github.com/chriskievit/ariadne/commit/0b45c0ef89fc00b2e87b7815823a7ae218d1b597))
+
 ## [1.0.5](https://github.com/chriskievit/ariadne/compare/v1.0.4...v1.0.5) (2026-08-15)
 
 
