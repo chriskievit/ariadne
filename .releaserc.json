@@ -6,6 +6,12 @@
     "@semantic-release/changelog",
     ["@semantic-release/npm", { "npmPublish": false }],
     [
+      "@semantic-release/exec",
+      {
+        "publishCmd": "docker build -t ghcr.io/chriskievit/ariadne:${nextRelease.version} -t ghcr.io/chriskievit/ariadne:latest . && docker push ghcr.io/chriskievit/ariadne:${nextRelease.version} && docker push ghcr.io/chriskievit/ariadne:latest"
+      }
+    ],
+    [
       "@semantic-release/git",
       {
         "assets": ["CHANGELOG.md", "package.json", "package-lock.json"],
