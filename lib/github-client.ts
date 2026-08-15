@@ -7,6 +7,21 @@ export interface GithubConfig {
   staleDays: number;
 }
 
+// GitHub returns 403 for both an exhausted rate limit and a token that's
+// missing a required scope; only the rate-limit headers tell them apart, and
+// classifyError() needs that distinction to avoid a "just refresh" remedy on
+// a permissions problem refreshing can't fix.
+async function githubApiError(res: Response, label: string): Promise<Error> {
+  const body = await res.text();
+  if (res.status === 429 || (res.status === 403 && res.headers?.get('x-ratelimit-remaining') === '0')) {
+    return new Error(`GitHub rate limit exceeded (${label}): ${body}`);
+  }
+  if (res.status === 403) {
+    return new Error(`GitHub API error 403 (token may be missing a required scope): ${body}`);
+  }
+  return new Error(`GitHub API error ${res.status}: ${body}`);
+}
+
 async function githubFetch(pat: string, path: string): Promise<any> {
   const res = await fetch(`${GITHUB_API}${path}`, {
     headers: {
@@ -15,7 +30,7 @@ async function githubFetch(pat: string, path: string): Promise<any> {
     },
   });
   if (!res.ok) {
-    throw new Error(`GitHub API error ${res.status}: ${await res.text()}`);
+    throw await githubApiError(res, path);
   }
   return res.json();
 }
@@ -30,7 +45,7 @@ async function githubGraphql(pat: string, query: string, variables: Record<strin
     body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) {
-    throw new Error(`GitHub GraphQL error ${res.status}: ${await res.text()}`);
+    throw await githubApiError(res, 'graphql');
   }
   return res.json();
 }

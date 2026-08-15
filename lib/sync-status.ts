@@ -50,19 +50,27 @@ export function getAllSourceStatuses(db: Database.Database, now: Date): SourceSt
 }
 
 export interface ErrorClassification {
-  cause: 'auth' | 'rate_limit' | 'network' | 'unknown';
+  cause: 'auth' | 'scope' | 'rate_limit' | 'network' | 'unknown';
   remedy: string;
 }
 
 // Gives a fix, not a countdown, per the issue's copy guardrail: "Try again
 // later" makes the user run the experiment themselves.
+//
+// Order matters: rate_limit and scope are both checked before auth because
+// the github/ado clients report both as HTTP 403, and a bare 403 message
+// happens to contain the word "token" too — checked first, "auth" would
+// swallow both and tell the user to refresh a token that isn't the problem.
 export function classifyError(message: string, sourceLabel: string): ErrorClassification {
   const m = message.toLowerCase();
+  if (/rate limit/.test(m)) {
+    return { cause: 'rate_limit', remedy: `${sourceLabel}'s rate limit was hit. Refresh again in a few minutes.` };
+  }
+  if (/missing a required scope/.test(m)) {
+    return { cause: 'scope', remedy: `Check that your ${sourceLabel} token has the required read scope, then update it in Settings.` };
+  }
   if (/401|unauthoriz|bad credentials|token/.test(m)) {
     return { cause: 'auth', remedy: `Update the ${sourceLabel} token in Settings, then refresh.` };
-  }
-  if (/403|rate limit/.test(m)) {
-    return { cause: 'rate_limit', remedy: `${sourceLabel}'s rate limit was hit. Refresh again in a few minutes.` };
   }
   if (/network|econnrefused|enotfound|fetch failed/.test(m)) {
     return { cause: 'network', remedy: `Check your connection, then refresh.` };

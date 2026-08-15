@@ -579,3 +579,39 @@ describe('fetchMergedExternalIds', () => {
     expect(result.size).toBe(0);
   });
 });
+
+function errorResponse(status: number, body: string, headers: Record<string, string> = {}) {
+  return {
+    ok: false,
+    status,
+    text: async () => body,
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+  } as unknown as Response;
+}
+
+describe('GitHub API error handling', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('reports a rate-limit error when a 403 carries an exhausted rate-limit header', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue(errorResponse(403, 'Forbidden', { 'x-ratelimit-remaining': '0' }));
+
+    await expect(fetchGithubItems({ pat: 'x', staleDays: 3 })).rejects.toThrow(/rate limit/i);
+  });
+
+  it('reports a scope error when a 403 has no rate-limit signal', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue(errorResponse(403, 'Resource not accessible by personal access token'));
+
+    await expect(fetchGithubItems({ pat: 'x', staleDays: 3 })).rejects.toThrow(/missing a required scope/i);
+  });
+
+  it('reports a rate-limit error for a 429 response', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue(errorResponse(429, 'Too many requests'));
+
+    await expect(fetchGithubItems({ pat: 'x', staleDays: 3 })).rejects.toThrow(/rate limit/i);
+  });
+});
