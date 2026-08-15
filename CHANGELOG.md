@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/chriskievit/ariadne/compare/v1.0.3...v1.0.4) (2026-08-15)
+
+
+### Bug Fixes
+
+* give snoozed items their own visible sub-list ([7503895](https://github.com/chriskievit/ariadne/commit/75038954b6d1a1121c4f2a35b3ba71bae0bbbd28))
+
 ## [1.0.3](https://github.com/chriskievit/ariadne/compare/v1.0.2...v1.0.3) (2026-08-15)
 
 
