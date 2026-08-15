@@ -219,3 +219,12 @@ export function withoutFilter(query: string, filter: ParsedFilter): string {
   );
   return queryToString({ filters: remaining, bareWords: parsed.bareWords, errors: [] });
 }
+
+// Drops one bare word by position (not just first-match-by-value), so
+// removing one of two identical bare words never removes the wrong one --
+// used by the filter bar's per-word pill.
+export function withoutBareWord(query: string, index: number): string {
+  const parsed = parseQuery(query);
+  const remaining = parsed.bareWords.filter((_, i) => i !== index);
+  return queryToString({ filters: parsed.filters, bareWords: remaining, errors: [] });
+}
