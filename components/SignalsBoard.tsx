@@ -103,6 +103,7 @@ export default function SignalsBoard({
     lower_priority: false,
   });
   const [lastValidParsed, setLastValidParsed] = useState(parseQuery(''));
+  const [snoozedOpen, setSnoozedOpen] = useState(false);
 
   const parsed = parseQuery(queryText);
   const activeParsed = parsed.errors.length === 0 ? parsed : lastValidParsed;
@@ -120,6 +121,14 @@ export default function SignalsBoard({
       (activeParsed.filters.some((f) => f.prefix === 'is' && f.values.includes('done')) || item.triageState !== 'done')
   );
   const filtered = applyQuery(withoutHiddenTriage, activeParsed, context);
+
+  // Snoozed items get their own always-visible sub-list (same pattern as
+  // Paused in ItemSection) instead of only being reachable by typing
+  // `is:snoozed` -- otherwise a snoozed item just disappears with no
+  // indication it still exists.
+  const snoozedItems = items.filter(
+    (item) => isSnoozed(item.snoozedUntil, context.now) && item.triageState !== 'done'
+  );
 
   const needsYouCount = useMemo(
     () => withoutHiddenTriage.filter((item) => groupOf(item) === 'blocked' || groupOf(item) === 'waiting_on_you').length,
@@ -280,6 +289,40 @@ export default function SignalsBoard({
           </section>
         );
       })}
+      {snoozedItems.length > 0 && (
+        <section className="mb-4">
+          <button
+            type="button"
+            aria-expanded={snoozedOpen}
+            aria-controls="signals-snoozed"
+            onClick={() => setSnoozedOpen((prev) => !prev)}
+            className="flex w-full items-center pb-1 pt-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            Snoozed · <span className="ml-1 font-mono tabular-nums">{snoozedItems.length}</span>
+          </button>
+          {snoozedOpen && (
+            <div id="signals-snoozed">
+              {snoozedItems.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  onStart={onStart}
+                  onComplete={onComplete}
+                  onOpenClaude={onOpenClaude}
+                  onDelete={onDelete}
+                  onPinToday={onPinToday}
+                  onStar={onStar}
+                  onSnooze={onSnooze}
+                  onUnsnooze={onUnsnooze}
+                  onDone={onDone}
+                  sourceIsStale={failingSources?.has(item.source)}
+                  onOpenScoringReference={onOpenScoringReference}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
