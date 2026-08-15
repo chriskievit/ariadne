@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/chriskievit/ariadne/compare/v1.0.4...v1.0.5) (2026-08-15)
+
+
+### Bug Fixes
+
+* add active-filter pills and a persistent clear button to the filter bar ([51945c0](https://github.com/chriskievit/ariadne/commit/51945c0e7b67f5c78c642de87eaea8b5a713aa2c))
+
 ## [1.0.4](https://github.com/chriskievit/ariadne/compare/v1.0.3...v1.0.4) (2026-08-15)
 
 
