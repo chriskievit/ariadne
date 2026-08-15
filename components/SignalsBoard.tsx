@@ -59,7 +59,7 @@ function StatusKeyPopover() {
 
 interface Props {
   items: ScoredItem[];
-  onStart: (id: number) => void;
+  onStart: (id: number, alsoStartIds?: number[]) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete: (id: number) => void;

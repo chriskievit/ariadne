@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { createItem } from './helpers';
+import { createItem, ensureNoRunningTimer } from './helpers';
 
 test('header timer chip disappears immediately when an item is parked from its row menu', async ({
   page,
   request,
 }) => {
+  await ensureNoRunningTimer(request);
   const title = `Timer pause test ${Date.now()}`;
   const itemId = await createItem(request, title);
 
