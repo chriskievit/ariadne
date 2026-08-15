@@ -1,3 +1,11 @@
+## [1.0.7](https://github.com/chriskievit/ariadne/compare/v1.0.6...v1.0.7) (2026-08-15)
+
+
+### Bug Fixes
+
+* close security gaps from the issue [#34](https://github.com/chriskievit/ariadne/issues/34) review (secrets exposure, TOML injection, unauthenticated LAN access) ([c967257](https://github.com/chriskievit/ariadne/commit/c967257b69113a08484e49b6a581c1e9dc65d225))
+* gate CI on a production dependency audit and upgrade Next.js to close known CVEs ([46974d3](https://github.com/chriskievit/ariadne/commit/46974d3f35b29f28f9233cea4e41ae4628598437))
+
 ## [1.0.6](https://github.com/chriskievit/ariadne/compare/v1.0.5...v1.0.6) (2026-08-15)
 
 
