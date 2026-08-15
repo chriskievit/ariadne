@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/chriskievit/ariadne/compare/v1.0.2...v1.0.3) (2026-08-15)
+
+
+### Bug Fixes
+
+* start both linked items when a timer is already running ([91c9325](https://github.com/chriskievit/ariadne/commit/91c9325e26d857e34454b1a5ab22560b2656c945))
+
 ## [1.0.2](https://github.com/chriskievit/ariadne/compare/v1.0.1...v1.0.2) (2026-08-15)
 
 
