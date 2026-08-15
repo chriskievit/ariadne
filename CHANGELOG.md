@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/chriskievit/ariadne/compare/v1.0.1...v1.0.2) (2026-08-15)
+
+
+### Bug Fixes
+
+* stop header timer chip immediately when timer stops elsewhere ([44d4d9a](https://github.com/chriskievit/ariadne/commit/44d4d9ad485a1280ae31490d6c30f7266eff9363))
+
 ## [1.0.1](https://github.com/chriskievit/ariadne/compare/v1.0.0...v1.0.1) (2026-08-15)
 
 
