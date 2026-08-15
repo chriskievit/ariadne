@@ -18,6 +18,8 @@ jobs:
       - run: npm test
       - run: npx tsc --noEmit
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
       - name: Guard against non-GET calls in the read-only provider clients
         run: |
           # Both files are read-only in effect. Each has exactly one
