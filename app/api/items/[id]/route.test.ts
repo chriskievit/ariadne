@@ -17,7 +17,7 @@ beforeEach(() => {
 describe('DELETE /api/items/[id]', () => {
   it('deletes the item', async () => {
     const res = await deleteRoute(new Request('http://localhost', { method: 'DELETE' }), {
-      params: { id: String(itemId) },
+      params: Promise.resolve({ id: String(itemId) }),
     });
     expect(res.status).toBe(200);
     expect(getItemById(testDb, itemId)).toBeUndefined();

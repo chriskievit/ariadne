@@ -2,7 +2,7 @@ import Link from 'next/link';
 import SettingsForm from '@/components/SettingsForm';
 import SettingsScoringLink from '@/components/SettingsScoringLink';
 import { db } from '@/lib/db-instance';
-import { getAllSettings } from '@/lib/settings-repo';
+import { getRedactedSettings } from '@/lib/settings-repo';
 
 // GET has no dynamic API usage, so Next.js would statically bake this at
 // build time otherwise — same class of bug already fixed for `/` and
@@ -10,7 +10,7 @@ import { getAllSettings } from '@/lib/settings-repo';
 export const dynamic = 'force-dynamic';
 
 export default function SettingsPage() {
-  const settings = getAllSettings(db);
+  const settings = getRedactedSettings(db);
   return (
     <main className="mx-auto max-w-lg space-y-6 p-6">
       <Link href="/" className="text-sm text-muted-foreground hover:underline">

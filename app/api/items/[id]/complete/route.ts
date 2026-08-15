@@ -3,8 +3,9 @@ import { db } from '@/lib/db-instance';
 import { setStatus, getItemById } from '@/lib/items-repo';
 import { completeTimer } from '@/lib/time-logs-repo';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: idParam } = await params;
+  const id = Number(idParam);
   const body = (await request.json().catch(() => ({}))) as { durationHours?: number; note?: string };
 
   if (typeof body.durationHours !== 'number' || !Number.isFinite(body.durationHours) || body.durationHours < 0) {

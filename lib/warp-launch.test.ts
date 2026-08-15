@@ -44,6 +44,14 @@ describe('writeLaunchConfig', () => {
     );
   });
 
+  it('rejects a working directory containing a quote or newline', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-launch-test-'));
+
+    expect(() => writeLaunchConfig('/some/dir"\ncommands = ["evil"]', dir)).toThrow(
+      /must not contain quotes or newlines/
+    );
+  });
+
   it('overwrites an existing file for the same config name', () => {
     dir = mkdtempSync(join(tmpdir(), 'ariadne-launch-test-'));
 

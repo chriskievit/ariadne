@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db-instance';
-import { getAllSettings, setSetting } from '@/lib/settings-repo';
+import { getRedactedSettings, setSetting } from '@/lib/settings-repo';
 
 export async function GET() {
-  return NextResponse.json(getAllSettings(db));
+  return NextResponse.json(getRedactedSettings(db));
 }
 
 export async function POST(request: Request) {
@@ -11,5 +11,5 @@ export async function POST(request: Request) {
   for (const [key, value] of Object.entries(body)) {
     setSetting(db, key, value);
   }
-  return NextResponse.json(getAllSettings(db));
+  return NextResponse.json(getRedactedSettings(db));
 }

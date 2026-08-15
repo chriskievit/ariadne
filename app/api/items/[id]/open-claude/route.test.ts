@@ -36,7 +36,7 @@ describe('POST /api/items/[id]/open-claude', () => {
     });
 
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: String(item.id) },
+      params: Promise.resolve({ id: String(item.id) }),
     });
 
     expect(res.status).toBe(200);
@@ -44,23 +44,39 @@ describe('POST /api/items/[id]/open-claude', () => {
     expect(writeLaunchConfig).toHaveBeenCalledWith('/Users/chris/dev/github/repo-a');
   });
 
-  it('uses an explicit workingDir from the body over resolution', async () => {
+  it('uses an explicit workingDir from the body when it matches a configured local repo', async () => {
+    setSetting(testDb, SETTINGS_KEYS.repoPathOverrides, 'explicit-repo=/explicit/path');
     const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
 
     const res = await POST(
       new Request('http://localhost', { method: 'POST', body: JSON.stringify({ workingDir: '/explicit/path' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
 
     expect(res.status).toBe(200);
     expect(writeLaunchConfig).toHaveBeenCalledWith('/explicit/path');
   });
 
+  it('rejects an explicit workingDir that does not match a configured local repo', async () => {
+    const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
+
+    const res = await POST(
+      new Request('http://localhost', {
+        method: 'POST',
+        body: JSON.stringify({ workingDir: '/some/attacker/path' }),
+      }),
+      { params: Promise.resolve({ id: String(item.id) }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(writeLaunchConfig).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when no working directory can be resolved', async () => {
     const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
 
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: String(item.id) },
+      params: Promise.resolve({ id: String(item.id) }),
     });
 
     expect(res.status).toBe(400);
@@ -69,13 +85,14 @@ describe('POST /api/items/[id]/open-claude', () => {
 
   it('returns 404 for a missing item', async () => {
     const res = await POST(new Request('http://localhost', { method: 'POST', body: '{}' }), {
-      params: { id: '999999' },
+      params: Promise.resolve({ id: '999999' }),
     });
 
     expect(res.status).toBe(404);
   });
 
   it('returns 500 with an error message when writeLaunchConfig throws', async () => {
+    setSetting(testDb, SETTINGS_KEYS.repoPathOverrides, 'explicit-repo=/explicit/path');
     const item = createAdhocItem(testDb, { title: 'Ad-hoc' });
     writeLaunchConfig.mockImplementationOnce(() => {
       throw new Error('EACCES: permission denied');
@@ -83,7 +100,7 @@ describe('POST /api/items/[id]/open-claude', () => {
 
     const res = await POST(
       new Request('http://localhost', { method: 'POST', body: JSON.stringify({ workingDir: '/explicit/path' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
 
     expect(res.status).toBe(500);

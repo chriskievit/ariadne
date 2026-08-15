@@ -21,18 +21,18 @@ beforeEach(() => {
 
 describe('start -> complete -> undo', () => {
   it('walks an item through the full lifecycle', async () => {
-    const startRes = await start(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const startRes = await start(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     expect((await startRes.json()).status).toBe('in_progress');
 
     const completeRes = await complete(
       new Request('http://localhost', { method: 'POST', body: JSON.stringify({ durationHours: 1.5 }) }),
-      { params: { id: String(itemId) } }
+      { params: Promise.resolve({ id: String(itemId) }) }
     );
     const completeBody = await completeRes.json();
     expect(completeBody.item.status).toBe('done');
     expect(completeBody.timeLog.durationHours).toBe(1.5);
 
-    const undoRes = await undo(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const undoRes = await undo(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     const undoBody = await undoRes.json();
     expect(undoBody.status).toBe('in_progress');
     expect(undoBody.completedAt).toBeNull();
@@ -41,23 +41,23 @@ describe('start -> complete -> undo', () => {
 
 describe('start -> park -> unpark', () => {
   it('parks an in-progress item and can unpark it again', async () => {
-    await start(new Request('http://localhost'), { params: { id: String(itemId) } });
+    await start(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
 
-    const parkRes = await park(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const parkRes = await park(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     const parkBody = await parkRes.json();
     expect(parkBody.status).toBe('in_progress');
     expect(parkBody.parked).toBe(true);
 
-    const unparkRes = await unpark(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const unparkRes = await unpark(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     const unparkBody = await unparkRes.json();
     expect(unparkBody.parked).toBe(false);
   });
 
   it('requeuing a parked item clears parked', async () => {
-    await start(new Request('http://localhost'), { params: { id: String(itemId) } });
-    await park(new Request('http://localhost'), { params: { id: String(itemId) } });
+    await start(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
+    await park(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
 
-    const requeueRes = await requeue(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const requeueRes = await requeue(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     const requeueBody = await requeueRes.json();
     expect(requeueBody.status).toBe('inbox');
     expect(requeueBody.parked).toBe(false);
@@ -66,10 +66,10 @@ describe('start -> park -> unpark', () => {
 
 describe('start -> requeue', () => {
   it('returns an in-progress item to inbox and logs the elapsed time', async () => {
-    const startRes = await start(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const startRes = await start(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     expect((await startRes.json()).status).toBe('in_progress');
 
-    const requeueRes = await requeue(new Request('http://localhost'), { params: { id: String(itemId) } });
+    const requeueRes = await requeue(new Request('http://localhost'), { params: Promise.resolve({ id: String(itemId) }) });
     const requeueBody = await requeueRes.json();
     expect(requeueBody.status).toBe('inbox');
     expect(requeueBody.completedAt).toBeNull();

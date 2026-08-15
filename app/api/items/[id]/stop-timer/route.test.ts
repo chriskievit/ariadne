@@ -18,7 +18,7 @@ describe('POST /api/items/:id/stop-timer', () => {
     setStatus(testDb, item.id, 'in_progress');
     startTimer(testDb, item.id);
 
-    const res = await POST(new Request('http://localhost', { method: 'POST' }), { params: { id: String(item.id) } });
+    const res = await POST(new Request('http://localhost', { method: 'POST' }), { params: Promise.resolve({ id: String(item.id) }) });
     const body = await res.json();
     expect(body.status).toBe('in_progress');
     expect(listLogsByItem(testDb, item.id)[0].endedAt).not.toBeNull();

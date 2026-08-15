@@ -16,7 +16,7 @@ describe('POST /api/items/:id/snooze', () => {
     const item = createAdhocItem(testDb, { title: 'Snooze me' });
     const res = await POST(
       new Request('http://localhost/api/items/1/snooze', { method: 'POST', body: JSON.stringify({ option: 'tomorrow' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
     const body = await res.json();
     expect(body.snoozedUntil).not.toBeNull();
@@ -28,10 +28,10 @@ describe('DELETE /api/items/:id/snooze', () => {
     const item = createAdhocItem(testDb, { title: 'Unsnooze me' });
     await POST(
       new Request('http://localhost/api/items/1/snooze', { method: 'POST', body: JSON.stringify({ option: 'tomorrow' }) }),
-      { params: { id: String(item.id) } }
+      { params: Promise.resolve({ id: String(item.id) }) }
     );
     const res = await DELETE(new Request('http://localhost/api/items/1/snooze', { method: 'DELETE' }), {
-      params: { id: String(item.id) },
+      params: Promise.resolve({ id: String(item.id) }),
     });
     const body = await res.json();
     expect(body.snoozedUntil).toBeNull();
