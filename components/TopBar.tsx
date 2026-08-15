@@ -8,15 +8,13 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
 import RunningTimerChip from '@/components/RunningTimerChip';
-import { fetchRunningTimer, stopTimerRequest, fetchSettings } from '@/lib/api-client';
+import { useRunningTimer } from '@/components/RunningTimerProvider';
+import { stopTimerRequest, fetchSettings } from '@/lib/api-client';
 import { SETTINGS_KEYS, DEFAULT_LONG_RUN_NUDGE_HOURS } from '@/lib/config';
-import type { RunningTimer } from '@/lib/time-logs-repo';
-
-const RUNNING_TIMER_POLL_MS = 5000;
 
 export default function TopBar() {
   const { setOpen } = useCommandPalette();
-  const [runningTimer, setRunningTimer] = useState<RunningTimer | null>(null);
+  const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [longRunNudgeHours, setLongRunNudgeHours] = useState(DEFAULT_LONG_RUN_NUDGE_HOURS);
 
   useEffect(() => {
@@ -31,24 +29,10 @@ export default function TopBar() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function poll() {
-      const timer = await fetchRunningTimer();
-      if (!cancelled) setRunningTimer(timer);
-    }
-    poll();
-    const interval = setInterval(poll, RUNNING_TIMER_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
   async function handleStopTimer() {
     if (!runningTimer) return;
     await stopTimerRequest(runningTimer.itemId);
-    setRunningTimer(await fetchRunningTimer());
+    await refreshRunningTimer();
   }
 
   return (
