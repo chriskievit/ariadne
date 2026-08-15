@@ -16,6 +16,20 @@ function authHeader(pat: string): string {
   return 'Basic ' + Buffer.from(':' + pat).toString('base64');
 }
 
+// A 403 from Azure DevOps means the token is missing a required scope, not
+// that it hit a rate limit (ADO signals that with 429 instead) — classifyError()
+// needs the two told apart so the remedy points at the token, not a retry.
+async function adoApiError(res: Response): Promise<Error> {
+  const body = await res.text();
+  if (res.status === 429) {
+    return new Error(`Azure DevOps rate limit exceeded: ${body}`);
+  }
+  if (res.status === 403) {
+    return new Error(`Azure DevOps API error 403 (token may be missing a required scope): ${body}`);
+  }
+  return new Error(`Azure DevOps API error ${res.status}: ${body}`);
+}
+
 async function adoFetch(config: AdoConfig, url: string, init: RequestInit = {}): Promise<any> {
   const res = await fetch(url, {
     ...init,
@@ -26,7 +40,7 @@ async function adoFetch(config: AdoConfig, url: string, init: RequestInit = {}):
     },
   });
   if (!res.ok) {
-    throw new Error(`Azure DevOps API error ${res.status}: ${await res.text()}`);
+    throw await adoApiError(res);
   }
   return res.json();
 }

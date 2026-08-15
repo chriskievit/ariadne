@@ -86,4 +86,16 @@ describe('classifyError', () => {
   it('falls back to unknown for an unrecognized message', () => {
     expect(classifyError('Something unexpected happened', 'GitHub').cause).toBe('unknown');
   });
+
+  it('classifies a missing-scope message as scope, not rate_limit', () => {
+    const result = classifyError('GitHub API error 403 (token may be missing a required scope): Forbidden', 'GitHub');
+    expect(result.cause).toBe('scope');
+    expect(result.remedy).toContain('scope');
+  });
+
+  it('classifies a plain 403 without rate-limit wording as scope', () => {
+    expect(classifyError('Azure DevOps API error 403 (token may be missing a required scope): Access denied', 'Azure DevOps').cause).toBe(
+      'scope'
+    );
+  });
 });

@@ -139,11 +139,13 @@ export default function SprintProgressHeader({
                 {SOURCE_LABEL[status.source]}{' '}
                 {cause === 'auth'
                   ? 'rejected the token'
-                  : cause === 'rate_limit'
-                    ? 'rate limit was hit'
-                    : cause === 'network'
-                      ? 'could not be reached'
-                      : 'failed to sync'}
+                  : cause === 'scope'
+                    ? 'token is missing a required permission'
+                    : cause === 'rate_limit'
+                      ? 'rate limit was hit'
+                      : cause === 'network'
+                        ? 'could not be reached'
+                        : 'failed to sync'}
                 .
               </span>{' '}
               {status.lastSyncedAt

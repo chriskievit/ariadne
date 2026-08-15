@@ -219,3 +219,32 @@ describe('read-only guard', () => {
     }
   });
 });
+
+function errorResponse(status: number, body: string, headers: Record<string, string> = {}) {
+  return {
+    ok: false,
+    status,
+    text: async () => body,
+    headers: { get: (name: string) => headers[name.toLowerCase()] ?? null },
+  } as unknown as Response;
+}
+
+describe('Azure DevOps API error handling', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  it('reports a rate-limit error for a 429 response', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue(errorResponse(429, 'Too many requests'));
+
+    await expect(fetchAdoData({ pat: 'x', org: 'org', project: 'project' })).rejects.toThrow(/rate limit/i);
+  });
+
+  it('reports a scope error for a 403 response', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue(errorResponse(403, 'Access denied'));
+
+    await expect(fetchAdoData({ pat: 'x', org: 'org', project: 'project' })).rejects.toThrow(/missing a required scope/i);
+  });
+});

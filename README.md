@@ -89,6 +89,29 @@ docker run -d -p 127.0.0.1:3000:3000 -v $(pwd)/data:/data \
   -e ARIADNE_DB_PATH=/data/ariadne.db ariadne
 ```
 
+## Troubleshooting
+
+### Sync suddenly stopped working
+
+The dashboard shows a banner naming the source (GitHub or Azure DevOps),
+what went wrong, and what to do about it. The underlying causes are usually
+one of:
+
+- **Expired or revoked token.** The token was deleted, expired, or the
+  account it belongs to lost access. Generate a new one and paste it into
+  **Settings**.
+- **Missing scope.** The token is valid but lacks a permission Ariadne
+  needs. For GitHub, a classic PAT needs the `repo` scope (or, for a
+  fine-grained PAT, read access to **Pull requests** and **Metadata**); for
+  Azure DevOps, the PAT needs **Work Items (Read)**. Re-generate the token
+  with the right scope and update it in Settings — refreshing the page
+  won't help here.
+- **Rate limit.** GitHub and Azure DevOps both throttle API calls. This
+  resolves on its own; wait a few minutes and click **Refresh**.
+
+Until it's fixed, Ariadne keeps showing the last data it read from that
+source, marked stale, rather than hiding it.
+
 ## Scripts
 
 | Command | Description |
