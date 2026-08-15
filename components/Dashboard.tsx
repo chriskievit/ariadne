@@ -7,6 +7,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSearch } from './SearchProvider';
 import { useCommandPalette } from './CommandPaletteProvider';
+import { useRunningTimer } from './RunningTimerProvider';
 import { matchesQuery } from '@/lib/search';
 import SprintProgressHeader from './SprintProgressHeader';
 import ItemSection from './ItemSection';
@@ -41,7 +42,6 @@ import {
   setItemDone,
   fetchSavedViews,
   fetchSourceStatuses,
-  fetchRunningTimer,
   stopTimerRequest,
   fetchPlan,
   updatePlan,
@@ -54,7 +54,6 @@ import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { groupOf } from '@/lib/grouping';
 import { localDateString, addDays } from '@/lib/date';
 import { DEFAULT_CAPACITY_MINUTES } from '@/lib/config';
-import type { RunningTimer } from '@/lib/time-logs-repo';
 import type { CalibrationEntry } from '@/lib/calibration';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
@@ -83,7 +82,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [sourceStatuses, setSourceStatuses] = useState<SourceStatus[]>([]);
   const [planDayOpen, setPlanDayOpen] = useState(false);
-  const [runningTimer, setRunningTimer] = useState<RunningTimer | null>(null);
+  const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [switchTimerOpen, setSwitchTimerOpen] = useState(false);
   const [pendingStartId, setPendingStartId] = useState<number | null>(null);
   const [yesterdayItems, setYesterdayItems] = useState<Item[]>([]);
@@ -111,7 +110,6 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     const today = localDateString(new Date());
     const yesterday = addDays(today, -1);
     fetchSourceStatuses().then(setSourceStatuses);
-    fetchRunningTimer().then(setRunningTimer);
     fetchPlan(today).then((planResponse) => {
       setPlan(planResponse.plan);
       setPlanItems(planResponse.items);
@@ -132,17 +130,16 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   async function refresh() {
     const today = localDateString(new Date());
     const yesterday = addDays(today, -1);
-    const [fresh, statuses, timer, planResponse, yesterdaySummary, calibrationSummary] = await Promise.all([
+    const [fresh, statuses, , planResponse, yesterdaySummary, calibrationSummary] = await Promise.all([
       fetchDashboardData(),
       fetchSourceStatuses(),
-      fetchRunningTimer(),
+      refreshRunningTimer(),
       fetchPlan(today),
       fetchTodaySummaryFor(yesterday),
       fetchCalibration(today, today),
     ]);
     setData(fresh);
     setSourceStatuses(statuses);
-    setRunningTimer(timer);
     setPlan(planResponse.plan);
     setPlanItems(planResponse.items);
     setYesterdayItems(yesterdaySummary.planned);

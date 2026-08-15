@@ -10,3 +10,7 @@ node_modules
 docs/superpowers/
 docs/wireframes/
 .DS_Store
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

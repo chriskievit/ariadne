@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { SearchProvider } from '@/components/SearchProvider';
 import { CommandPaletteProvider } from '@/components/CommandPaletteProvider';
 import { DensityProvider } from '@/components/DensityProvider';
+import { RunningTimerProvider } from '@/components/RunningTimerProvider';
 import TopBar from '@/components/TopBar';
 import { db } from '@/lib/db-instance';
 import { getSetting } from '@/lib/settings-repo';
@@ -36,8 +37,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DensityProvider density={density}>
             <SearchProvider>
               <CommandPaletteProvider>
-                <TopBar />
-                {children}
+                <RunningTimerProvider>
+                  <TopBar />
+                  {children}
+                </RunningTimerProvider>
               </CommandPaletteProvider>
             </SearchProvider>
           </DensityProvider>
