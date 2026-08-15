@@ -482,7 +482,10 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       <ScoringReferenceDialog open={scoringReferenceOpen} onOpenChange={setScoringReferenceOpen} />
       <CommandPalette
         open={paletteOpen}
-        onOpenChange={setPaletteOpen}
+        onOpenChange={(next) => {
+          setPaletteOpen(next);
+          if (!next) setQuery('');
+        }}
         items={data.signals}
         savedViews={savedViews}
         search={query}
