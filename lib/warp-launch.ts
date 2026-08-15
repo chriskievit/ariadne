@@ -10,6 +10,13 @@ function defaultTabConfigDir(): string {
 }
 
 export function writeLaunchConfig(cwd: string, tabConfigDir: string = defaultTabConfigDir()): void {
+  if (/["\n\r]/.test(cwd)) {
+    // cwd is interpolated unescaped into a TOML string below — a quote or
+    // newline would let it break out of `directory = "..."` and inject
+    // arbitrary keys (e.g. a `commands` override) into the launch config.
+    throw new Error('Invalid working directory: must not contain quotes or newlines.');
+  }
+
   if (!existsSync(tabConfigDir)) {
     mkdirSync(tabConfigDir, { recursive: true });
   }

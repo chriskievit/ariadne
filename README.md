@@ -81,6 +81,17 @@ By default the port is only published on the host's loopback interface
 reach it from other devices on your network, change the port mapping in
 `docker-compose.yml` from `"127.0.0.1:3000:3000"` to `"3000:3000"`.
 
+Ariadne has no login of its own — anyone who can reach the port has full
+access, including to your GitHub/Azure DevOps tokens. **Before exposing it
+beyond loopback**, set an `ARIADNE_AUTH_TOKEN` environment variable; every
+request then needs it as a Basic Auth password (any username works):
+
+```bash
+docker run -d -p 3000:3000 -v $(pwd)/data:/data \
+  -e ARIADNE_DB_PATH=/data/ariadne.db \
+  -e ARIADNE_AUTH_TOKEN=<a long random value> ariadne
+```
+
 Without compose:
 
 ```bash

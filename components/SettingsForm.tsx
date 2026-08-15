@@ -36,6 +36,8 @@ interface Props {
 
 export default function SettingsForm({ initialSettings }: Props) {
   const [saved, setSaved] = useState(false);
+  const githubPatIsSet = initialSettings[`${SETTINGS_KEYS.githubPat}.isSet`] === 'true';
+  const adoPatIsSet = initialSettings[`${SETTINGS_KEYS.adoPat}.isSet`] === 'true';
   const form = useForm<SettingsValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
@@ -52,20 +54,22 @@ export default function SettingsForm({ initialSettings }: Props) {
   });
 
   async function handleSubmit(values: SettingsValues) {
-    await fetch('/api/settings', {
-      method: 'POST',
-      body: JSON.stringify({
-        [SETTINGS_KEYS.githubPat]: values.githubPat ?? '',
-        [SETTINGS_KEYS.adoPat]: values.adoPat ?? '',
-        [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
-        [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
-        [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
-        [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
-        [SETTINGS_KEYS.localReposBaseDir]: values.localReposBaseDir ?? '',
-        [SETTINGS_KEYS.repoPathOverrides]: values.repoPathOverrides ?? '',
-        [SETTINGS_KEYS.density]: values.density ?? DEFAULT_DENSITY,
-      }),
-    });
+    const body: Record<string, string> = {
+      [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
+      [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
+      [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
+      [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
+      [SETTINGS_KEYS.localReposBaseDir]: values.localReposBaseDir ?? '',
+      [SETTINGS_KEYS.repoPathOverrides]: values.repoPathOverrides ?? '',
+      [SETTINGS_KEYS.density]: values.density ?? DEFAULT_DENSITY,
+    };
+    // Tokens come back from the server redacted (empty), so an untouched
+    // field must never overwrite the saved value with ''. Only send a PAT
+    // when the user actually typed a new one.
+    if (values.githubPat) body[SETTINGS_KEYS.githubPat] = values.githubPat;
+    if (values.adoPat) body[SETTINGS_KEYS.adoPat] = values.adoPat;
+
+    await fetch('/api/settings', { method: 'POST', body: JSON.stringify(body) });
     setSaved(true);
   }
 
@@ -81,11 +85,12 @@ export default function SettingsForm({ initialSettings }: Props) {
                 <FormItem>
                   <FormLabel>GitHub personal access token</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" placeholder={githubPatIsSet ? 'Saved — leave blank to keep it' : ''} {...field} />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">
                     Tokens are stored in plaintext in your local database — the same trust model as a{' '}
-                    <code className="font-mono">.env</code> file.
+                    <code className="font-mono">.env</code> file. The saved token is never sent back to the
+                    browser; leave this blank to keep it unchanged.
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -98,11 +103,12 @@ export default function SettingsForm({ initialSettings }: Props) {
                 <FormItem>
                   <FormLabel>Azure DevOps personal access token</FormLabel>
                   <FormControl>
-                    <Input type="password" {...field} />
+                    <Input type="password" placeholder={adoPatIsSet ? 'Saved — leave blank to keep it' : ''} {...field} />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">
                     Tokens are stored in plaintext in your local database — the same trust model as a{' '}
-                    <code className="font-mono">.env</code> file.
+                    <code className="font-mono">.env</code> file. The saved token is never sent back to the
+                    browser; leave this blank to keep it unchanged.
                   </p>
                   <FormMessage />
                 </FormItem>

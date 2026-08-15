@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db-instance';
 import { getItemById } from '@/lib/items-repo';
-import { resolveWorkingDir } from '@/lib/warp';
+import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
 import { writeLaunchConfig, WARP_LAUNCH_URL } from '@/lib/warp-launch';
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -13,7 +13,23 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const body = (await request.json().catch(() => ({}))) as { workingDir?: string };
-  const workingDir = body.workingDir || resolveWorkingDir(db, item);
+  let workingDir: string | null;
+
+  if (body.workingDir) {
+    // workingDir must match a server-known local repo path — never trust an
+    // arbitrary client-supplied path here, since it's written unescaped into
+    // a TOML file that Warp executes commands from (see lib/warp-launch.ts).
+    const isKnownRepoPath = listLocalRepos(db).some((repo) => repo.path === body.workingDir);
+    if (!isKnownRepoPath) {
+      return NextResponse.json(
+        { error: 'workingDir must match a configured local repo.' },
+        { status: 400 }
+      );
+    }
+    workingDir = body.workingDir;
+  } else {
+    workingDir = resolveWorkingDir(db, item);
+  }
 
   if (!workingDir) {
     return NextResponse.json(
