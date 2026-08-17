@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import SettingsForm from '@/components/SettingsForm';
-import SettingsScoringLink from '@/components/SettingsScoringLink';
 import { db } from '@/lib/db-instance';
 import { getRedactedSettings } from '@/lib/settings-repo';
 
@@ -18,7 +17,6 @@ export default function SettingsPage() {
       </Link>
       <h1 className="text-lg font-semibold">Settings</h1>
       <SettingsForm initialSettings={settings} />
-      <SettingsScoringLink />
     </main>
   );
 }
