@@ -7,6 +7,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSearch } from './SearchProvider';
 import { useCommandPalette } from './CommandPaletteProvider';
+import { useKeymapHelp } from './KeymapHelpProvider';
 import { useRunningTimer } from './RunningTimerProvider';
 import { matchesQuery } from '@/lib/search';
 import SprintProgressHeader from './SprintProgressHeader';
@@ -18,7 +19,6 @@ import ShutdownDialog from './ShutdownDialog';
 import PlanDayDialog from './PlanDayDialog';
 import SwitchTimerDialog from './SwitchTimerDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
-import KeymapHelpDialog from './KeymapHelpDialog';
 import CommandPalette from './CommandPalette';
 import ScoringReferenceDialog from './ScoringReferenceDialog';
 import FirstRunCard from './FirstRunCard';
@@ -77,7 +77,6 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const [reviewDayOpen, setReviewDayOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [inProgressAccordion, setInProgressAccordion] = useState<string[]>(['in-progress']);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [signalsQuery, setSignalsQuery] = useState('');
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [sourceStatuses, setSourceStatuses] = useState<SourceStatus[]>([]);
@@ -104,6 +103,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
 
   const { query, setQuery } = useSearch();
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
+  const { setOpen: setHelpOpen } = useKeymapHelp();
   const router = useRouter();
 
   useEffect(() => {
@@ -487,7 +487,6 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
         onJustStop={handleJustStopTimer}
         onSwitch={handleSwitchTimer}
       />
-      <KeymapHelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
       <ScoringReferenceDialog open={scoringReferenceOpen} onOpenChange={setScoringReferenceOpen} />
       <CommandPalette
         open={paletteOpen}

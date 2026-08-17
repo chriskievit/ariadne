@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, Search, Settings } from 'lucide-react';
+import { BarChart3, HelpCircle, Search, Settings } from 'lucide-react';
 import { AriadneMark } from '@/components/icons/ariadne-mark';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
+import { useKeymapHelp } from '@/components/KeymapHelpProvider';
 import RunningTimerChip from '@/components/RunningTimerChip';
 import { useRunningTimer } from '@/components/RunningTimerProvider';
 import { stopTimerRequest, fetchSettings } from '@/lib/api-client';
@@ -14,6 +15,7 @@ import { SETTINGS_KEYS, DEFAULT_LONG_RUN_NUDGE_HOURS } from '@/lib/config';
 
 export default function TopBar() {
   const { setOpen } = useCommandPalette();
+  const { setOpen: setHelpOpen } = useKeymapHelp();
   const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [longRunNudgeHours, setLongRunNudgeHours] = useState(DEFAULT_LONG_RUN_NUDGE_HOURS);
 
@@ -68,6 +70,16 @@ export default function TopBar() {
             <Link href="/settings">
               <Settings className="h-4 w-4" />
             </Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            onClick={() => setHelpOpen(true)}
+          >
+            <HelpCircle className="h-4 w-4" />
           </Button>
           <ThemeToggle />
         </div>
