@@ -129,6 +129,13 @@ export function getPriorityTier(score: number): PriorityTier {
   return 'low';
 }
 
+export const TIER_LABEL: Record<PriorityTier, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  critical: 'Critical',
+};
+
 export interface ScoringReferenceRow {
   label: string;
   points: number;

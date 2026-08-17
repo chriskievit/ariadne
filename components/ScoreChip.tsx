@@ -3,7 +3,7 @@
 import { useId } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { getPriorityTier, MAX_SCORE, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
+import { getPriorityTier, MAX_SCORE, TIER_LABEL, type PriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 
 // Urgency bands per docs/wireframes/phase-0-foundation.html: only the top two
 // bands are filled, medium is an outline, low has no border at all -- visual
@@ -15,13 +15,6 @@ const TIER_CHIP_CLASS: Record<PriorityTier, string> = {
   medium: 'border-2 border-urgency-medium bg-transparent text-foreground',
   high: 'border-transparent bg-urgency-high text-urgency-high-foreground',
   critical: 'border-transparent bg-urgency-critical text-urgency-critical-foreground',
-};
-
-const TIER_LABEL: Record<PriorityTier, string> = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  critical: 'Critical',
 };
 
 interface Props {

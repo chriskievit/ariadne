@@ -48,6 +48,20 @@ export default function GlobalKeymapProvider({
 
       if (isTypingTarget(e.target)) return;
 
+      if (e.key === 'j' || e.key === 'k') {
+        // Don't steal focus out from under an open dialog or the score-chip
+        // popover -- both render with role="dialog" (see ScoreChip.tsx and
+        // components/ui/dialog.tsx) -- so this only ever moves row focus on
+        // the plain dashboard surface, not out of an active overlay.
+        if (document.querySelector('[role="dialog"]')) return;
+        e.preventDefault();
+        const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-row-id]'));
+        const currentIndex = rows.findIndex((el) => el === document.activeElement);
+        const nextIndex = e.key === 'j' ? Math.min(rows.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+        rows[nextIndex === -1 ? 0 : nextIndex]?.focus();
+        return;
+      }
+
       if (pendingG) {
         pendingG = false;
         if (pendingGTimeout) clearTimeout(pendingGTimeout);

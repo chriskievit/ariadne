@@ -7,19 +7,23 @@ export interface KeyBinding {
 // The single place a binding may be declared -- the `?` cheat sheet
 // (KeymapHelpDialog) and the command palette's shortcut hints both render
 // straight from this array, so neither can drift from what's actually wired
-// up. Row-scoped bindings fire from each row's own onKeyDown (naturally
-// inert while typing, since focus never reaches a row while an input has
-// it); global bindings go through the document-level listener in
-// GlobalKeymapProvider, which checks isTypingTarget before acting on any of
-// them.
+// up. `scope: 'row'` bindings act on whichever row currently has focus.
+// Most of them (enter/o, x, s, e, d, t) fire from that row's own bubbled
+// onKeyDown; j/k are the exception -- they navigate *between* rows, so they
+// fire from GlobalKeymapProvider's document-level listener instead, which
+// scans every `[data-row-id]` on the page (Today, In-progress, and Signals
+// alike) rather than one section's own container. `scope: 'global'`
+// bindings are page-level and always fire from GlobalKeymapProvider, which
+// checks isTypingTarget before acting on any binding (naturally inert while
+// typing, since focus never reaches a row while an input has it).
 //
 // Deliberately NOT included yet: `space` (start/stop timer) and `P` (plan
 // the day) -- both trigger Phase 3 features that don't exist in this
 // codebase yet. Declaring a binding for a nonexistent action would ship a
 // dead shortcut; they're added here once Phase 3 builds what they call.
 export const KEYMAP: KeyBinding[] = [
-  { keys: 'j', description: 'Move focus to the next signal', scope: 'row' },
-  { keys: 'k', description: 'Move focus to the previous signal', scope: 'row' },
+  { keys: 'j', description: 'Move focus to the next item', scope: 'row' },
+  { keys: 'k', description: 'Move focus to the previous item', scope: 'row' },
   { keys: '↵ / o', description: 'Open upstream in a new tab', scope: 'row' },
   { keys: 'x', description: 'Show the score breakdown', scope: 'row' },
   { keys: 's', description: 'Star (local only)', scope: 'row' },

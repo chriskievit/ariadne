@@ -38,7 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn, formatRelativeTime } from '@/lib/utils';
-import { REASON_LABEL, type ScoreBreakdownEntry } from '@/lib/scoring';
+import { REASON_LABEL, MAX_SCORE, TIER_LABEL, getPriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
 import { isKeptVisible } from '@/lib/grouping';
 import { matchesQuery } from '@/lib/search';
@@ -46,6 +46,7 @@ import type { Item, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
 import { useDensity } from '@/components/DensityProvider';
+import { useRunningTimer } from '@/components/RunningTimerProvider';
 import type { Density } from '@/lib/config';
 import ScoreChip from './ScoreChip';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
@@ -344,6 +345,7 @@ export default function ItemRow({
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
   const density = useDensity();
+  const { runningTimer } = useRunningTimer();
   const isMatch = matchesQuery(item.title, query);
   const [open, setOpen] = useState(false);
   const [chipOpen, setChipOpen] = useState(false);
@@ -363,6 +365,11 @@ export default function ItemRow({
   const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
   const pendingStartLinks = (item.links ?? []).filter((link) => link.itemId !== null && link.status === 'inbox');
   const pendingCompleteLinks = actionableLinks(item.links, 'done');
+  // Starting this item will also pop Dashboard's SwitchTimerDialog right
+  // after this one closes, if a different item's timer is running. Named
+  // here so the cascade dialog can preview that second question instead of
+  // letting it land as a surprise second modal.
+  const willSwitchTimer = Boolean(runningTimer && runningTimer.itemId !== item.id);
 
   function handleStartClick() {
     if (pendingStartLinks.length > 0) {
@@ -564,11 +571,16 @@ export default function ItemRow({
     <Dialog open={startCascadeOpen} onOpenChange={setStartCascadeOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Start linked item{pendingStartLinks.length > 1 ? 's' : ''} too?</DialogTitle>
+          <DialogTitle>
+            Start linked item{pendingStartLinks.length > 1 ? 's' : ''} too?
+            {willSwitchTimer && <span className="text-muted-foreground"> (1 of 2)</span>}
+          </DialogTitle>
           <DialogDescription>
             {pendingStartLinks.length === 1
               ? `"${pendingStartLinks[0].title}" is linked to this item.`
               : `${pendingStartLinks.length} linked items aren't in progress yet.`}
+            {willSwitchTimer &&
+              ` You'll also be asked whether to stop or switch the timer running on "${runningTimer?.itemTitle}".`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -690,9 +702,34 @@ export default function ItemRow({
   const keptVisible = isKeptVisible(item, item.score);
   const inlineBadge = getInlineBadge(item, keptVisible);
 
+  // Row-scoped shortcuts (see handleRowKeyDown) only fire while this exact
+  // wrapper has focus, so both the accessible name and the discoverability
+  // hint below are keyed off the same list rather than a static one -- a
+  // row without, say, onStar never claims 's' works on it.
+  const rowShortcuts = [
+    item.url ? 'o' : null,
+    onStar ? 's' : null,
+    onSnooze || onUnsnooze ? 'e' : null,
+    onDone ? 'd' : null,
+    onPinToday || onUnpinToday ? 't' : null,
+    'x',
+  ].filter((key): key is string => key !== null);
+
+  const rowLabel = [
+    item.title,
+    `${TIER_LABEL[getPriorityTier(item.score)]} priority`,
+    `score ${item.score} of ${MAX_SCORE}`,
+    inlineBadge?.label,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <div
       tabIndex={0}
+      role="group"
+      aria-label={rowLabel}
+      aria-keyshortcuts={rowShortcuts.join(' ')}
       data-row-id={item.id}
       onKeyDown={handleRowKeyDown}
       className={cn(
@@ -754,6 +791,16 @@ export default function ItemRow({
         </div>
       </div>
       <div className="flex w-full shrink-0 items-center justify-end gap-1 opacity-100 motion-safe:transition-opacity sm:w-auto sm:opacity-60 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+        {rowShortcuts.length > 0 && (
+          <span
+            aria-hidden="true"
+            className="hidden shrink-0 items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:group-focus-visible:inline-flex"
+          >
+            {rowShortcuts.map((key) => (
+              <kbd key={key}>{key}</kbd>
+            ))}
+          </span>
+        )}
         {item.status === 'inbox' && onStart && (
           <Button
             type="button"
