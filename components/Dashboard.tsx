@@ -166,8 +166,11 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       return;
     }
     await startItem(id);
+    // Linked items only advance to in_progress -- the timer stays on the
+    // item the user actually clicked Start on, not the last one in this
+    // loop (see the withTimer contract in lib/api-client.ts).
     for (const linkId of alsoStartIds) {
-      await startItem(linkId);
+      await startItem(linkId, { withTimer: false });
     }
     await refresh();
   }
@@ -185,7 +188,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     if (pendingStartId !== null) {
       await startItem(pendingStartId);
       for (const linkId of pendingStartAlsoIds) {
-        await startItem(linkId);
+        await startItem(linkId, { withTimer: false });
       }
     }
     setSwitchTimerOpen(false);
