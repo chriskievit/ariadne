@@ -1,3 +1,11 @@
+## [1.0.8](https://github.com/chriskievit/ariadne/compare/v1.0.7...v1.0.8) (2026-08-17)
+
+
+### Bug Fixes
+
+* **ci:** use an admin PAT for semantic-release's push to main ([#56](https://github.com/chriskievit/ariadne/issues/56)) ([e67fe6c](https://github.com/chriskievit/ariadne/commit/e67fe6c2a504ae342fe977a102ab48a5a40c6adc))
+* **timer:** enforce a single running timer across all start paths ([#54](https://github.com/chriskievit/ariadne/issues/54)) ([fa860c1](https://github.com/chriskievit/ariadne/commit/fa860c1a0351d09e3deb085afa1402792ce9be05))
+
 ## [1.0.7](https://github.com/chriskievit/ariadne/compare/v1.0.6...v1.0.7) (2026-08-15)
 
 
