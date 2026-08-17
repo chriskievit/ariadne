@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { SearchProvider } from '@/components/SearchProvider';
 import { CommandPaletteProvider } from '@/components/CommandPaletteProvider';
+import { KeymapHelpProvider } from '@/components/KeymapHelpProvider';
 import { DensityProvider } from '@/components/DensityProvider';
 import { RunningTimerProvider } from '@/components/RunningTimerProvider';
 import TopBar from '@/components/TopBar';
@@ -37,10 +38,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DensityProvider density={density}>
             <SearchProvider>
               <CommandPaletteProvider>
-                <RunningTimerProvider>
-                  <TopBar />
-                  {children}
-                </RunningTimerProvider>
+                <KeymapHelpProvider>
+                  <RunningTimerProvider>
+                    <TopBar />
+                    {children}
+                  </RunningTimerProvider>
+                </KeymapHelpProvider>
               </CommandPaletteProvider>
             </SearchProvider>
           </DensityProvider>

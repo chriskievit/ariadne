@@ -141,7 +141,7 @@ export default function QueryBar({
           >
             <Star className="h-3 w-3" aria-hidden="true" />
             {view.label}
-            {view.shortcut && <kbd className="ml-1 font-mono text-[10px] text-muted-foreground">{view.shortcut}</kbd>}
+            {view.shortcut && <kbd className="ml-1 font-mono text-[11px] text-muted-foreground">{view.shortcut}</kbd>}
             <span
               role="button"
               tabIndex={0}
