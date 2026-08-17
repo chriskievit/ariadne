@@ -14,7 +14,7 @@ test('starting a linked item with "Start both" moves both to In Progress even wh
 }) => {
   await ensureNoRunningTimer(request);
   const suffix = String(Date.now());
-  const { prItemId, adoItemId, adoTitle } = seedLinkedPair(suffix);
+  const { prItemId, adoItemId, prTitle } = seedLinkedPair(suffix);
   const otherTitle = `Already running ${suffix}`;
   const otherItemId = await createItem(request, otherTitle);
 
@@ -37,9 +37,10 @@ test('starting a linked item with "Start both" moves both to In Progress even wh
   await expect(page.getByRole('dialog', { name: 'A timer is already running' })).toBeVisible();
   await page.getByRole('button', { name: 'Switch' }).click();
 
-  // The link's timer starts second (after the item that was clicked), so it
-  // ends up as the one live-running -- both still land in In Progress below.
-  await expect(page.locator('header')).toContainText(adoTitle);
+  // The timer stays on the item the user actually clicked Start on -- the
+  // linked item only advances to In Progress, it never takes over the
+  // timer (see the withTimer: false contract in lib/api-client.ts).
+  await expect(page.locator('header')).toContainText(prTitle);
 
   const ids = await inProgressIds(request);
   expect(ids).toContain(prItemId);
