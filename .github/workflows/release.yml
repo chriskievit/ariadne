@@ -35,6 +35,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # protect-main requires PRs for the default GITHUB_TOKEN (the
+          # github-actions bot isn't an admin bypass actor), but
+          # @semantic-release/git needs to push the version-bump commit and
+          # tag straight to main. RELEASE_TOKEN is a PAT from an account that
+          # holds the repo's admin bypass role.
+          token: ${{ secrets.RELEASE_TOKEN }}
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -47,4 +53,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - run: npx semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
