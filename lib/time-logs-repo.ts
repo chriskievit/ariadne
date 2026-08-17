@@ -13,7 +13,18 @@ function rowToLog(row: any): TimeLog {
   };
 }
 
+// Enforces the single-running-timer invariant here, at the source, rather
+// than relying on every caller to stop the previous timer first -- that's
+// exactly the discipline the link-start cascade (Dashboard.tsx) forgot,
+// leaving multiple items with an open timer at once. Closing any other
+// open timer first (banking its elapsed time, same as stopTimer) means
+// that can't happen again regardless of what a future caller does.
 export function startTimer(db: Database.Database, itemId: number): TimeLog {
+  const others = db
+    .prepare('SELECT item_id FROM time_logs WHERE ended_at IS NULL AND item_id != ?')
+    .all(itemId) as { item_id: number }[];
+  for (const other of others) stopTimer(db, other.item_id);
+
   const now = new Date().toISOString();
   const result = db.prepare('INSERT INTO time_logs (item_id, started_at) VALUES (?, ?)').run(itemId, now);
   return rowToLog(db.prepare('SELECT * FROM time_logs WHERE id = ?').get(result.lastInsertRowid));

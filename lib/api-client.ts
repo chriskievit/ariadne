@@ -18,8 +18,11 @@ export async function triggerSync() {
   return res.json();
 }
 
-export async function startItem(id: number) {
-  await fetch(`/api/items/${id}/start`, { method: 'POST' });
+export async function startItem(id: number, options?: { withTimer?: boolean }) {
+  await fetch(`/api/items/${id}/start`, {
+    method: 'POST',
+    body: JSON.stringify({ withTimer: options?.withTimer ?? true }),
+  });
 }
 
 export async function completeItem(id: number, body: { durationHours: number; note?: string }) {

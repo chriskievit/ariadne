@@ -58,6 +58,29 @@ describe('startTimer / completeTimer', () => {
   });
 });
 
+describe('startTimer enforces a single running timer', () => {
+  it('closes any other item\'s open timer before opening a new one', () => {
+    const other = createAdhocItem(db, { title: 'Was already running' });
+    startTimer(db, other.id);
+    expect(getRunningTimer(db)?.itemId).toBe(other.id);
+
+    startTimer(db, itemId);
+
+    // Exactly one open timer should exist across the whole table, and it
+    // should be the one just started -- not both.
+    const openCount = db.prepare('SELECT COUNT(*) as n FROM time_logs WHERE ended_at IS NULL').get() as { n: number };
+    expect(openCount.n).toBe(1);
+    expect(getRunningTimer(db)?.itemId).toBe(itemId);
+
+    // The previously-running item's elapsed time should be banked, not
+    // discarded, when it gets closed out this way.
+    const otherLogs = listLogsByItem(db, other.id);
+    expect(otherLogs).toHaveLength(1);
+    expect(otherLogs[0].endedAt).not.toBeNull();
+    expect(otherLogs[0].durationHours).not.toBeNull();
+  });
+});
+
 describe('elapsedHoursSinceStart', () => {
   it('returns the wall-clock hours elapsed since the open timer started', () => {
     const started = startTimer(db, itemId);
