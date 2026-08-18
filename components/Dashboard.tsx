@@ -68,6 +68,8 @@ interface DashboardData {
   signals: ScoredItem[];
   inProgress: ScoredItem[];
   parked: ScoredItem[];
+  todayPlannedMinutes: number;
+  todayLoggedMinutes: number;
   sprint: SprintProgress;
 }
 
@@ -98,6 +100,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const prevQueryRef = useRef('');
+  const prevRunningItemIdRef = useRef<number | null | undefined>(undefined);
   const preSearchAccordionRef = useRef<{ inProgress: string[] } | null>(null);
   const lastUndoRef = useRef<(() => void) | null>(null);
 
@@ -119,6 +122,20 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     fetchCalibration(today, today).then(setCalibration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The running timer can be stopped from outside this component's own
+  // handlers (e.g. completing the item straight from the header's ticker),
+  // so watch the shared runningTimer for a transition away from an item it
+  // was previously tracking and pull the dashboard lists back in sync.
+  useEffect(() => {
+    const currentItemId = runningTimer?.itemId ?? null;
+    const prevItemId = prevRunningItemIdRef.current;
+    if (prevItemId !== undefined && prevItemId !== null && prevItemId !== currentItemId) {
+      refresh();
+    }
+    prevRunningItemIdRef.current = currentItemId;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningTimer]);
 
   function scheduleAutoSync() {
     if (!isMountedRef.current) return;
@@ -403,6 +420,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
           {!hasAnyMatch && <p className="text-sm text-muted-foreground">No matches for &ldquo;{trimmedQuery}&rdquo;.</p>}
           <TodaySection
             items={data.today}
+            plannedMinutes={data.todayPlannedMinutes}
+            loggedMinutes={data.todayLoggedMinutes}
             capacityMinutes={plan.capacityMinutes}
             onStart={handleStart}
             onComplete={handleComplete}

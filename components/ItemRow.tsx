@@ -347,6 +347,7 @@ export default function ItemRow({
   const density = useDensity();
   const { runningTimer } = useRunningTimer();
   const isMatch = matchesQuery(item.title, query);
+  const isTracking = runningTimer?.itemId === item.id;
   const [open, setOpen] = useState(false);
   const [chipOpen, setChipOpen] = useState(false);
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false);
@@ -717,6 +718,7 @@ export default function ItemRow({
 
   const rowLabel = [
     item.title,
+    isTracking ? 'currently tracking time' : null,
     `${TIER_LABEL[getPriorityTier(item.score)]} priority`,
     `score ${item.score} of ${MAX_SCORE}`,
     inlineBadge?.label,
@@ -756,6 +758,13 @@ export default function ItemRow({
         <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
+            {isTracking && (
+              <span
+                className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[hsl(var(--brand-gold))]"
+                aria-hidden="true"
+                title="Currently tracking time"
+              />
+            )}
             {item.url ? (
               <a
                 href={item.url}

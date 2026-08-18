@@ -10,6 +10,8 @@ import type { Item } from '@/lib/types';
 
 interface Props {
   items: ScoredItem[];
+  plannedMinutes: number;
+  loggedMinutes: number;
   capacityMinutes: number;
   onStart?: (id: number, alsoStartIds?: number[]) => void;
   onComplete: (id: number, durationHours: number, note?: string) => void;
@@ -32,6 +34,8 @@ function formatMinutes(minutes: number): string {
 
 export default function TodaySection({
   items,
+  plannedMinutes,
+  loggedMinutes,
   capacityMinutes,
   onStart,
   onComplete,
@@ -43,9 +47,6 @@ export default function TodaySection({
   failingSources,
   onOpenScoringReference,
 }: Props) {
-  const plannedMinutes = items.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
-  const loggedMinutes = items.reduce((sum, i) => sum + i.loggedMinutesToday, 0);
-
   function move(id: number, direction: -1 | 1) {
     const order = items.map((i) => i.id);
     const index = order.indexOf(id);

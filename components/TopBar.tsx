@@ -10,7 +10,8 @@ import { useCommandPalette } from '@/components/CommandPaletteProvider';
 import { useKeymapHelp } from '@/components/KeymapHelpProvider';
 import RunningTimerChip from '@/components/RunningTimerChip';
 import { useRunningTimer } from '@/components/RunningTimerProvider';
-import { stopTimerRequest, fetchSettings } from '@/lib/api-client';
+import { toast } from '@/components/ui/sonner';
+import { completeItem, undoItem, stopTimerRequest, fetchSettings } from '@/lib/api-client';
 import { SETTINGS_KEYS, DEFAULT_LONG_RUN_NUDGE_HOURS } from '@/lib/config';
 
 export default function TopBar() {
@@ -37,9 +38,24 @@ export default function TopBar() {
     await refreshRunningTimer();
   }
 
+  async function handleCompleteTimer(itemId: number, durationHours: number, note?: string) {
+    await completeItem(itemId, { durationHours, note });
+    await refreshRunningTimer();
+    toast('Completed.', {
+      duration: 5000,
+      action: {
+        label: 'Undo',
+        onClick: async () => {
+          await undoItem(itemId);
+          await refreshRunningTimer();
+        },
+      },
+    });
+  }
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_minmax(0,24rem)_1fr] items-center gap-4 px-6">
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
         <Link
           href="/"
           className="group flex w-fit items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -48,7 +64,12 @@ export default function TopBar() {
           <span className="font-display text-xl leading-none tracking-wide text-foreground">Ariadne</span>
         </Link>
 
-        <RunningTimerChip runningTimer={runningTimer} onStop={handleStopTimer} longRunNudgeHours={longRunNudgeHours} />
+        <RunningTimerChip
+          runningTimer={runningTimer}
+          onStop={handleStopTimer}
+          onComplete={handleCompleteTimer}
+          longRunNudgeHours={longRunNudgeHours}
+        />
 
         <button
           type="button"
