@@ -17,6 +17,8 @@ interface Props {
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
+  onPark?: (id: number) => void;
+  onUnpark?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   onPlanDay: () => void;
   onReorder: (orderedItemIds: number[]) => void;
@@ -41,6 +43,8 @@ export default function TodaySection({
   onComplete,
   onOpenClaude,
   onDelete,
+  onPark,
+  onUnpark,
   onUnpinToday,
   onPlanDay,
   onReorder,
@@ -112,9 +116,12 @@ export default function TodaySection({
                     onComplete={onComplete}
                     onOpenClaude={onOpenClaude}
                     onDelete={onDelete}
+                    onPark={onPark}
+                    onUnpark={onUnpark}
                     onUnpinToday={onUnpinToday}
                     sourceIsStale={failingSources?.has(item.source)}
                     onOpenScoringReference={onOpenScoringReference}
+                    fullDetailWhenParked
                   />
                 </div>
                 {item.estimateMinutes !== null && (

@@ -105,17 +105,10 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 }
 
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
-  if (status === 'in_progress') {
-    // "In progress" already means "this is what I'm doing right now" -- Today
-    // doesn't need to keep saying the same thing once an item gets here, and
-    // without this an item could show up in both sections at once.
-    db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0, today_date = NULL WHERE id = ?').run(
-      status,
-      completedAt,
-      id
-    );
-    return;
-  }
+  // today_date is deliberately untouched here -- Today now tracks plan_items
+  // membership across a status change instead of dropping it, so a planned
+  // item stays visible in Today through Start/Pause/Complete (see
+  // getGroupedItems in lib/dashboard.ts).
   db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0 WHERE id = ?').run(status, completedAt, id);
 }
 

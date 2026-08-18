@@ -427,6 +427,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onComplete={handleComplete}
             onOpenClaude={handleOpenClaude}
             onDelete={handleDelete}
+            onPark={handlePark}
+            onUnpark={handleUnpark}
             onUnpinToday={handleUnpinToday}
             onPlanDay={() => setPlanDayOpen(true)}
             onReorder={handleReorderToday}

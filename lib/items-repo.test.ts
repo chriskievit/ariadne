@@ -528,11 +528,11 @@ describe('setTriageState', () => {
 });
 
 describe('setStatus today_date interaction', () => {
-  it('clears an existing today_date when starting an item', () => {
+  it('leaves today_date untouched when starting an item pinned to today', () => {
     const item = createAdhocItem(db, { title: 'Test' });
     setTodayDate(db, item.id, '2026-08-13');
     setStatus(db, item.id, 'in_progress');
-    expect(getItemById(db, item.id)?.todayDate).toBeNull();
+    expect(getItemById(db, item.id)?.todayDate).toBe('2026-08-13');
   });
 
   it('leaves today_date untouched when completing an item directly (never started)', () => {
@@ -556,7 +556,7 @@ describe('setStatus today_date interaction', () => {
     setTodayDate(db, item.id, '2026-08-13');
     setStatus(db, item.id, 'in_progress');
     expect(getItemById(db, item.id)?.parked).toBe(false);
-    expect(getItemById(db, item.id)?.todayDate).toBeNull();
+    expect(getItemById(db, item.id)?.todayDate).toBe('2026-08-13');
   });
 });
 

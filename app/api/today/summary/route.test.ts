@@ -17,7 +17,7 @@ describe('GET /api/today/summary', () => {
   it("returns today's plan with each done item carrying hoursLoggedToday", async () => {
     const item = createAdhocItem(testDb, { title: 'Test item' });
     testDb.prepare('UPDATE items SET today_date = ? WHERE id = ?').run(localDateString(new Date()), item.id);
-    setStatus(testDb, item.id, 'in_progress'); // clears today_date
+    setStatus(testDb, item.id, 'in_progress'); // today_date persists; excluded from `planned` via status !== 'done' instead
     setStatus(testDb, item.id, 'done', new Date().toISOString());
     testDb
       .prepare('INSERT INTO time_logs (item_id, started_at, ended_at, duration_hours) VALUES (?, ?, ?, ?)')

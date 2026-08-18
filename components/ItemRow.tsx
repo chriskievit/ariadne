@@ -10,6 +10,7 @@ import {
   Undo2,
   Link2,
   Pause,
+  Play,
   MoreHorizontal,
   Pin,
   Star,
@@ -137,6 +138,11 @@ interface Props {
   onDone?: (id: number, done: boolean) => void;
   sourceIsStale?: boolean;
   onOpenScoringReference: () => void;
+  // Today shows a parked item at full detail (score chip, Complete button,
+  // overflow menu) instead of the stripped-down title-plus-Resume treatment
+  // In-progress's Paused sub-list uses -- it's the one place you're actively
+  // deciding what to resume next, not an ambient list to skim past.
+  fullDetailWhenParked?: boolean;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -190,15 +196,17 @@ function HoverExtras({ item, keptVisible }: { item: Item & { links?: LinkedRef[]
 }
 
 // The quiet `⋯` overflow menu — contents depend on status, matching what
-// used to be always-visible buttons. Only ever mounted for non-parked rows;
-// parked rows get their own minimal "Resume" treatment instead (see the
-// `item.parked` branch in ItemRow), so this never needs an
-// in-progress-and-parked case. Pin/unpin lives here too, keeping the row's
-// action cluster to exactly one primary action plus this one menu.
+// used to be always-visible buttons. Normally only mounted for non-parked
+// rows; parked rows get their own minimal "Resume" treatment instead (see
+// the `item.parked` branch in ItemRow) -- except in Today, which shows the
+// full row (and this menu) even while parked, so the Park/Resume pair below
+// does need to branch on `item.parked`. Pin/unpin lives here too, keeping
+// the row's action cluster to exactly one primary action plus this one menu.
 function OverflowMenu({
   item,
   onRequeue,
   onPark,
+  onUnpark,
   onOpenClaude,
   onDelete,
   onPinToday,
@@ -213,6 +221,7 @@ function OverflowMenu({
   item: Item;
   onRequeue?: (id: number) => void;
   onPark?: (id: number) => void;
+  onUnpark?: (id: number) => void;
   onOpenClaude: () => void;
   onDelete?: () => void;
   onPinToday?: (id: number) => void;
@@ -282,9 +291,14 @@ function OverflowMenu({
             <Undo2 aria-hidden="true" /> Back to queue
           </DropdownMenuItem>
         )}
-        {item.status === 'in_progress' && onPark && (
+        {item.status === 'in_progress' && !item.parked && onPark && (
           <DropdownMenuItem onSelect={() => onPark(item.id)}>
             <Pause aria-hidden="true" /> Park
+          </DropdownMenuItem>
+        )}
+        {item.status === 'in_progress' && item.parked && onUnpark && (
+          <DropdownMenuItem onSelect={() => onUnpark(item.id)}>
+            <Play aria-hidden="true" /> Resume
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onSelect={onOpenClaude}>
@@ -341,6 +355,7 @@ export default function ItemRow({
   onDone,
   sourceIsStale,
   onOpenScoringReference,
+  fullDetailWhenParked = false,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
@@ -671,8 +686,10 @@ export default function ItemRow({
 
   // Parked rows deliberately cost as little visual attention as possible: no
   // icon, no badge, no priority dot, no primary action, no overflow menu —
-  // just the title and a one-click way back in.
-  if (item.parked) {
+  // just the title and a one-click way back in. Today opts out via
+  // fullDetailWhenParked since it's the one place you're actively deciding
+  // what to resume, not an ambient list to skim past.
+  if (item.parked && !fullDetailWhenParked) {
     return (
       <div
         className={cn(
@@ -719,6 +736,8 @@ export default function ItemRow({
   const rowLabel = [
     item.title,
     isTracking ? 'currently tracking time' : null,
+    item.parked ? 'paused' : null,
+    item.status === 'done' ? 'done' : null,
     `${TIER_LABEL[getPriorityTier(item.score)]} priority`,
     `score ${item.score} of ${MAX_SCORE}`,
     inlineBadge?.label,
@@ -740,7 +759,7 @@ export default function ItemRow({
         'border-l-2 border-l-transparent focus:border-l-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
         SM_ROW_HEIGHT_CLASS[density],
         'motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out',
-        !isMatch && 'opacity-40'
+        !isMatch ? 'opacity-40' : item.status === 'done' && 'opacity-60'
       )}
     >
       <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
@@ -765,18 +784,29 @@ export default function ItemRow({
                 title="Currently tracking time"
               />
             )}
+            {item.parked && (
+              <span title="Paused">
+                <Pause className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </span>
+            )}
             {item.url ? (
               <a
                 href={item.url}
                 target="_blank"
                 rel="noreferrer"
-                className="min-w-0 truncate font-medium hover:underline"
+                className={cn(
+                  'min-w-0 truncate font-medium hover:underline',
+                  item.status === 'done' && 'line-through'
+                )}
                 title={item.title}
               >
                 {renderTitle(item.title, query)}
               </a>
             ) : (
-              <span className="min-w-0 truncate font-medium" title={item.title}>
+              <span
+                className={cn('min-w-0 truncate font-medium', item.status === 'done' && 'line-through')}
+                title={item.title}
+              >
                 {renderTitle(item.title, query)}
               </span>
             )}
@@ -836,6 +866,7 @@ export default function ItemRow({
           item={item}
           onRequeue={onRequeue}
           onPark={onPark}
+          onUnpark={onUnpark}
           onOpenClaude={handleOpenClaudeClick}
           onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
           onPinToday={onPinToday}
