@@ -138,12 +138,20 @@ describe('getGroupedItems today bucket', () => {
     expect(grouped.signals.map((i) => i.id)).toEqual([item.id]);
   });
 
-  it('never puts an in-progress item in the today bucket even if today_date is still set', () => {
+  it('shows a started, today-pinned item in both Today and In-progress at once', () => {
     const item = createAdhocItem(db, { title: 'Test' });
     setTodayDate(db, item.id, '2026-08-13');
-    // Bypass setStatus's own auto-clear to simulate a stale write reaching
-    // this state some other way -- belt-and-suspenders on top of Task 4.
-    db.prepare("UPDATE items SET status = 'in_progress' WHERE id = ?").run(item.id);
+    setStatus(db, item.id, 'in_progress');
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([item.id]);
+    expect(grouped.inProgress.map((i) => i.id)).toEqual([item.id]);
+  });
+
+  it('never puts an in-progress item that was not pinned to today in the today bucket', () => {
+    const item = createAdhocItem(db, { title: 'Test' });
+    setStatus(db, item.id, 'in_progress');
 
     const now = new Date(2026, 7, 13, 9, 0);
     const grouped = getGroupedItems(db, now);
@@ -151,7 +159,7 @@ describe('getGroupedItems today bucket', () => {
     expect(grouped.inProgress.map((i) => i.id)).toEqual([item.id]);
   });
 
-  it('keeps a started item\'s estimate counted in todayPlannedMinutes even though it leaves the today bucket', () => {
+  it('keeps a started item\'s estimate counted in todayPlannedMinutes, and the item itself in the today bucket', () => {
     const today = '2026-08-13';
     const item = createAdhocItem(db, { title: 'Test' });
     setTodayDate(db, item.id, today);
@@ -164,11 +172,11 @@ describe('getGroupedItems today bucket', () => {
 
     setStatus(db, item.id, 'in_progress');
     grouped = getGroupedItems(db, now);
-    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.today.map((i) => i.id)).toEqual([item.id]);
     expect(grouped.todayPlannedMinutes).toBe(60);
   });
 
-  it('counts hours logged on a completed item toward todayLoggedMinutes even though it leaves the today bucket', () => {
+  it('counts hours logged on a completed item toward todayLoggedMinutes, and keeps it visible (done) in the today bucket', () => {
     const today = '2026-08-13';
     const item = createAdhocItem(db, { title: 'Test' });
     setTodayDate(db, item.id, today);
@@ -187,7 +195,8 @@ describe('getGroupedItems today bucket', () => {
     setStatus(db, item.id, 'done', now.toISOString());
 
     const grouped = getGroupedItems(db, now);
-    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.today.map((i) => i.id)).toEqual([item.id]);
+    expect(grouped.today[0].status).toBe('done');
     expect(grouped.todayLoggedMinutes).toBe(30);
   });
 });
@@ -255,7 +264,7 @@ describe('getTodaySummary', () => {
       repo: null,
     });
     setTodayDate(db, finishedViaToday.id, '2026-08-13');
-    setStatus(db, finishedViaToday.id, 'in_progress'); // clears today_date, as expected
+    setStatus(db, finishedViaToday.id, 'in_progress'); // today_date persists; excluded from `planned` via status !== 'done' instead
     setStatus(db, finishedViaToday.id, 'done', '2026-08-13T15:00:00.000Z');
 
     const finishedWithoutEverBeingPinned = upsertSyncedItem(db, {

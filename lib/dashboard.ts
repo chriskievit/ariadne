@@ -44,15 +44,16 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
     loggedMinutesToday: Math.round((loggedTodayByItemId.get(item.id) ?? 0) * 60),
   }));
 
-  // Today is checked before Signals so pinning an item is a move out of its
-  // score bucket, not a copy -- an item never appears in two sections at
-  // once. Requiring status === 'inbox' here is belt-and-suspenders on top of
-  // setStatus's own auto-clear: an in-progress item never shows up in Today
-  // even if today_date somehow survived. Today is ordered by plan_items'
-  // sort_order rather than score -- it's a hand-ordered list once chosen,
-  // not a re-derivation of the ranking that put it there.
+  // Today tracks plan membership (today_date), not status -- a planned item
+  // stays visible here through Start/Pause/Complete instead of disappearing
+  // into In-progress with no trace, so it can now legitimately appear in
+  // both Today and In-progress at once. Signals stays exclusive of Today:
+  // an item pinned to today's plan is a move out of Signals, not a copy.
+  // Today is ordered by plan_items' sort_order rather than score -- it's a
+  // hand-ordered list once chosen, not a re-derivation of the ranking that
+  // put it there.
   const today = scored
-    .filter((i) => i.status === 'inbox' && i.todayDate === todayStr)
+    .filter((i) => i.todayDate === todayStr)
     .sort((a, b) => (sortOrderByItemId.get(a.id) ?? Infinity) - (sortOrderByItemId.get(b.id) ?? Infinity));
   const todayIds = new Set(today.map((i) => i.id));
 
