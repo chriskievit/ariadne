@@ -150,6 +150,46 @@ describe('getGroupedItems today bucket', () => {
     expect(grouped.today.map((i) => i.id)).toEqual([]);
     expect(grouped.inProgress.map((i) => i.id)).toEqual([item.id]);
   });
+
+  it('keeps a started item\'s estimate counted in todayPlannedMinutes even though it leaves the today bucket', () => {
+    const today = '2026-08-13';
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, today);
+    addPlanItem(db, today, item.id);
+    setPlanItemEstimate(db, today, item.id, 60);
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    let grouped = getGroupedItems(db, now);
+    expect(grouped.todayPlannedMinutes).toBe(60);
+
+    setStatus(db, item.id, 'in_progress');
+    grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.todayPlannedMinutes).toBe(60);
+  });
+
+  it('counts hours logged on a completed item toward todayLoggedMinutes even though it leaves the today bucket', () => {
+    const today = '2026-08-13';
+    const item = createAdhocItem(db, { title: 'Test' });
+    setTodayDate(db, item.id, today);
+    addPlanItem(db, today, item.id);
+    setPlanItemEstimate(db, today, item.id, 60);
+
+    const now = new Date(2026, 7, 13, 9, 0);
+    setStatus(db, item.id, 'in_progress');
+    startTimer(db, item.id);
+    completeTimer(db, item.id, { durationHours: 0.5 });
+    db.prepare('UPDATE time_logs SET started_at = ?, ended_at = ? WHERE item_id = ?').run(
+      now.toISOString(),
+      now.toISOString(),
+      item.id
+    );
+    setStatus(db, item.id, 'done', now.toISOString());
+
+    const grouped = getGroupedItems(db, now);
+    expect(grouped.today.map((i) => i.id)).toEqual([]);
+    expect(grouped.todayLoggedMinutes).toBe(30);
+  });
 });
 
 describe('getGroupedItems links', () => {

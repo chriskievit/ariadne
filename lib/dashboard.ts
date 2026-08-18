@@ -23,6 +23,8 @@ export interface GroupedItems {
   signals: ScoredItem[];
   inProgress: ScoredItem[];
   parked: ScoredItem[];
+  todayPlannedMinutes: number;
+  todayLoggedMinutes: number;
 }
 
 export function getGroupedItems(db: Database.Database, now: Date): GroupedItems {
@@ -54,11 +56,23 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
     .sort((a, b) => (sortOrderByItemId.get(a.id) ?? Infinity) - (sortOrderByItemId.get(b.id) ?? Infinity));
   const todayIds = new Set(today.map((i) => i.id));
 
+  // Sourced from plan_items rather than the `today` bucket above: starting or
+  // completing an item moves it out of that bucket (and start even clears
+  // today_date), but it's still part of what was planned for today, so its
+  // estimate and any hours logged against it must keep counting here.
+  const todayPlannedMinutes = planItems.reduce((sum, pi) => sum + (pi.estimateMinutes ?? 0), 0);
+  const todayLoggedMinutes = planItems.reduce(
+    (sum, pi) => sum + Math.round((loggedTodayByItemId.get(pi.itemId) ?? 0) * 60),
+    0
+  );
+
   return {
     today,
     signals: scored.filter((i) => i.status === 'inbox' && !todayIds.has(i.id)),
     inProgress: scored.filter((i) => i.status === 'in_progress' && !i.parked),
     parked: scored.filter((i) => i.status === 'in_progress' && i.parked),
+    todayPlannedMinutes,
+    todayLoggedMinutes,
   };
 }
 
