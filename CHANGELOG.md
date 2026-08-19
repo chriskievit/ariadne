@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/chriskievit/ariadne/compare/v1.0.8...v1.1.0) (2026-08-19)
+
+
+### Features
+
+* **brand:** replace app icons and use the new banner in the header and README ([#59](https://github.com/chriskievit/ariadne/issues/59)) ([183d233](https://github.com/chriskievit/ariadne/commit/183d2337f6017b286cd3ba7e4a31aa0c90ba1bc6)), closes [#09090b](https://github.com/chriskievit/ariadne/issues/09090b) [#0b0d14](https://github.com/chriskievit/ariadne/issues/0b0d14)
+
 ## [1.0.8](https://github.com/chriskievit/ariadne/compare/v1.0.7...v1.0.8) (2026-08-17)
 
 
