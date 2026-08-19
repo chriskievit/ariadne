@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { BarChart3, HelpCircle, Search, Settings } from 'lucide-react';
-import { AriadneMark } from '@/components/icons/ariadne-mark';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
@@ -58,10 +58,16 @@ export default function TopBar() {
       <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
         <Link
           href="/"
-          className="group flex w-fit items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="group flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <AriadneMark className="h-7 w-7 shrink-0 text-[hsl(var(--brand-gold))] transition-transform motion-safe:group-hover:scale-105" />
-          <span className="font-display text-xl leading-none tracking-wide text-foreground">Ariadne</span>
+          <Image
+            src="/brand/ariadne-banner.png"
+            alt="Ariadne"
+            width={161}
+            height={32}
+            priority
+            className="h-8 w-auto transition-transform motion-safe:group-hover:scale-[1.03]"
+          />
         </Link>
 
         <RunningTimerChip

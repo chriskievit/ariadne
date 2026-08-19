@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="app/icon.svg" width="96" height="96" alt="Ariadne logo">
+  <img src="public/brand/ariadne-banner.png" width="440" alt="Ariadne">
 </p>
-
-<h1 align="center">Ariadne</h1>
 
 <p align="center"><em>The anti-autopilot: a transparent, read-only thread through your GitHub,<br>Azure DevOps, and ad-hoc work signals, not an algorithm that runs your day.</em></p>
 
