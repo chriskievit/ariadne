@@ -50,6 +50,7 @@ import { useDensity } from '@/components/DensityProvider';
 import { useRunningTimer } from '@/components/RunningTimerProvider';
 import type { Density } from '@/lib/config';
 import ScoreChip from './ScoreChip';
+import { settledOutcome } from '@/lib/settled';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 
 // Row height is fixed per mode so content can never reflow it — comfortable
@@ -98,7 +99,13 @@ function getInlineBadge(
 ): { label: string; variant: BadgeVariant | ReasonVariant } | null {
   if (keptVisible) return { label: 'Kept visible', variant: 'outline' };
   const statusPill = getStatusPill(item);
-  if (statusPill) return statusPill;
+  // One green per row. On a settled row the check chip already carries the
+  // affirmative colour, so an ADO "Done" pill next to it would say the same
+  // thing twice in the same hue. The pill keeps the state's actual wording
+  // (which the check can't carry) and gives up the fill.
+  if (statusPill) {
+    return settledOutcome(item) ? { ...statusPill, variant: 'outline' } : statusPill;
+  }
   return getReasonPills(item)[0] ?? null;
 }
 
@@ -204,6 +211,7 @@ function HoverExtras({ item, keptVisible }: { item: Item & { links?: LinkedRef[]
 // the row's action cluster to exactly one primary action plus this one menu.
 function OverflowMenu({
   item,
+  onStart,
   onRequeue,
   onPark,
   onUnpark,
@@ -219,6 +227,7 @@ function OverflowMenu({
   density,
 }: {
   item: Item;
+  onStart?: () => void;
   onRequeue?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
@@ -248,6 +257,14 @@ function OverflowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        {/* Only mounted for a settled row, whose primary button is Complete.
+            Starting it is still legitimate (a merged PR can need follow-up
+            work), just not the obvious thing, so it moves in here. */}
+        {onStart && (
+          <DropdownMenuItem onSelect={onStart}>
+            <Play aria-hidden="true" /> Start anyway
+          </DropdownMenuItem>
+        )}
         {onStar && (
           <DropdownMenuItem onSelect={() => onStar(item.id, !item.starred)}>
             <Star aria-hidden="true" className={item.starred ? 'fill-current' : undefined} />
@@ -377,6 +394,13 @@ export default function ItemRow({
   const [pendingComplete, setPendingComplete] = useState<{ hours: number; note?: string } | null>(null);
   const canDelete = item.source === 'adhoc' && Boolean(onDelete);
 
+  // The source system has closed this item but Ariadne, being read-only, has
+  // not. A settled row keeps its place and its full-strength text -- the chip
+  // carries the state -- and swaps its primary action from Start to Complete,
+  // because starting work that is already finished is never what you meant.
+  const settled = settledOutcome(item);
+  const canComplete = item.status === 'in_progress' || (item.status === 'inbox' && Boolean(settled));
+
   const parsedHours = Number(hours);
   const hoursValid = hours.trim() !== '' && Number.isFinite(parsedHours) && parsedHours >= 0;
   const pendingStartLinks = (item.links ?? []).filter((link) => link.itemId !== null && link.status === 'inbox');
@@ -458,6 +482,9 @@ export default function ItemRow({
         return;
       case 'x':
         setChipOpen(true);
+        return;
+      case 'c':
+        if (canComplete) setOpen(true);
         return;
       case 's':
         onStar?.(item.id, !item.starred);
@@ -726,6 +753,7 @@ export default function ItemRow({
   // row without, say, onStar never claims 's' works on it.
   const rowShortcuts = [
     item.url ? 'o' : null,
+    canComplete ? 'c' : null,
     onStar ? 's' : null,
     onSnooze || onUnsnooze ? 'e' : null,
     onDone ? 'd' : null,
@@ -738,6 +766,8 @@ export default function ItemRow({
     isTracking ? 'currently tracking time' : null,
     item.parked ? 'paused' : null,
     item.status === 'done' ? 'done' : null,
+    settled === 'finished' ? 'done at the source' : null,
+    settled === 'gone' ? 'gone from the source' : null,
     `${TIER_LABEL[getPriorityTier(item.score)]} priority`,
     `score ${item.score} of ${MAX_SCORE}`,
     inlineBadge?.label,
@@ -768,6 +798,7 @@ export default function ItemRow({
           scoreBreakdown={item.scoreBreakdown ?? []}
           notFired={item.notFired ?? []}
           keptVisible={keptVisible}
+          settled={settled}
           open={chipOpen}
           onOpenChange={setChipOpen}
           onOpenScoringReference={onOpenScoringReference}
@@ -840,7 +871,7 @@ export default function ItemRow({
             ))}
           </span>
         )}
-        {item.status === 'inbox' && onStart && (
+        {item.status === 'inbox' && !settled && onStart && (
           <Button
             type="button"
             variant="outline"
@@ -851,7 +882,7 @@ export default function ItemRow({
             Start
           </Button>
         )}
-        {item.status === 'in_progress' && (
+        {canComplete && (
           <Button
             type="button"
             variant="outline"
@@ -864,6 +895,7 @@ export default function ItemRow({
         )}
         <OverflowMenu
           item={item}
+          onStart={item.status === 'inbox' && settled ? handleStartClick : undefined}
           onRequeue={onRequeue}
           onPark={onPark}
           onUnpark={onUnpark}

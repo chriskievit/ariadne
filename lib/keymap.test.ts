@@ -16,6 +16,11 @@ describe('KEYMAP', () => {
     }
   });
 
+  it('declares the row-scoped complete binding wired up in ItemRow', () => {
+    const complete = KEYMAP.find((binding) => binding.keys === 'c');
+    expect(complete).toEqual({ keys: 'c', description: 'Complete the focused item', scope: 'row' });
+  });
+
   it('declares every binding with a row or global scope', () => {
     for (const binding of KEYMAP) {
       expect(['row', 'global']).toContain(binding.scope);

@@ -1,3 +1,4 @@
+import { ADO_FINISHED_PATTERN, ADO_GONE_PATTERN } from './settled';
 import type { Item, PrStatus } from './types';
 
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'warning' | 'success' | 'outline' | 'blocked';
@@ -18,11 +19,14 @@ const PR_STATUS_PILL: Record<PrStatus, StatusPill> = {
   merged: { label: 'Merged', variant: 'outline' },
 };
 
+// The done and removed patterns come from lib/settled.ts, which decides
+// whether a row gets the settled check -- the pill's colour and that check are
+// two readings of the same fact and must not drift apart.
 function adoStatusVariant(state: string): BadgeVariant {
   const s = state.toLowerCase();
   if (/block/.test(s)) return 'blocked';
-  if (/resolv|done|closed|complet/.test(s)) return 'success';
-  if (/remov/.test(s)) return 'destructive';
+  if (ADO_GONE_PATTERN.test(s)) return 'destructive';
+  if (ADO_FINISHED_PATTERN.test(s)) return 'success';
   if (/active|committ|doing|progress/.test(s)) return 'secondary';
   return 'outline';
 }

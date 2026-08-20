@@ -8,7 +8,7 @@ export interface KeyBinding {
 // (KeymapHelpDialog) and the command palette's shortcut hints both render
 // straight from this array, so neither can drift from what's actually wired
 // up. `scope: 'row'` bindings act on whichever row currently has focus.
-// Most of them (enter/o, x, s, e, d, t) fire from that row's own bubbled
+// Most of them (enter/o, x, c, s, e, d, t) fire from that row's own bubbled
 // onKeyDown; j/k are the exception -- they navigate *between* rows, so they
 // fire from GlobalKeymapProvider's document-level listener instead, which
 // scans every `[data-row-id]` on the page (Today, In-progress, and Signals
@@ -26,6 +26,7 @@ export const KEYMAP: KeyBinding[] = [
   { keys: 'k', description: 'Move focus to the previous item', scope: 'row' },
   { keys: '↵ / o', description: 'Open upstream in a new tab', scope: 'row' },
   { keys: 'x', description: 'Show the score breakdown', scope: 'row' },
+  { keys: 'c', description: 'Complete the focused item', scope: 'row' },
   { keys: 's', description: 'Star (local only)', scope: 'row' },
   { keys: 'e', description: 'Snooze (local only)', scope: 'row' },
   { keys: 'd', description: 'Mark done (local only)', scope: 'row' },
