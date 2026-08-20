@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ScoreChip from './ScoreChip';
+import SortableRows from './SortableRows';
 import { GROUP_ORDER, GROUP_LABEL, groupOf } from '@/lib/grouping';
 import { formatCalibrationSentence, type CalibrationEntry } from '@/lib/calibration';
 import type { ScoredItem } from '@/lib/dashboard';
@@ -27,7 +28,7 @@ interface Props {
   onDrop: (id: number) => void;
   onAdd: (id: number) => void;
   onSetEstimate: (id: number, minutes: number | null) => void;
-  onReorder: (orderedIds: number[]) => void;
+  onReorder: (orderedIds: number[]) => void | Promise<void>;
   onSetCapacity: (minutes: number) => void;
   calibration: CalibrationEntry[];
   onOpenScoringReference: () => void;
@@ -178,21 +179,27 @@ export default function PlanDayDialog({
 
         {step === 3 && (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <p className="shrink-0 text-sm text-muted-foreground">
-              Optional. Drag to reorder, or use the arrows in Today.
-            </p>
+            <p className="shrink-0 text-sm text-muted-foreground">Optional. Drag to reorder.</p>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-              {today.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-2 border-b pb-2 text-sm">
-                  <span className="min-w-0 truncate">{item.title}</span>
-                  <Input
-                    defaultValue={item.estimateMinutes ? formatMinutes(item.estimateMinutes) : ''}
-                    placeholder="e.g. 1h 30m"
-                    className="h-8 w-28 text-right font-mono text-sm"
-                    onBlur={(e) => onSetEstimate(item.id, parseDurationInput(e.target.value))}
-                  />
-                </div>
-              ))}
+              <SortableRows
+                items={today}
+                labelOf={(item) => item.title}
+                onReorder={onReorder}
+                className="space-y-2"
+                rowClassName="flex items-center gap-2 border-b pb-2 text-sm"
+              >
+                {(item) => (
+                  <>
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                    <Input
+                      defaultValue={item.estimateMinutes ? formatMinutes(item.estimateMinutes) : ''}
+                      placeholder="e.g. 1h 30m"
+                      className="h-8 w-28 shrink-0 text-right font-mono text-sm"
+                      onBlur={(e) => onSetEstimate(item.id, parseDurationInput(e.target.value))}
+                    />
+                  </>
+                )}
+              </SortableRows>
               {calibration.map((entry) => {
                 const sentence = formatCalibrationSentence(entry);
                 return sentence ? (
