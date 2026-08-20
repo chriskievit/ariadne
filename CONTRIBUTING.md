@@ -52,6 +52,16 @@ npm test          # Vitest
 npm run test:e2e  # Playwright
 ```
 
+## README screenshots
+
+The images in `docs/` are generated, not hand-captured. `npm run screenshots`
+starts a dev server against a throwaway database, seeds the fictional data in
+`scripts/screenshots/seed.ts`, and writes `docs/screenshot-dashboard.png` and
+`docs/screenshot-empty-state.png`. It never talks to GitHub or Azure DevOps, so
+no real repo, work item, or person can leak into a screenshot. Re-run it when a
+UI change makes the README images out of date, and keep the seeded states ones
+the app can actually reach on its own.
+
 ## What CI enforces
 
 CI runs on every pull request and mirrors these commands exactly. Run them

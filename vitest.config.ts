@@ -4,7 +4,16 @@ import path from 'node:path';
 export default defineConfig({
   test: {
     environment: 'node',
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/.claude/**', '**/e2e/**'],
+    // e2e/ and scripts/screenshots/ are both Playwright, not Vitest -- their
+    // *.spec.ts files throw "test() was not expected here" if collected.
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
+      '**/.claude/**',
+      '**/e2e/**',
+      '**/scripts/screenshots/**',
+    ],
   },
   resolve: {
     alias: {
