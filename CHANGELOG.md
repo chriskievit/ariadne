@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/chriskievit/ariadne/compare/v1.2.0...v1.3.0) (2026-08-20)
+
+
+### Features
+
+* **signals:** flag items already closed at the source and offer Complete ([#62](https://github.com/chriskievit/ariadne/issues/62)) ([904086f](https://github.com/chriskievit/ariadne/commit/904086fe9a3f62fa1633baa995e5e2a9b4eda103))
+
 # [1.2.0](https://github.com/chriskievit/ariadne/compare/v1.1.1...v1.2.0) (2026-08-20)
 
 
