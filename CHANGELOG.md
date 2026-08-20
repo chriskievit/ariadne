@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/chriskievit/ariadne/compare/v1.1.0...v1.1.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **plan:** keep the Plan the day dialog scrollable and drop the empty planned total ([#60](https://github.com/chriskievit/ariadne/issues/60)) ([1d55e5d](https://github.com/chriskievit/ariadne/commit/1d55e5dc425b28cb42c194463cbc7f30cbbe08e3))
+
 # [1.1.0](https://github.com/chriskievit/ariadne/compare/v1.0.8...v1.1.0) (2026-08-19)
 
 
