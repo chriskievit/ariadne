@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ItemRow from './ItemRow';
+import SortableRows from './SortableRows';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { Item } from '@/lib/types';
 
@@ -21,7 +20,7 @@ interface Props {
   onUnpark?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   onPlanDay: () => void;
-  onReorder: (orderedItemIds: number[]) => void;
+  onReorder: (orderedItemIds: number[]) => void | Promise<void>;
   failingSources?: Set<Item['source']>;
   onOpenScoringReference: () => void;
 }
@@ -51,15 +50,6 @@ export default function TodaySection({
   failingSources,
   onOpenScoringReference,
 }: Props) {
-  function move(id: number, direction: -1 | 1) {
-    const order = items.map((i) => i.id);
-    const index = order.indexOf(id);
-    const swapWith = index + direction;
-    if (swapWith < 0 || swapWith >= order.length) return;
-    [order[index], order[swapWith]] = [order[swapWith], order[index]];
-    onReorder(order);
-  }
-
   return (
     <Card className="border-l-2 border-l-[hsl(var(--brand-gold))]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4">
@@ -86,29 +76,14 @@ export default function TodaySection({
             </p>
           </div>
         ) : (
-          <div>
-            {items.map((item, index) => (
-              <div key={item.id} className="flex items-center gap-1">
-                <div className="flex shrink-0 flex-col">
-                  <button
-                    type="button"
-                    aria-label={`Move ${item.title} up`}
-                    disabled={index === 0}
-                    onClick={() => move(item.id, -1)}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${item.title} down`}
-                    disabled={index === items.length - 1}
-                    onClick={() => move(item.id, 1)}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </div>
+          <SortableRows
+            items={items}
+            labelOf={(item) => item.title}
+            onReorder={onReorder}
+            rowClassName="flex items-center gap-1"
+          >
+            {(item) => (
+              <>
                 <div className="min-w-0 flex-1">
                   <ItemRow
                     item={item}
@@ -131,9 +106,9 @@ export default function TodaySection({
                       : formatMinutes(item.estimateMinutes)}
                   </span>
                 )}
-              </div>
-            ))}
-          </div>
+              </>
+            )}
+          </SortableRows>
         )}
       </CardContent>
     </Card>
