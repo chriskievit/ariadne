@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/chriskievit/ariadne/compare/v1.1.1...v1.2.0) (2026-08-20)
+
+
+### Features
+
+* **today:** drag to reorder Today and step 3 of Plan the day ([#61](https://github.com/chriskievit/ariadne/issues/61)) ([ec5e673](https://github.com/chriskievit/ariadne/commit/ec5e673311a84a81d92f6583404deae71a2ac8b7))
+
 ## [1.1.1](https://github.com/chriskievit/ariadne/compare/v1.1.0...v1.1.1) (2026-08-20)
 
 
