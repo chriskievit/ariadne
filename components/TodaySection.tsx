@@ -70,7 +70,7 @@ export default function TodaySection({
           </span>
         </div>
         <p className="font-mono text-xs tabular-nums text-muted-foreground">
-          {formatMinutes(loggedMinutes)} logged of {formatMinutes(plannedMinutes)} planned ·{' '}
+          {formatMinutes(loggedMinutes)} logged{plannedMinutes > 0 ? ` of ${formatMinutes(plannedMinutes)} planned` : ''} ·{' '}
           <span className="text-[hsl(var(--brand-gold))]">{formatMinutes(capacityMinutes)} capacity</span>
         </p>
       </CardHeader>

@@ -81,19 +81,19 @@ export default function PlanDayDialog({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] max-w-lg flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Plan the day — step {step} of 4</DialogTitle>
         </DialogHeader>
 
         {step === 1 && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <p className="shrink-0 text-sm text-muted-foreground">
               {yesterday.length === 0
                 ? "Nothing left over from yesterday."
                 : `${yesterday.length} of yesterday's picks are still open.`}
             </p>
-            <div className="space-y-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {yesterday.map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-2 border-b pb-2 text-sm">
                   <span className="min-w-0 truncate">{item.title}</span>
@@ -114,7 +114,7 @@ export default function PlanDayDialog({
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex shrink-0 items-center justify-between pt-2">
               <span />
               <Button type="button" onClick={() => setStep(2)}>
                 Next
@@ -124,12 +124,12 @@ export default function PlanDayDialog({
         )}
 
         {step === 2 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="flex shrink-0 items-center justify-between text-sm text-muted-foreground">
               <span>Ordered by score. Nothing is recommended.</span>
               <span className="font-mono tabular-nums">{today.length} picked</span>
             </div>
-            <div className="max-h-80 space-y-3 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
               {GROUP_ORDER.map((group) => {
                 const groupItems = signals.filter((i) => groupOf(i) === group);
                 if (groupItems.length === 0) return null;
@@ -165,7 +165,7 @@ export default function PlanDayDialog({
                 );
               })}
             </div>
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex shrink-0 items-center justify-between pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(1)}>
                 Back
               </Button>
@@ -177,9 +177,11 @@ export default function PlanDayDialog({
         )}
 
         {step === 3 && (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Optional. Drag to reorder, or use the arrows in Today.</p>
-            <div className="space-y-2">
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <p className="shrink-0 text-sm text-muted-foreground">
+              Optional. Drag to reorder, or use the arrows in Today.
+            </p>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
               {today.map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-2 border-b pb-2 text-sm">
                   <span className="min-w-0 truncate">{item.title}</span>
@@ -191,16 +193,16 @@ export default function PlanDayDialog({
                   />
                 </div>
               ))}
+              {calibration.map((entry) => {
+                const sentence = formatCalibrationSentence(entry);
+                return sentence ? (
+                  <p key={entry.workType} className="text-xs text-muted-foreground">
+                    {sentence} That&apos;s from your own logs.
+                  </p>
+                ) : null;
+              })}
             </div>
-            {calibration.map((entry) => {
-              const sentence = formatCalibrationSentence(entry);
-              return sentence ? (
-                <p key={entry.workType} className="text-xs text-muted-foreground">
-                  {sentence} That&apos;s from your own logs.
-                </p>
-              ) : null;
-            })}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex shrink-0 items-center justify-between pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(2)}>
                 Back
               </Button>
@@ -212,38 +214,40 @@ export default function PlanDayDialog({
         )}
 
         {step === 4 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Planned</span>
-              <span className="font-mono text-lg tabular-nums text-[hsl(var(--brand-gold))]">
-                {formatMinutes(totalEstimateMinutes)}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Capacity</span>
-              <Input
-                type="number"
-                min="0"
-                step="15"
-                defaultValue={plan.capacityMinutes}
-                className="h-8 w-24 font-mono text-sm"
-                onBlur={(e) => {
-                  const minutes = Number(e.target.value);
-                  if (Number.isFinite(minutes) && minutes >= 0) onSetCapacity(minutes);
-                }}
-              />
-              <span className="text-muted-foreground">minutes</span>
-            </div>
-            {overMinutes > 0 && (
-              <p className="text-sm">
-                That&apos;s <span className="font-medium">{formatMinutes(overMinutes)}</span> more than your day.{' '}
-                <span className="font-medium">Your call.</span>
+          <div className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Planned</span>
+                <span className="font-mono text-lg tabular-nums text-[hsl(var(--brand-gold))]">
+                  {formatMinutes(totalEstimateMinutes)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Capacity</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="15"
+                  defaultValue={plan.capacityMinutes}
+                  className="h-8 w-24 font-mono text-sm"
+                  onBlur={(e) => {
+                    const minutes = Number(e.target.value);
+                    if (Number.isFinite(minutes) && minutes >= 0) onSetCapacity(minutes);
+                  }}
+                />
+                <span className="text-muted-foreground">minutes</span>
+              </div>
+              {overMinutes > 0 && (
+                <p className="text-sm">
+                  That&apos;s <span className="font-medium">{formatMinutes(overMinutes)}</span> more than your day.{' '}
+                  <span className="font-medium">Your call.</span>
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Nothing has been removed or reordered. Capacity is a number you set — change it above.
               </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Nothing has been removed or reordered. Capacity is a number you set — change it above.
-            </p>
-            <div className="flex items-center justify-between pt-2">
+            </div>
+            <div className="flex shrink-0 items-center justify-between pt-2">
               <Button type="button" variant="ghost" onClick={() => setStep(3)}>
                 Back and adjust
               </Button>
