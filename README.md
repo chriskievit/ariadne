@@ -94,7 +94,7 @@ Without compose:
 
 ```bash
 docker build -t ariadne .
-docker run -d -p 127.0.0.1:3000:3000 -v $(pwd)/data:/data \
+docker run -d --name ariadne -p 127.0.0.1:3000:3000 -v $(pwd)/data:/data \
   -e ARIADNE_DB_PATH=/data/ariadne.db ariadne
 ```
 
@@ -139,6 +139,25 @@ Two optional environment variables:
 |---|---|---|
 | `ARIADNE_URL` | `http://127.0.0.1:3000` | Where Ariadne is listening |
 | `ARIADNE_AUTH_TOKEN` | unset | Same value as the app's, if you have exposed Ariadne beyond loopback |
+
+### Setup with Docker
+
+If you run Ariadne from the published image rather than a checkout, the
+server is already inside it: `npm run build` compiles it during the image
+build. Run it in the app's own container, so it reaches Ariadne on
+`127.0.0.1:3000` with no networking to configure:
+
+```bash
+claude mcp add --scope user ariadne -- docker exec -i ariadne node mcp/dist/index.js
+```
+
+That assumes the container is named `ariadne`, which `docker compose up`
+takes care of. If you started it by hand, add `--name ariadne` to your
+`docker run`, or substitute whatever `docker ps` shows.
+
+`docker exec` inherits the container's environment, so a setup that sets
+`ARIADNE_AUTH_TOKEN` needs nothing extra here: the server picks up the same
+value the app is using.
 
 ### What it can do
 

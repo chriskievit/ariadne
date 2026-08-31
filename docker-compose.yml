@@ -1,6 +1,9 @@
 services:
   ariadne:
     build: .
+    # Named so `docker exec -i ariadne ...` works without looking up a
+    # generated name -- see the MCP section of the README.
+    container_name: ariadne
     ports:
       # Loopback-only by default. Change to "3000:3000" to reach Ariadne
       # from other devices on your network — but Ariadne has no login of its
