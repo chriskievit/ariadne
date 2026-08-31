@@ -98,6 +98,78 @@ docker run -d -p 127.0.0.1:3000:3000 -v $(pwd)/data:/data \
   -e ARIADNE_DB_PATH=/data/ariadne.db ariadne
 ```
 
+## Controlling Ariadne from an assistant
+
+Ariadne ships an [MCP](https://modelcontextprotocol.io) server, so an
+assistant that speaks MCP can read your dashboard and move items through it.
+Useful when the work happens somewhere other than the dashboard: you finish
+something in a terminal and say so, instead of switching windows to click
+Complete.
+
+It talks to your running Ariadne over `http://127.0.0.1:3000`, so start the
+app first. Transport is stdio, which means no extra port and no extra
+listener: your client spawns the server and it exits with the session.
+
+### Setup
+
+Build it once, then register it. The build is part of `npm run build`, so if
+you have already built the app you can skip the first line.
+
+```bash
+npm run mcp:build
+claude mcp add --scope user ariadne -- node "$(pwd)/mcp/dist/index.js"
+```
+
+For Claude Desktop, add the same command to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ariadne": {
+      "command": "node",
+      "args": ["/absolute/path/to/ariadne/mcp/dist/index.js"]
+    }
+  }
+}
+```
+
+Two optional environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ARIADNE_URL` | `http://127.0.0.1:3000` | Where Ariadne is listening |
+| `ARIADNE_AUTH_TOKEN` | unset | Same value as the app's, if you have exposed Ariadne beyond loopback |
+
+### What it can do
+
+35 tools, each mapping to exactly one thing Ariadne already does:
+
+- **Look around.** List items, today's summary, a day's plan, the running
+  timer, sprint progress, sync status, the time report, estimate calibration.
+- **Move work.** Start, complete, stop the timer, requeue, undo a completion,
+  park, unpark, snooze, unsnooze, star, mark triaged, add to or remove from a
+  day.
+- **Plan.** Set a day's capacity, add and remove plan items, reorder them, set
+  estimates.
+- **Housekeeping.** Create an ad-hoc item, delete an item, sync, manage saved
+  views.
+
+Completing an item needs the hours it took, and the server will not invent
+them, so expect to be asked.
+
+### What it deliberately cannot do
+
+- **Write to GitHub or Azure DevOps.** Same as the rest of Ariadne. Completing
+  an item here does not close the pull request or work item it came from.
+- **Change your settings.** Settings writes accept arbitrary values including
+  your access tokens, so that route is not exposed. Reading settings works and
+  returns them redacted.
+- **Decide anything.** Every tool is one narrow verb. There is no "plan my
+  day" or "close everything stale": the ranking stays yours to read and act
+  on, which is the whole point of the project.
+
+The full list with descriptions lives in `mcp/tools.ts`.
+
 ## Troubleshooting
 
 ### Sync suddenly stopped working
@@ -126,7 +198,8 @@ source, marked stale, rather than hiding it.
 | Command | Description |
 |---|---|
 | `npm run dev` | Start the dev server |
-| `npm run build` | Production build |
+| `npm run build` | Production build, including the MCP server |
+| `npm run mcp:build` | Build just the MCP server |
 | `npm run start` | Run the production build |
 | `npm test` | Run the test suite (Vitest) |
 

@@ -1,0 +1,20 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "declaration": false,
+    "sourceMap": false,
+    "incremental": false,
+    "lib": ["esnext"],
+    "plugins": [],
+    // node16 rather than the app's bundler resolution: this output is run
+    // straight by node, so it needs real CommonJS emit and exports-map
+    // resolution instead of something a bundler would finish for it.
+    "module": "node16",
+    "moduleResolution": "node16"
+  },
+  "include": ["*.ts"],
+  "exclude": ["dist", "*.test.ts"]
+}
