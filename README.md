@@ -13,6 +13,10 @@ time against it. No other personal tool combines all three.
 Single-user, runs on your machine only. GitHub and Azure DevOps access is
 read-only, Ariadne never writes back to either system.
 
+It also ships an MCP server, so an assistant can read the dashboard and
+start or complete items for you without you leaving the terminal. See
+[Controlling Ariadne from an assistant](#controlling-ariadne-from-an-assistant).
+
 ![Ariadne dashboard showing Today, In progress, and Signals grouped by GitHub, Azure DevOps, and ad-hoc](docs/screenshot-dashboard.png)
 
 ## Philosophy
@@ -44,7 +48,8 @@ you should do next.
 - Next.js (App Router, TypeScript), one app for frontend and API routes
 - React + Tailwind CSS + shadcn/ui components
 - SQLite (`better-sqlite3`) for local storage, no separate database server
-- Vitest for tests
+- Model Context Protocol SDK for the assistant-facing server, over stdio
+- Vitest for tests, Playwright for end-to-end
 
 ## Getting started
 
@@ -221,6 +226,7 @@ source, marked stale, rather than hiding it.
 | `npm run mcp:build` | Build just the MCP server |
 | `npm run start` | Run the production build |
 | `npm test` | Run the test suite (Vitest) |
+| `npm run test:e2e` | Run the end-to-end suite (Playwright) |
 
 ## Data
 
