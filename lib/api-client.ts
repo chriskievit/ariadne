@@ -134,8 +134,13 @@ export async function createAdhocItemRequest(input: { title: string; category?: 
   await fetch('/api/items', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export async function deleteAdhocItem(id: number) {
-  await fetch(`/api/items/${id}`, { method: 'DELETE' });
+export async function deleteAdhocItem(id: number): Promise<{ error?: string }> {
+  const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { error: body.error ?? 'Could not delete this item.' };
+  }
+  return {};
 }
 
 export async function fetchTimeReport(start: string, end: string): Promise<TimeReport> {

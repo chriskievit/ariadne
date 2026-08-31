@@ -329,8 +329,9 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   }
 
   async function handleDelete(id: number) {
-    await deleteAdhocItem(id);
+    const result = await deleteAdhocItem(id);
     await refresh();
+    if (result.error) toast(result.error);
   }
 
   useEffect(() => {

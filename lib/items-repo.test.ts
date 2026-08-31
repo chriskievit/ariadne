@@ -15,7 +15,11 @@ import {
   deleteItem,
   getOpenGithubPrCandidates,
   setPrStatus,
+  ItemHasLoggedTimeError,
 } from './items-repo';
+import { addPlanItem, getPlanItems } from './plans-repo';
+import { startTimer, completeTimer, listLogsByItem } from './time-logs-repo';
+import { getLinksForItems } from './links-repo';
 
 let db: Database.Database;
 
@@ -346,11 +350,93 @@ describe('createAdhocItem', () => {
   });
 });
 
+/**
+ * Asserts the refusal is deliberate. A bare toThrow() would also be satisfied
+ * by the raw SQLITE_CONSTRAINT_FOREIGNKEY this fix exists to replace.
+ */
+function expectLoggedTimeRefusal(deleting: () => void): void {
+  let caught: unknown;
+  try {
+    deleting();
+  } catch (error) {
+    caught = error;
+  }
+  expect(caught).toBeInstanceOf(ItemHasLoggedTimeError);
+  expect((caught as Error).message).toMatch(/park it instead/i);
+  expect((caught as Error).message).not.toMatch(/FOREIGN KEY/i);
+}
+
 describe('deleteItem', () => {
   it('removes the item', () => {
     const item = createAdhocItem(db, { title: 'Test' });
     deleteItem(db, item.id);
     expect(getItemById(db, item.id)).toBeUndefined();
+  });
+
+  it("removes the item's plan membership along with it", () => {
+    const item = createAdhocItem(db, { title: 'Planned then deleted' });
+    addPlanItem(db, '2026-08-31', item.id);
+
+    deleteItem(db, item.id);
+
+    expect(getItemById(db, item.id)).toBeUndefined();
+    expect(getPlanItems(db, '2026-08-31')).toEqual([]);
+  });
+
+  it("removes the item's links along with it", () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-linked',
+      title: 'PR with a linked work item',
+      url: null,
+      reason: 'authored',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: 'acme/app',
+      linkedAdoExternalIds: ['1234'],
+    });
+    expect(getLinksForItems(db, [pr]).get(pr.id)).toHaveLength(1);
+
+    deleteItem(db, pr.id);
+
+    expect(getItemById(db, pr.id)).toBeUndefined();
+  });
+
+  it('refuses to delete an item with logged time, rather than rewriting the time report', () => {
+    const item = createAdhocItem(db, { title: 'Timed then deleted' });
+    startTimer(db, item.id);
+    completeTimer(db, item.id, { durationHours: 1.5 });
+
+    expectLoggedTimeRefusal(() => deleteItem(db, item.id));
+    expect(getItemById(db, item.id)).toBeDefined();
+    expect(listLogsByItem(db, item.id)).toHaveLength(1);
+  });
+
+  it('tells the caller to park the item instead', () => {
+    const item = createAdhocItem(db, { title: 'Timed then deleted' });
+    startTimer(db, item.id);
+    completeTimer(db, item.id, { durationHours: 0.25 });
+
+    expect(() => deleteItem(db, item.id)).toThrow(/park it instead/i);
+  });
+
+  it('refuses while a timer is still running, before any duration is logged', () => {
+    const item = createAdhocItem(db, { title: 'Running right now' });
+    startTimer(db, item.id);
+
+    expectLoggedTimeRefusal(() => deleteItem(db, item.id));
+    expect(getItemById(db, item.id)).toBeDefined();
+  });
+
+  it('leaves plan membership intact when the delete is refused', () => {
+    const item = createAdhocItem(db, { title: 'Planned and timed' });
+    addPlanItem(db, '2026-08-31', item.id);
+    startTimer(db, item.id);
+    completeTimer(db, item.id, { durationHours: 1 });
+
+    expectLoggedTimeRefusal(() => deleteItem(db, item.id));
+    expect(getPlanItems(db, '2026-08-31')).toHaveLength(1);
   });
 });
 
