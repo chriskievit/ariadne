@@ -148,6 +148,40 @@ export function setPrStatus(db: Database.Database, id: number, prStatus: Item['p
   db.prepare('UPDATE items SET pr_status = ? WHERE id = ?').run(prStatus, id);
 }
 
+/**
+ * Thrown instead of letting the delete hit a FOREIGN KEY constraint, so the
+ * caller gets something it can act on and show.
+ */
+export class ItemHasLoggedTimeError extends Error {
+  readonly itemId: number;
+  readonly logCount: number;
+
+  constructor(itemId: number, logCount: number) {
+    super('This item has logged time and cannot be deleted. Park it instead.');
+    this.name = 'ItemHasLoggedTimeError';
+    this.itemId = itemId;
+    this.logCount = logCount;
+  }
+}
+
+/**
+ * Three tables reference items(id) and foreign_keys is ON, so a bare delete
+ * fails for any item that has ever been timed or planned.
+ *
+ * plan_items and item_links carry no history worth keeping, so they go with
+ * the item. time_logs does: the time report is built on it, and deleting an
+ * item should not quietly rewrite what you have already reported. An item with
+ * logged time is refused, and parking covers that case instead.
+ */
 export function deleteItem(db: Database.Database, id: number): void {
-  db.prepare('DELETE FROM items WHERE id = ?').run(id);
+  const { count } = db
+    .prepare('SELECT COUNT(*) AS count FROM time_logs WHERE item_id = ?')
+    .get(id) as { count: number };
+  if (count > 0) throw new ItemHasLoggedTimeError(id, count);
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM plan_items WHERE item_id = ?').run(id);
+    db.prepare('DELETE FROM item_links WHERE pr_item_id = ?').run(id);
+    db.prepare('DELETE FROM items WHERE id = ?').run(id);
+  })();
 }
