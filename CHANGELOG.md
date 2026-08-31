@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/chriskievit/ariadne/compare/v1.3.0...v1.4.0) (2026-08-31)
+
+
+### Features
+
+* **mcp:** local stdio MCP server for reading and moving items ([#67](https://github.com/chriskievit/ariadne/issues/67)) ([c7cdfcf](https://github.com/chriskievit/ariadne/commit/c7cdfcff4a8c00ba16536037633015b9da56862a)), closes [#64](https://github.com/chriskievit/ariadne/issues/64)
+
 # [1.3.0](https://github.com/chriskievit/ariadne/compare/v1.2.0...v1.3.0) (2026-08-20)
 
 
