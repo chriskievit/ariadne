@@ -57,10 +57,11 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
     .sort((a, b) => (sortOrderByItemId.get(a.id) ?? Infinity) - (sortOrderByItemId.get(b.id) ?? Infinity));
   const todayIds = new Set(today.map((i) => i.id));
 
-  // Sourced from plan_items rather than the `today` bucket above: starting or
-  // completing an item moves it out of that bucket (and start even clears
-  // today_date), but it's still part of what was planned for today, so its
-  // estimate and any hours logged against it must keep counting here.
+  // Sourced from plan_items rather than the `today` bucket above. The two
+  // usually agree, but plan membership is the thing that actually defines what
+  // was planned for today: an item removed from the bucket (today_date cleared)
+  // keeps its estimate and its logged hours counting here, which is what these
+  // totals are for.
   const todayPlannedMinutes = planItems.reduce((sum, pi) => sum + (pi.estimateMinutes ?? 0), 0);
   const todayLoggedMinutes = planItems.reduce(
     (sum, pi) => sum + Math.round((loggedTodayByItemId.get(pi.itemId) ?? 0) * 60),

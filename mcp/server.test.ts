@@ -131,4 +131,29 @@ describe('createServer', () => {
     expect(result.isError).toBeFalsy();
     expect((result.content as { type: string; text: string }[])[0].text).toContain('recovered');
   });
+  it('reports an empty read as null rather than as "Done."', async () => {
+    // GET /api/timer/running answers `null` when nothing is running. Calling
+    // that "Done." tells the model an action succeeded instead of telling it
+    // the answer is "nothing".
+    const { client } = await connected(() => jsonOk(null));
+
+    const result = await client.callTool({ name: 'get_running_timer', arguments: {} });
+
+    const text = (result.content as { type: string; text: string }[])[0].text;
+    expect(text).toBe('null');
+    expect(text).not.toContain('Done');
+  });
+
+  it('still confirms a write that returns no body', async () => {
+    // DELETE /api/plan/items answers 204 with an empty body, where "Done." is
+    // the useful thing to say.
+    const { client } = await connected(() => new Response(null, { status: 204 }));
+
+    const result = await client.callTool({
+      name: 'remove_plan_item',
+      arguments: { date: '2026-08-31', itemId: 1 },
+    });
+
+    expect((result.content as { type: string; text: string }[])[0].text).toBe('Done.');
+  });
 });

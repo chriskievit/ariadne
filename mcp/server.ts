@@ -5,7 +5,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AriadneClient } from './client';
-import { TOOLS } from './tools';
+import { TOOLS, type ToolDefinition } from './tools';
 
 export const SERVER_NAME = 'ariadne';
 
@@ -38,7 +38,7 @@ export function createServer(client: AriadneClient, version = '0.0.0'): McpServe
       async (args: unknown) => {
         try {
           const result = await tool.run(client, args as Record<string, unknown>);
-          return { content: [{ type: 'text' as const, text: format(result) }] };
+          return { content: [{ type: 'text' as const, text: format(result, tool) }] };
         } catch (error) {
           // Returned rather than thrown: a 400 from Ariadne is a fact the model
           // should read and act on, not a transport failure that kills the call.
@@ -54,8 +54,13 @@ export function createServer(client: AriadneClient, version = '0.0.0'): McpServe
   return server;
 }
 
-function format(result: unknown): string {
-  if (result === null || result === undefined) return 'Done.';
+function format(result: unknown, tool: ToolDefinition): string {
+  // An empty read is an answer, not a confirmation: GET /api/timer/running
+  // returns null when nothing is running, and saying "Done." there would tell
+  // the model an action succeeded rather than that the answer is "nothing".
+  if (result === null || result === undefined) {
+    return tool.annotations.readOnlyHint ? 'null' : 'Done.';
+  }
   return JSON.stringify(result, null, 2);
 }
 
