@@ -1,3 +1,11 @@
+## [1.4.1](https://github.com/chriskievit/ariadne/compare/v1.4.0...v1.4.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* **items:** refuse to delete an item with logged time instead of failing silently ([#69](https://github.com/chriskievit/ariadne/issues/69)) ([38491b8](https://github.com/chriskievit/ariadne/commit/38491b84ef8f2314bb54a508bdd4c716b0b102a4)), closes [#66](https://github.com/chriskievit/ariadne/issues/66)
+* **saved-views:** refuse a partial reorder instead of deleting the views left out ([#70](https://github.com/chriskievit/ariadne/issues/70)) ([b8f6fc3](https://github.com/chriskievit/ariadne/commit/b8f6fc3cf6b46136fc3f93e51e904afa4b2b376c)), closes [#68](https://github.com/chriskievit/ariadne/issues/68)
+
 # [1.4.0](https://github.com/chriskievit/ariadne/compare/v1.3.0...v1.4.0) (2026-08-31)
 
 
