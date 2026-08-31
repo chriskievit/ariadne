@@ -61,4 +61,32 @@ describe('/api/saved-views', () => {
     ).json();
     expect(reordered.map((v: { id: string }) => v.id)).toEqual([idB, idA]);
   });
+  it('refuses a reorder that leaves a view out, with a 400 rather than deleting it', async () => {
+    const add = (label: string, query: string) =>
+      POST(
+        new Request('http://localhost/api/saved-views', {
+          method: 'POST',
+          body: JSON.stringify({ label, query, shortcut: null }),
+        })
+      );
+    await add('A', 'is:starred');
+    await add('B', 'is:snoozed');
+    const all = await (await add('C', 'is:parked')).json();
+    const ids = all.map((v: { id: string }) => v.id);
+
+    const res = await PUT(
+      new Request('http://localhost/api/saved-views', {
+        method: 'PUT',
+        body: JSON.stringify({ orderedIds: [ids[1], ids[0]] }),
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/every saved view/i);
+    expect(body.error).toContain(ids[2]);
+
+    const stillThere = await (await GET()).json();
+    expect(stillThere.map((v: { id: string }) => v.id)).toEqual(ids);
+  });
 });
