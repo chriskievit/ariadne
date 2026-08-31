@@ -14,3 +14,7 @@ docs/wireframes/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Local MCP client config -- see the MCP section of the README
+.mcp.json
+mcp/dist
