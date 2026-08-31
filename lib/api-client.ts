@@ -98,11 +98,6 @@ export async function deleteSavedView(id: string) {
   return res.json();
 }
 
-export async function reorderSavedViewsRequest(orderedIds: string[]) {
-  const res = await fetch('/api/saved-views', { method: 'PUT', body: JSON.stringify({ orderedIds }) });
-  return res.json();
-}
-
 export async function fetchTodaySummary(): Promise<TodaySummaryResponse> {
   const res = await fetch('/api/today/summary');
   return res.json();

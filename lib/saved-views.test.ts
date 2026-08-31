@@ -43,4 +43,67 @@ describe('saved views', () => {
     const reordered = reorderSavedViews(db, [idB, idA]);
     expect(reordered.map((v) => v.id)).toEqual([idB, idA]);
   });
+
+  describe('reorderSavedViews refuses a list that is not the stored set', () => {
+    function threeViews(): string[] {
+      addSavedView(db, { label: 'A', query: 'is:starred', shortcut: '1' });
+      addSavedView(db, { label: 'B', query: 'is:snoozed', shortcut: '2' });
+      const all = addSavedView(db, { label: 'C', query: 'is:parked', shortcut: '3' });
+      return all.map((v) => v.id);
+    }
+
+    it('does not delete the views left out of orderedIds', () => {
+      const [idA, idB, idC] = threeViews();
+
+      expect(() => reorderSavedViews(db, [idB, idA])).toThrow(/every saved view/i);
+
+      expect(getSavedViews(db).map((v) => v.id)).toEqual([idA, idB, idC]);
+    });
+
+    it('names the ids that were missing', () => {
+      const [idA, idB, idC] = threeViews();
+
+      expect(() => reorderSavedViews(db, [idB, idA])).toThrow(new RegExp(idC));
+    });
+
+    it('rejects an unknown id rather than silently dropping it', () => {
+      const [idA, idB, idC] = threeViews();
+
+      expect(() => reorderSavedViews(db, [idA, idB, idC, 'not-a-view'])).toThrow(/not-a-view/);
+
+      expect(getSavedViews(db)).toHaveLength(3);
+    });
+
+    it('rejects a duplicated id, which would otherwise drop a view', () => {
+      const [idA, idB] = threeViews();
+
+      expect(() => reorderSavedViews(db, [idA, idB, idB])).toThrow(/every saved view/i);
+
+      expect(getSavedViews(db)).toHaveLength(3);
+    });
+
+    it('names a duplicated id, even when nothing is missing', () => {
+      addSavedView(db, { label: 'A', query: 'is:starred', shortcut: '1' });
+      const all = addSavedView(db, { label: 'B', query: 'is:snoozed', shortcut: '2' });
+      const [idA, idB] = all.map((v) => v.id);
+
+      expect(() => reorderSavedViews(db, [idA, idB, idB])).toThrow(
+        new RegExp(`duplicated: ${idB}`),
+      );
+
+      expect(getSavedViews(db).map((v) => v.id)).toEqual([idA, idB]);
+    });
+
+    it('rejects an empty list when views exist', () => {
+      threeViews();
+
+      expect(() => reorderSavedViews(db, [])).toThrow(/every saved view/i);
+
+      expect(getSavedViews(db)).toHaveLength(3);
+    });
+
+    it('accepts an empty list when there is nothing stored', () => {
+      expect(reorderSavedViews(db, [])).toEqual([]);
+    });
+  });
 });

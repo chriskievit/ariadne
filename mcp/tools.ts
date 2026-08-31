@@ -384,7 +384,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     name: 'reorder_saved_views',
     title: 'Reorder saved views',
     description:
-      'Sets the display order of the saved views. This replaces the whole list, so any saved view whose id you leave out is deleted. Call list_saved_views first and pass every id back.',
+      'Sets the display order of the saved views. Must list every saved view id exactly once: an incomplete or duplicated list is refused rather than applied. Call list_saved_views first and pass every id back. Use delete_saved_view to remove one.',
     inputSchema: { orderedIds: z.array(z.string()) },
     annotations: WRITES,
     run: (client, { orderedIds }) => client.put('/api/saved-views', { orderedIds }),
