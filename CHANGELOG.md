@@ -1,3 +1,10 @@
+## [1.4.2](https://github.com/chriskievit/ariadne/compare/v1.4.1...v1.4.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* **mcp:** report an empty read as null instead of "Done." ([#73](https://github.com/chriskievit/ariadne/issues/73)) ([a0fc837](https://github.com/chriskievit/ariadne/commit/a0fc837daf91ed28db9d4fdc34d20ac301eb1237))
+
 ## [1.4.1](https://github.com/chriskievit/ariadne/compare/v1.4.0...v1.4.1) (2026-08-31)
 
 
