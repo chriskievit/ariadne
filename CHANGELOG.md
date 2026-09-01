@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/chriskievit/ariadne/compare/v1.4.2...v1.5.0) (2026-09-01)
+
+
+### Features
+
+* **dashboard:** explain and list what "waiting on you" counts ([#75](https://github.com/chriskievit/ariadne/issues/75)) ([1753c80](https://github.com/chriskievit/ariadne/commit/1753c80f3300e2afd03b3421daee854ce1688184)), closes [#74](https://github.com/chriskievit/ariadne/issues/74)
+
 ## [1.4.2](https://github.com/chriskievit/ariadne/compare/v1.4.1...v1.4.2) (2026-08-31)
 
 
