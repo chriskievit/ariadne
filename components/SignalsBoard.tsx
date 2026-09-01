@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ItemRow from './ItemRow';
 import QueryBar from './QueryBar';
-import { groupOf, isKeptVisible, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
+import { groupOf, isKeptVisible, needsYou, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
 import { parseQuery, applyQuery, withoutFilter } from '@/lib/query';
 import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
 import { createSavedView, deleteSavedView } from '@/lib/api-client';
@@ -130,7 +130,7 @@ export default function SignalsBoard({
   );
 
   const needsYouCount = useMemo(
-    () => withoutHiddenTriage.filter((item) => groupOf(item) === 'blocked' || groupOf(item) === 'waiting_on_you').length,
+    () => withoutHiddenTriage.filter(needsYou).length,
     [withoutHiddenTriage]
   );
 
