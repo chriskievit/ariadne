@@ -50,8 +50,8 @@ import {
   fetchTodaySummaryFor,
   fetchCalibration,
 } from '@/lib/api-client';
-import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
-import { groupOf } from '@/lib/grouping';
+import { isSnoozed, SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
+import { needsYou } from '@/lib/grouping';
 import { localDateString, addDays } from '@/lib/date';
 import { DEFAULT_CAPACITY_MINUTES } from '@/lib/config';
 import type { CalibrationEntry } from '@/lib/calibration';
@@ -373,7 +373,13 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, data]);
 
-  const needsYouCount = data.signals.filter((i) => groupOf(i) === 'blocked' || groupOf(i) === 'waiting_on_you').length;
+  // Filtered the same way SignalsBoard filters before it counts: a snoozed or
+  // triaged-done signal is not on the plate, so counting it here would make
+  // the header disagree with the Signals sub-heading and list rows you cannot
+  // find below.
+  const needsYouItems = data.signals.filter(
+    (i) => i.triageState !== 'done' && !isSnoozed(i.snoozedUntil, new Date()) && needsYou(i)
+  );
   const SOURCE_STATUS_TO_ITEM_SOURCE: Record<SourceStatus['source'], Item['source']> = {
     github: 'github_pr',
     ado: 'ado_workitem',
@@ -408,7 +414,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       <SprintProgressHeader
         sprint={data.sprint}
         sourceStatuses={sourceStatuses}
-        needsYouCount={needsYouCount}
+        needsYouItems={needsYouItems}
+        onShowNeedsYouInSignals={() => setSignalsQuery('group:waiting,blocked')}
         onRefresh={handleRefresh}
         syncing={syncing}
         onAddClick={() => setQuickAddOpen(true)}

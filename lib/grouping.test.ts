@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupOf, isKeptVisible, GROUP_ORDER } from './grouping';
+import { groupOf, isKeptVisible, needsYou, GROUP_ORDER } from './grouping';
 import type { Reason } from './types';
 
 const ALL_REASONS: Reason[] = [
@@ -43,6 +43,32 @@ describe('groupOf', () => {
 
   it('a non-blocked ADO state does not trigger the blocked group', () => {
     expect(groupOf(item({ source: 'ado_workitem', adoStatus: 'In Progress', reason: 'assigned' }))).toBe('lower_priority');
+  });
+});
+
+describe('needsYou', () => {
+  it('is true for every waiting_on_you reason', () => {
+    expect(needsYou(item({ reason: 'review_requested' }))).toBe(true);
+    expect(needsYou(item({ reason: 'mention' }))).toBe(true);
+    expect(needsYou(item({ reason: 'approved_unmerged' }))).toBe(true);
+  });
+
+  it('is true for a blocked item, whatever its reason', () => {
+    expect(needsYou(item({ source: 'ado_workitem', adoStatus: 'Blocked', reason: 'assigned' }))).toBe(true);
+  });
+
+  it('is false for moving_without_you and lower_priority', () => {
+    expect(needsYou(item({ reason: 'stale_own_pr' }))).toBe(false);
+    expect(needsYou(item({ reason: 'authored' }))).toBe(false);
+    expect(needsYou(item({ reason: 'assigned' }))).toBe(false);
+    expect(needsYou(item({ reason: 'manual' }))).toBe(false);
+  });
+
+  it('agrees with groupOf for every reason', () => {
+    for (const reason of ALL_REASONS) {
+      const group = groupOf(item({ reason }));
+      expect(needsYou(item({ reason }))).toBe(group === 'waiting_on_you' || group === 'blocked');
+    }
   });
 });
 

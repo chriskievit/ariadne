@@ -6,14 +6,17 @@ import { Progress } from '@/components/ui/progress';
 import { formatRelativeTime } from '@/lib/utils';
 import { classifyError, type SourceStatus } from '@/lib/sync-status';
 import type { SprintProgress } from '@/lib/sprint';
+import type { ScoredItem } from '@/lib/dashboard';
+import NeedsYouPopover from './NeedsYouPopover';
 
 interface Props {
   sprint: SprintProgress;
   sourceStatuses: SourceStatus[];
-  needsYouCount: number;
+  needsYouItems: ScoredItem[];
   onRefresh: () => void;
   syncing: boolean;
   onAddClick: () => void;
+  onShowNeedsYouInSignals: () => void;
 }
 
 const SOURCE_LABEL: Record<SourceStatus['source'], string> = { github: 'GitHub', ado: 'Azure DevOps' };
@@ -45,7 +48,8 @@ function SourceChip({ status }: { status: SourceStatus }) {
 export default function SprintProgressHeader({
   sprint,
   sourceStatuses,
-  needsYouCount,
+  needsYouItems,
+  onShowNeedsYouInSignals,
   onRefresh,
   syncing,
   onAddClick,
@@ -91,9 +95,7 @@ export default function SprintProgressHeader({
               ''
             )}
             {' · '}
-            <span className="text-warning">
-              <span className="font-mono tabular-nums">{needsYouCount}</span> waiting on you
-            </span>
+            <NeedsYouPopover items={needsYouItems} onShowInSignals={onShowNeedsYouInSignals} />
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">

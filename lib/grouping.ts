@@ -43,6 +43,15 @@ export function groupOf(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): Ob
   return 'lower_priority';
 }
 
+// The header stat and the Signals sub-heading both count "needs something
+// from you", and they must never disagree -- one predicate so there is only
+// one definition. Blocked is included: the next move is not yours, but
+// getting someone to make it is.
+export function needsYou(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): boolean {
+  const group = groupOf(item);
+  return group === 'waiting_on_you' || group === 'blocked';
+}
+
 // Ad-hoc items always render, even below the score threshold that used to
 // gate the old "Needs attention" section -- this says which rows are only
 // visible because of that exemption, so the UI can name it (score-chip
