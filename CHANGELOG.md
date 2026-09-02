@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/chriskievit/ariadne/compare/v1.6.0...v1.6.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **dashboard:** keep the Signals cut off ties and unfreeze row-menu dialogs ([#80](https://github.com/chriskievit/ariadne/issues/80)) ([d06b2bf](https://github.com/chriskievit/ariadne/commit/d06b2bf172fd0bbcc465b9d514744d94ec781ecf)), closes [#79](https://github.com/chriskievit/ariadne/issues/79)
+
 # [1.6.0](https://github.com/chriskievit/ariadne/compare/v1.5.0...v1.6.0) (2026-09-02)
 
 
