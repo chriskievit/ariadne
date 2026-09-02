@@ -15,3 +15,19 @@ export async function ensureNoRunningTimer(request: APIRequestContext): Promise<
   const timer = await res.json();
   if (timer) await request.post(`/api/items/${timer.itemId}/stop-timer`);
 }
+
+// Every spec shares one database, so rows seeded by earlier specs land in the
+// same obligation groups a collapse test is trying to count. Marking them
+// triage-done drops them out of Signals (SignalsBoard filters on
+// `triageState !== 'done'`) without deleting anything a later spec might
+// still want.
+export async function hideExistingItems(request: APIRequestContext): Promise<void> {
+  const res = await request.get('/api/items');
+  const buckets = await res.json();
+  const ids = (['today', 'signals', 'inProgress', 'parked'] as const).flatMap((bucket) =>
+    (buckets[bucket] ?? []).map((item: { id: number }) => item.id)
+  );
+  for (const id of new Set(ids)) {
+    await request.post(`/api/items/${id}/done`, { data: { done: true } });
+  }
+}

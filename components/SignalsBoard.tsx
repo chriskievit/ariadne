@@ -10,6 +10,7 @@ import {
   groupOf,
   needsYou,
   sortStarredFirst,
+  visibleCount,
   GROUP_ORDER,
   GROUP_LABEL,
   type ObligationGroup,
@@ -20,8 +21,6 @@ import { createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
 import type { Priority, Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
-
-const VISIBLE_PER_GROUP = 5;
 
 const STATUS_KEY: { label: string; description: string }[] = [
   { label: 'Blocked', description: 'Needs a nudge, not work.' },
@@ -159,6 +158,27 @@ export default function SignalsBoard({
     onSavedViewsChange(await deleteSavedView(id));
   }
 
+  // One row renderer for both halves of a group, so the visible rows and the
+  // ones behind the disclosure can never drift apart in what they support.
+  const renderRow = (item: ScoredItem) => (
+    <ItemRow
+      key={item.id}
+      item={item}
+      onStart={onStart}
+      onComplete={onComplete}
+      onOpenClaude={onOpenClaude}
+      onDelete={onDelete}
+      onPinToday={onPinToday}
+      onStar={onStar}
+      onSnooze={onSnooze}
+      onUnsnooze={onUnsnooze}
+      onDone={onDone}
+      onSetPriority={onSetPriority}
+      sourceIsStale={failingSources?.has(item.source)}
+      onOpenScoringReference={onOpenScoringReference}
+    />
+  );
+
   const grouped = useMemo(() => {
     const buckets: Record<ObligationGroup, ScoredItem[]> = {
       waiting_on_you: [],
@@ -249,9 +269,13 @@ export default function SignalsBoard({
         const exempt = groupItems.filter((i) => i.source === 'adhoc');
         const rest = groupItems.filter((i) => i.source !== 'adhoc');
         const isExpanded = expanded[group];
-        const visibleRest = isExpanded ? rest : rest.slice(0, VISIBLE_PER_GROUP);
-        const hiddenCount = rest.length - visibleRest.length;
-        const visible = [...visibleRest, ...exempt];
+        // hiddenCount is measured from the cut, not from what is currently
+        // on screen, so the control can keep its label and its count while
+        // expanded instead of unmounting itself under the user's focus.
+        const cut = visibleCount(rest, group, activeParsed.filters.length > 0);
+        const hiddenCount = rest.length - cut;
+        const visible = [...rest.slice(0, cut), ...exempt];
+        const collapsed = rest.slice(cut);
         return (
           <section key={group} className="mb-4">
             <div className="mb-1 flex items-center gap-1.5">
@@ -261,35 +285,28 @@ export default function SignalsBoard({
               </span>
               {group === GROUP_ORDER[0] && <StatusKeyPopover />}
             </div>
-            <div>
-              {visible.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  onStart={onStart}
-                  onComplete={onComplete}
-                  onOpenClaude={onOpenClaude}
-                  onDelete={onDelete}
-                  onPinToday={onPinToday}
-                  onStar={onStar}
-                  onSnooze={onSnooze}
-                  onUnsnooze={onUnsnooze}
-                  onDone={onDone}
-                  onSetPriority={onSetPriority}
-                  sourceIsStale={failingSources?.has(item.source)}
-                  onOpenScoringReference={onOpenScoringReference}
-                />
-              ))}
-            </div>
+            <div>{visible.map(renderRow)}</div>
             {hiddenCount > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setExpanded((prev) => ({ ...prev, [group]: true }))}
-              >
-                Show {hiddenCount} more
-              </Button>
+              <>
+                {/* Same disclosure grammar as Snoozed and Paused: a bare
+                    button at label weight, the count in the instrument
+                    register, and a toggle that goes both ways. "Lower
+                    scoring" rather than "Show more" because it is a claim
+                    about the score, and visibleCount() is what makes it a
+                    true one -- the cut can no longer fall inside a tie, so
+                    everything behind this really does score less. */}
+                <button
+                  type="button"
+                  data-row-nav
+                  aria-expanded={isExpanded}
+                  aria-controls={`signals-${group}-collapsed`}
+                  onClick={() => setExpanded((prev) => ({ ...prev, [group]: !prev[group] }))}
+                  className="flex w-full items-center pb-1 pt-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Lower scoring · <span className="ml-1 font-mono tabular-nums">{hiddenCount}</span>
+                </button>
+                {isExpanded && <div id={`signals-${group}-collapsed`}>{collapsed.map(renderRow)}</div>}
+              </>
             )}
           </section>
         );

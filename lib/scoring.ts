@@ -267,6 +267,8 @@ export function getScoringReference(): ScoringReference {
       'Anything you’ve started sorts first, whatever it scores. Work in progress outranks work you haven’t touched.',
       'Starred items sort first inside their group, whatever they score. Starring is a bookmark, not a score.',
       'Ad-hoc requests stay visible below 25, because the signals that lift other rows (review activity, staleness) never reach them. Rows held by that rule are marked "Kept visible".',
+      'Rows on the same score sort oldest activity first, so something that has sat untouched for a week comes before something that moved this morning.',
+      'Each group shows its highest-scoring rows and collapses the rest behind "Lower scoring". The cut never splits a tie: rows on the same score are always shown together, and "Waiting on you" never collapses at all.',
     ],
   };
 }

@@ -269,7 +269,14 @@ function OverflowMenu({
   density: Density;
 }) {
   return (
-    <DropdownMenu>
+    // modal={false} is load-bearing, not a preference. A modal menu sets
+    // `pointer-events: none` on <body> while it is open; three items here
+    // (Snooze, Delete, Open in Claude) open a dialog, and that dialog mounts
+    // while the menu is still up. Radix keeps one module-level "original"
+    // body value, so the dialog captures the menu's `none` as the value to
+    // restore, then writes it back on close -- leaving the whole page
+    // unclickable until a reload. See e2e/row-menu-dialog.spec.ts.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button
           type="button"

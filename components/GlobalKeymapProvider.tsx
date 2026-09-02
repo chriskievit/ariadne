@@ -57,7 +57,15 @@ export default function GlobalKeymapProvider({
         // the plain dashboard surface, not out of an active overlay.
         if (document.querySelector('[role="dialog"]')) return;
         e.preventDefault();
-        const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-row-id]'));
+        // `[data-row-nav]` picks up the group-disclosure controls alongside
+        // the rows themselves. They are the only controls that decide
+        // whether rows exist in the DOM at all, so j/k has to be able to
+        // land on one rather than stepping silently over the cut into the
+        // next group -- which is how a keyboard user could walk past four
+        // hidden review requests without ever being told they were there.
+        const rows = Array.from(
+          document.querySelectorAll<HTMLElement>('[data-row-id],[data-row-nav]')
+        );
         const currentIndex = rows.findIndex((el) => el === document.activeElement);
         const nextIndex = e.key === 'j' ? Math.min(rows.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
         rows[nextIndex === -1 ? 0 : nextIndex]?.focus();

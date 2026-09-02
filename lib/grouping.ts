@@ -78,3 +78,44 @@ export function isKeptVisible(item: Pick<Item, 'source'>, score: number): boolea
 export function sortStarredFirst<T extends { starred: boolean }>(items: T[]): T[] {
   return [...items].sort((a, b) => Number(b.starred) - Number(a.starred));
 }
+
+// How many rows a group shows before it collapses the rest, and the ceiling
+// a tie is allowed to push that to.
+export const VISIBLE_PER_GROUP = 5;
+export const VISIBLE_PER_GROUP_MAX = 12;
+
+// "Waiting on you" means the next move is yours on every row in it. A group
+// defined by owed action cannot hide part of what is owed -- the header
+// count is a promise the rows have to keep -- so it never collapses.
+const NEVER_COLLAPSED = new Set<ObligationGroup>(['waiting_on_you']);
+
+// The fourth non-point rule, and the one that cost the most: how many rows a
+// group renders. It lives here rather than as a bare constant inside
+// SignalsBoard for the same reason sortStarredFirst does -- it changes what
+// you can see, PRODUCT.md commits to disclosing every such rule, and an
+// anonymous `slice(0, 5)` inside a component is not disclosure.
+//
+// The cut may never split a run of equal scores. Rows that score the same
+// lost no comparison, so showing one and hiding another claims a ranking
+// sortByUrgency does not have at that index -- it only has its
+// oldest-activity-first tie-break, which is anti-correlated with what a
+// triage surface is for: it pushes the rows that changed today to the back.
+// That is exactly how a freshly-opened review request ended up behind
+// "Show 4 more" while five older ones stayed visible.
+//
+// `filtered` is true when a query is narrowing the board. A query is an
+// explicit request to see a set, so collapsing the answer to it truncates
+// something the user just asked for -- and it is what made the
+// "Show these in Signals" handoff from the waiting-on-you popover land on
+// fewer rows than the count it came from promised.
+export function visibleCount(
+  rows: { score: number }[],
+  group: ObligationGroup,
+  filtered: boolean
+): number {
+  if (filtered || NEVER_COLLAPSED.has(group)) return rows.length;
+  if (rows.length <= VISIBLE_PER_GROUP) return rows.length;
+  let n = VISIBLE_PER_GROUP;
+  while (n < rows.length && n < VISIBLE_PER_GROUP_MAX && rows[n].score === rows[n - 1].score) n++;
+  return n;
+}
