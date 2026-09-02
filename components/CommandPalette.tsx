@@ -26,6 +26,7 @@ interface Props {
   onWrapUp: () => void;
   onOpenScoringReference: () => void;
   onOpenHelp: () => void;
+  onQuickAdd: () => void;
 }
 
 const QUERY_PREFIXES = ['source:', 'group:', 'state:', 'score:', 'repo:', 'sprint:', 'is:', 'stale:', 'reason:'];
@@ -44,6 +45,7 @@ export default function CommandPalette({
   onWrapUp,
   onOpenScoringReference,
   onOpenHelp,
+  onQuickAdd,
 }: Props) {
   const isQueryToken = QUERY_PREFIXES.some((p) => search.startsWith(p));
   const matchingItems =
@@ -104,6 +106,12 @@ export default function CommandPalette({
           </CommandItem>
           <CommandItem value="go-keyboard-shortcuts" onSelect={() => select(onOpenHelp)}>
             Keyboard shortcuts
+          </CommandItem>
+        </CommandGroup>
+        <CommandGroup heading="Actions">
+          <CommandItem value="add-adhoc-item" onSelect={() => select(onQuickAdd)}>
+            Add an ad-hoc item
+            <span className="ml-auto font-mono text-xs text-muted-foreground">a</span>
           </CommandItem>
         </CommandGroup>
         <CommandGroup heading="Rituals">

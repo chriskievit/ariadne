@@ -1,7 +1,7 @@
 import type { TimeReport } from '@/lib/report';
 import type { LocalRepo } from '@/lib/warp';
 import { localDateString, addDays } from '@/lib/date';
-import type { Item, Plan } from '@/lib/types';
+import type { Item, Plan, Priority } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
 import type { SourceStatus } from '@/lib/sync-status';
 import type { CalibrationEntry } from '@/lib/calibration';
@@ -71,6 +71,17 @@ export async function starItem(id: number, starred: boolean) {
   await fetch(`/api/items/${id}/star`, { method: 'POST', body: JSON.stringify({ starred }) });
 }
 
+export async function setItemPriority(id: number, priority: Priority | null) {
+  const res = await fetch(`/api/items/${id}/priority`, {
+    method: 'POST',
+    body: JSON.stringify({ priority }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? 'Could not set the priority.');
+  }
+}
+
 export async function snoozeItem(id: number, option: SnoozeOption) {
   await fetch(`/api/items/${id}/snooze`, { method: 'POST', body: JSON.stringify({ option }) });
 }
@@ -125,7 +136,12 @@ export async function openInClaude(id: number, workingDir?: string): Promise<{ w
   return body;
 }
 
-export async function createAdhocItemRequest(input: { title: string; category?: string; dueDate?: string }) {
+export async function createAdhocItemRequest(input: {
+  title: string;
+  category?: string;
+  dueDate?: string;
+  priority?: Priority | null;
+}) {
   await fetch('/api/items', { method: 'POST', body: JSON.stringify(input) });
 }
 

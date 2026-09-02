@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ItemRow from './ItemRow';
 import type { ScoredItem } from '@/lib/dashboard';
-import type { Source } from '@/lib/types';
+import type { Source, Priority } from '@/lib/types';
 
 interface Props {
   value: string;
@@ -16,6 +16,7 @@ interface Props {
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
+  onSetPriority?: (id: number, priority: Priority | null) => void;
   onRequeue?: (id: number) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
@@ -35,6 +36,7 @@ export default function ItemSection({
   onComplete,
   onOpenClaude,
   onDelete,
+  onSetPriority,
   onRequeue,
   onPark,
   onUnpark,
@@ -68,6 +70,7 @@ export default function ItemSection({
                 onComplete={onComplete}
                 onOpenClaude={onOpenClaude}
                 onDelete={onDelete}
+                    onSetPriority={onSetPriority}
                 onRequeue={onRequeue}
                 onPark={onPark}
                 onUnpark={onUnpark}
@@ -97,6 +100,7 @@ export default function ItemSection({
                         onComplete={onComplete}
                         onOpenClaude={onOpenClaude}
                         onDelete={onDelete}
+                    onSetPriority={onSetPriority}
                         onRequeue={onRequeue}
                         onUnpark={onUnpark}
                         onOpenScoringReference={onOpenScoringReference}

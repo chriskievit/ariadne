@@ -37,6 +37,7 @@ import {
   pinToday,
   unpinToday,
   starItem,
+  setItemPriority,
   snoozeItem,
   unsnoozeItem,
   setItemDone,
@@ -59,7 +60,7 @@ import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
 import type { SourceStatus } from '@/lib/sync-status';
-import type { Item, Plan, PlanItem } from '@/lib/types';
+import type { Item, Plan, PlanItem, Priority } from '@/lib/types';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -284,6 +285,18 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
+  async function handleSetPriority(id: number, priority: Priority | null) {
+    try {
+      await setItemPriority(id, priority);
+    } catch (error) {
+      // The refusal on a synced row carries its own wording, so show that
+      // rather than a generic failure.
+      toast(error instanceof Error ? error.message : 'Could not set the priority.');
+      return;
+    }
+    await refresh();
+  }
+
   async function handleSnooze(id: number, option: SnoozeOption) {
     await snoozeItem(id, option);
     await refresh();
@@ -323,7 +336,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     }
   }
 
-  async function handleQuickAdd(input: { title: string; category?: string; dueDate?: string }) {
+  async function handleQuickAdd(input: { title: string; dueDate?: string; priority?: Priority | null }) {
     await createAdhocItemRequest(input);
     await refresh();
   }
@@ -409,6 +422,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       onGoToDashboard={() => router.push('/')}
       onGoToSettings={() => router.push('/settings')}
       onPlanDay={() => setPlanDayOpen(true)}
+      onQuickAdd={() => setQuickAddOpen(true)}
     >
     <main className="mx-auto max-w-6xl space-y-6 p-6">
       <SprintProgressHeader
@@ -438,6 +452,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onPark={handlePark}
             onUnpark={handleUnpark}
             onUnpinToday={handleUnpinToday}
+            onSetPriority={handleSetPriority}
             onPlanDay={() => setPlanDayOpen(true)}
             onReorder={handleReorderToday}
             failingSources={failingSources}
@@ -458,6 +473,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
                   onRequeue={handleRequeue}
                   onPark={handlePark}
                   onUnpark={handleUnpark}
+                  onSetPriority={handleSetPriority}
                   failingSources={failingSources}
                   onOpenScoringReference={() => setScoringReferenceOpen(true)}
                 />
@@ -473,6 +489,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onPinToday={handlePinToday}
             failingSources={failingSources}
             onStar={handleStar}
+            onSetPriority={handleSetPriority}
             onSnooze={handleSnooze}
             onUnsnooze={handleUnsnooze}
             onDone={handleDone}
@@ -539,6 +556,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
         onWrapUp={() => setReviewDayOpen(true)}
         onOpenScoringReference={() => setScoringReferenceOpen(true)}
         onOpenHelp={() => setHelpOpen(true)}
+        onQuickAdd={() => setQuickAddOpen(true)}
       />
     </main>
     </GlobalKeymapProvider>

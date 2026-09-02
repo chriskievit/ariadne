@@ -7,7 +7,7 @@ import type { ScoredItem } from './dashboard';
 
 export type QueryState = 'blocked' | 'review' | 'progress' | 'draft' | 'todo';
 
-const PREFIXES = ['source', 'group', 'state', 'score', 'repo', 'sprint', 'is', 'stale', 'reason'] as const;
+const PREFIXES = ['source', 'group', 'state', 'score', 'repo', 'sprint', 'is', 'stale', 'reason', 'priority'] as const;
 type Prefix = (typeof PREFIXES)[number];
 
 export interface ParsedFilter {
@@ -27,6 +27,9 @@ const GROUP_VALUES = new Set(['waiting', 'blocked', 'moving', 'lower']);
 const STATE_VALUES = new Set(['blocked', 'review', 'todo', 'progress', 'draft']);
 const IS_VALUES = new Set(['starred', 'snoozed', 'done', 'stale']);
 const REASON_KEYS = new Set(Object.keys(REASON_LABEL));
+// 'none' is a first-class value, not an omission: "which ad-hoc items have I
+// never weighed?" is the question this filter exists to answer.
+const PRIORITY_VALUES = new Set(['low', 'medium', 'high', 'none']);
 
 function isValidScoreExpr(expr: string | undefined): boolean {
   if (!expr) return false;
@@ -47,6 +50,10 @@ function validateValues(prefix: Prefix, values: string[]): string | null {
       return values.every((v) => IS_VALUES.has(v)) ? null : `is: expects starred, snoozed, done, or stale`;
     case 'reason':
       return values.every((v) => REASON_KEYS.has(v)) ? null : `reason: unknown reason key`;
+    case 'priority':
+      return values.every((v) => PRIORITY_VALUES.has(v))
+        ? null
+        : `priority: expects low, medium, high, or none (ad-hoc items only)`;
     case 'score':
       return isValidScoreExpr(values[0]) ? null : `score: expected >n, <n, or n..n`;
     case 'stale':
@@ -170,6 +177,8 @@ function matchesFilter(item: ScoredItem, filter: ParsedFilter, context: QueryCon
     }
     case 'reason':
       return values.some((v) => item.reason === (v as Reason));
+    case 'priority':
+      return values.some((v) => (v === 'none' ? item.priority === null : item.priority === v));
   }
 }
 

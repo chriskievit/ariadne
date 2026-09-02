@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupOf, isKeptVisible, needsYou, GROUP_ORDER } from './grouping';
+import { groupOf, isKeptVisible, needsYou, GROUP_ORDER, sortStarredFirst } from './grouping';
 import type { Reason } from './types';
 
 const ALL_REASONS: Reason[] = [
@@ -83,5 +83,45 @@ describe('isKeptVisible', () => {
 
   it('is false for a non-ad-hoc item, regardless of score', () => {
     expect(isKeptVisible({ source: 'github_pr' }, 5)).toBe(false);
+  });
+});
+
+describe('sortStarredFirst', () => {
+  it('lifts starred items above unstarred ones', () => {
+    const sorted = sortStarredFirst([
+      { id: 1, starred: false },
+      { id: 2, starred: true },
+      { id: 3, starred: false },
+    ]);
+    expect(sorted.map((i) => i.id)).toEqual([2, 1, 3]);
+  });
+
+  // This is what makes the rule safe to layer on top of sortByUrgency: it
+  // only moves starred rows, it never reshuffles the score order underneath.
+  it('preserves the incoming order within each half', () => {
+    const sorted = sortStarredFirst([
+      { id: 1, starred: true },
+      { id: 2, starred: false },
+      { id: 3, starred: true },
+      { id: 4, starred: false },
+    ]);
+    expect(sorted.map((i) => i.id)).toEqual([1, 3, 2, 4]);
+  });
+
+  it('does not mutate the array it was given', () => {
+    const input = [
+      { id: 1, starred: false },
+      { id: 2, starred: true },
+    ];
+    sortStarredFirst(input);
+    expect(input.map((i) => i.id)).toEqual([1, 2]);
+  });
+
+  it('leaves a list with no stars untouched', () => {
+    const input = [
+      { id: 1, starred: false },
+      { id: 2, starred: false },
+    ];
+    expect(sortStarredFirst(input).map((i) => i.id)).toEqual([1, 2]);
   });
 });

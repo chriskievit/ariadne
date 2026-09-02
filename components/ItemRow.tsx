@@ -12,6 +12,7 @@ import {
   Pause,
   Play,
   MoreHorizontal,
+  Flag,
   Pin,
   Star,
   Clock,
@@ -36,14 +37,27 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn, formatRelativeTime } from '@/lib/utils';
-import { REASON_LABEL, MAX_SCORE, TIER_LABEL, getPriorityTier, type ScoreBreakdownEntry } from '@/lib/scoring';
+import {
+  REASON_LABEL,
+  BAND_LABEL,
+  canCarryPriority,
+  getUrgencyBand,
+  maxScoreFor,
+  PRIORITY_LABEL,
+  PRIORITY_ORDER,
+  priorityPoints,
+  type ScoreBreakdownEntry,
+} from '@/lib/scoring';
 import { getStatusPill, type BadgeVariant } from '@/lib/status-pill';
 import { isKeptVisible } from '@/lib/grouping';
 import { matchesQuery } from '@/lib/search';
-import type { Item, Status } from '@/lib/types';
+import type { Item, Priority, Status } from '@/lib/types';
 import type { LinkedRef } from '@/lib/links-repo';
 import { useSearch } from '@/components/SearchProvider';
 import { useDensity } from '@/components/DensityProvider';
@@ -52,6 +66,15 @@ import type { Density } from '@/lib/config';
 import ScoreChip from './ScoreChip';
 import { settledOutcome } from '@/lib/settled';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
+
+// The order the `p` row binding walks. Unset lands on high first, so one
+// keystroke does the thing a user actually wants from a priority key.
+const PRIORITY_CYCLE: (Priority | null)[] = ['high', 'medium', 'low', null];
+
+function nextPriority(current: Priority | null): Priority | null {
+  const i = PRIORITY_CYCLE.indexOf(current);
+  return PRIORITY_CYCLE[(i + 1) % PRIORITY_CYCLE.length];
+}
 
 // Row height is fixed per mode so content can never reflow it — comfortable
 // is 44px (11 * 4px grid), compact is 36px (9 * 4px grid). Only applied from
@@ -143,6 +166,7 @@ interface Props {
   onSnooze?: (id: number, option: SnoozeOption) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
+  onSetPriority?: (id: number, priority: Priority | null) => void;
   sourceIsStale?: boolean;
   onOpenScoringReference: () => void;
   // Today shows a parked item at full detail (score chip, Complete button,
@@ -223,6 +247,7 @@ function OverflowMenu({
   onOpenSnooze,
   onUnsnooze,
   onDone,
+  onSetPriority,
   snoozed,
   density,
 }: {
@@ -239,6 +264,7 @@ function OverflowMenu({
   onOpenSnooze?: () => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
+  onSetPriority?: (id: number, priority: Priority | null) => void;
   snoozed: boolean;
   density: Density;
 }) {
@@ -318,6 +344,46 @@ function OverflowMenu({
             <Play aria-hidden="true" /> Resume
           </DropdownMenuItem>
         )}
+        {/* Rendered on every row, including the ones that cannot have a
+            priority. An item that is silently missing teaches nothing; a
+            disabled one with its reason attached teaches the read-only
+            commitment at the moment the user reaches for it. */}
+        {onSetPriority && !canCarryPriority(item.source) && (
+          <DropdownMenuItem disabled>
+            <Flag aria-hidden="true" />
+            <span className="flex-1">Priority</span>
+            <span className="text-xs text-muted-foreground">ad-hoc only</span>
+          </DropdownMenuItem>
+        )}
+        {onSetPriority && canCarryPriority(item.source) && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Flag aria-hidden="true" />
+              <span className="flex-1">Priority</span>
+              <kbd className="mr-1 font-mono text-xs text-muted-foreground">f</kbd>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {/* The current value is marked here rather than shown on the
+                  trigger, so the trigger keeps the shortcut hint its siblings
+                  all carry. */}
+              {PRIORITY_ORDER.map((priority) => (
+                <DropdownMenuItem key={priority} onSelect={() => onSetPriority(item.id, priority)}>
+                  <Check
+                    aria-hidden="true"
+                    className={item.priority === priority ? undefined : 'invisible'}
+                  />
+                  <span className="flex-1">{PRIORITY_LABEL[priority]}</span>
+                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    +{priorityPoints(priority)}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+              {item.priority && (
+                <DropdownMenuItem onSelect={() => onSetPriority(item.id, null)}>Clear</DropdownMenuItem>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuItem onSelect={onOpenClaude}>
           <Bot aria-hidden="true" /> Open in Claude
         </DropdownMenuItem>
@@ -329,6 +395,7 @@ function OverflowMenu({
         {(onStar || onOpenSnooze || onDone) && (
           <div className="border-t px-2 py-1.5 text-xs text-muted-foreground">
             Starred, snoozed and done are local. Ariadne never changes anything in GitHub or Azure DevOps.
+            {onSetPriority && canCarryPriority(item.source) && ' Priority is local too, but it does change the score.'}
           </div>
         )}
       </DropdownMenuContent>
@@ -370,6 +437,7 @@ export default function ItemRow({
   onSnooze,
   onUnsnooze,
   onDone,
+  onSetPriority,
   sourceIsStale,
   onOpenScoringReference,
   fullDetailWhenParked = false,
@@ -494,6 +562,12 @@ export default function ItemRow({
         return;
       case 'd':
         onDone?.(item.id, item.triageState !== 'done');
+        return;
+      case 'f':
+        // high -> medium -> low -> unset -> high. Starts at high because the
+        // reason to reach for this key is almost always to raise something;
+        // stepping down and clearing are the rarer follow-ups.
+        if (onSetPriority && canCarryPriority(item.source)) onSetPriority(item.id, nextPriority(item.priority));
         return;
       case 't':
         if (item.todayDate) onUnpinToday?.(item.id);
@@ -768,8 +842,8 @@ export default function ItemRow({
     item.status === 'done' ? 'done' : null,
     settled === 'finished' ? 'done at the source' : null,
     settled === 'gone' ? 'gone from the source' : null,
-    `${TIER_LABEL[getPriorityTier(item.score)]} priority`,
-    `score ${item.score} of ${MAX_SCORE}`,
+    `${BAND_LABEL[getUrgencyBand(item.score)]} priority`,
+    `score ${item.score} of ${maxScoreFor(item.source)}`,
     inlineBadge?.label,
   ]
     .filter(Boolean)
@@ -794,6 +868,7 @@ export default function ItemRow({
     >
       <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
         <ScoreChip
+          source={item.source}
           score={item.score}
           scoreBreakdown={item.scoreBreakdown ?? []}
           notFired={item.notFired ?? []}
@@ -907,6 +982,7 @@ export default function ItemRow({
           onOpenSnooze={onSnooze ? () => setSnoozeDialogOpen(true) : undefined}
           onUnsnooze={onUnsnooze}
           onDone={onDone}
+          onSetPriority={onSetPriority}
           snoozed={Boolean(item.snoozedUntil)}
           density={density}
         />

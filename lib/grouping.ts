@@ -54,8 +54,27 @@ export function needsYou(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): b
 
 // Ad-hoc items always render, even below the score threshold that used to
 // gate the old "Needs attention" section -- this says which rows are only
-// visible because of that exemption, so the UI can name it (score-chip
-// popover) and exempt it from the collapse-after-5 cut (SignalsBoard).
+// visible because of that exemption, so the UI can name it (the score-chip
+// popover, and the row's inline badge).
+//
+// It no longer drives the collapse-after-5 cut: SignalsBoard exempts every
+// ad-hoc row from that, not just the ones below the threshold, so earning a
+// priority can never push an item behind "Show N more".
 export function isKeptVisible(item: Pick<Item, 'source'>, score: number): boolean {
   return item.source === 'adhoc' && score < NEEDS_ATTENTION_THRESHOLD;
+}
+
+// The third non-point ordering rule, and until now the only undisclosed one:
+// a starred item sorts to the top of its group whatever it scores. Extracted
+// out of SignalsBoard so it has a name, a test, and a single definition that
+// getScoringReference()'s nonPointRules can be checked against -- PRODUCT.md
+// commits that every rule affecting order stays disclosed wherever the
+// scoring is explained, and an anonymous comparator inside a component is
+// not disclosure.
+//
+// Stable by construction: Array.prototype.sort is stable in every runtime
+// this ships on, so items that are both starred or both unstarred keep the
+// score order sortByUrgency already put them in.
+export function sortStarredFirst<T extends { starred: boolean }>(items: T[]): T[] {
+  return [...items].sort((a, b) => Number(b.starred) - Number(a.starred));
 }

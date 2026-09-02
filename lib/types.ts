@@ -10,6 +10,9 @@ export type Reason =
 export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved' | 'merged';
 export type Status = 'inbox' | 'in_progress' | 'done';
 export type TriageState = 'none' | 'done';
+// Set by hand, ad-hoc items only. Distinct from UrgencyBand in lib/scoring.ts,
+// which is the band a score lands in and is derived, never set.
+export type Priority = 'low' | 'medium' | 'high';
 
 export interface Item {
   id: number;
@@ -35,6 +38,8 @@ export interface Item {
   snoozedUntil: string | null;
   triageState: TriageState;
   wokeEarly: boolean;
+  priority: Priority | null;
+  prioritySetAt: string | null;
 }
 
 export interface NewSyncedItemInput {
@@ -57,6 +62,7 @@ export interface NewAdhocItemInput {
   title: string;
   category?: string | null;
   dueDate?: string | null;
+  priority?: Priority | null;
 }
 
 export interface TimeLog {

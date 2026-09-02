@@ -14,6 +14,7 @@ interface Props {
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
   onPlanDay: () => void;
+  onQuickAdd: () => void;
 }
 
 export default function GlobalKeymapProvider({
@@ -27,6 +28,7 @@ export default function GlobalKeymapProvider({
   onGoToDashboard,
   onGoToSettings,
   onPlanDay,
+  onQuickAdd,
 }: Props) {
   useEffect(() => {
     let pendingG = false;
@@ -71,6 +73,13 @@ export default function GlobalKeymapProvider({
       }
 
       switch (e.key.toLowerCase()) {
+        case 'a':
+          // Capture is the one thing that has to work while someone is
+          // standing at your desk, so it gets a single letter and opens a
+          // form that focuses its own first field.
+          e.preventDefault();
+          onQuickAdd();
+          return;
         case '/':
           e.preventDefault();
           onFocusQueryBar();
@@ -111,6 +120,7 @@ export default function GlobalKeymapProvider({
     onGoToDashboard,
     onGoToSettings,
     onPlanDay,
+    onQuickAdd,
   ]);
 
   return <>{children}</>;

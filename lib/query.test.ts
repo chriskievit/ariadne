@@ -29,6 +29,8 @@ function item(overrides: Partial<ScoredItem> = {}): ScoredItem {
     snoozedUntil: null,
     triageState: 'none',
     wokeEarly: false,
+    priority: null,
+    prioritySetAt: null,
     score: 40,
     scoreBreakdown: [],
     notFired: [],
@@ -215,5 +217,45 @@ describe('withoutBareWord', () => {
   it('drops the correct occurrence when the same word appears twice', () => {
     const result = withoutBareWord('flaky flaky', 1);
     expect(result).toBe('flaky');
+  });
+});
+
+describe('priority filter', () => {
+  it('matches items by their hand-set priority', () => {
+    const items = [
+      item({ id: 1, source: 'adhoc', priority: 'high' }),
+      item({ id: 2, source: 'adhoc', priority: 'low' }),
+      item({ id: 3, source: 'github_pr', priority: null }),
+    ];
+    const result = applyQuery(items, parseQuery('priority:high'), { now: NOW, currentSprintIteration: null });
+    expect(result.map((i) => i.id)).toEqual([1]);
+  });
+
+  it('accepts several values at once', () => {
+    const items = [
+      item({ id: 1, source: 'adhoc', priority: 'high' }),
+      item({ id: 2, source: 'adhoc', priority: 'medium' }),
+      item({ id: 3, source: 'adhoc', priority: 'low' }),
+    ];
+    const result = applyQuery(items, parseQuery('priority:high,medium'), {
+      now: NOW,
+      currentSprintIteration: null,
+    });
+    expect(result.map((i) => i.id)).toEqual([1, 2]);
+  });
+
+  it('finds the ad-hoc items never weighed, via priority:none', () => {
+    const items = [
+      item({ id: 1, source: 'adhoc', priority: 'high' }),
+      item({ id: 2, source: 'adhoc', priority: null }),
+    ];
+    const result = applyQuery(items, parseQuery('priority:none'), { now: NOW, currentSprintIteration: null });
+    expect(result.map((i) => i.id)).toEqual([2]);
+  });
+
+  it('rejects an unknown value with a message naming the ad-hoc scope', () => {
+    const parsed = parseQuery('priority:urgent');
+    expect(parsed.errors).toHaveLength(1);
+    expect(parsed.errors[0]).toMatch(/ad-hoc items only/);
   });
 });

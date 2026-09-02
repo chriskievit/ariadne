@@ -6,12 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ItemRow from './ItemRow';
 import QueryBar from './QueryBar';
-import { groupOf, isKeptVisible, needsYou, GROUP_ORDER, GROUP_LABEL, type ObligationGroup } from '@/lib/grouping';
+import {
+  groupOf,
+  needsYou,
+  sortStarredFirst,
+  GROUP_ORDER,
+  GROUP_LABEL,
+  type ObligationGroup,
+} from '@/lib/grouping';
 import { parseQuery, applyQuery, withoutFilter } from '@/lib/query';
 import { isSnoozed, type SnoozeOption } from '@/lib/snooze';
 import { createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
-import type { Source } from '@/lib/types';
+import type { Priority, Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
 
 const VISIBLE_PER_GROUP = 5;
@@ -67,6 +74,7 @@ interface Props {
   onSnooze?: (id: number, option: SnoozeOption) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
+  onSetPriority?: (id: number, priority: Priority | null) => void;
   currentSprintIteration: string | null;
   queryText: string;
   onQueryTextChange: (raw: string) => void;
@@ -87,6 +95,7 @@ export default function SignalsBoard({
   onSnooze,
   onUnsnooze,
   onDone,
+  onSetPriority,
   currentSprintIteration,
   queryText,
   onQueryTextChange,
@@ -159,7 +168,7 @@ export default function SignalsBoard({
     };
     for (const item of filtered) buckets[groupOf(item)].push(item);
     for (const key of Object.keys(buckets) as ObligationGroup[]) {
-      buckets[key].sort((a, b) => Number(b.starred) - Number(a.starred));
+      buckets[key] = sortStarredFirst(buckets[key]);
     }
     return buckets;
   }, [filtered]);
@@ -232,8 +241,13 @@ export default function SignalsBoard({
       {GROUP_ORDER.map((group) => {
         const groupItems = grouped[group];
         if (groupItems.length === 0) return null;
-        const exempt = groupItems.filter((i) => isKeptVisible(i, i.score));
-        const rest = groupItems.filter((i) => !isKeptVisible(i, i.score));
+        // Every ad-hoc row is exempt from the collapse cut, not just the
+        // ones the "Kept visible" rule is holding up. Splitting on
+        // isKeptVisible instead meant that giving an item a priority -- an
+        // action whose entire point is "this matters more" -- could push it
+        // behind "Show N more" the moment it crossed the threshold.
+        const exempt = groupItems.filter((i) => i.source === 'adhoc');
+        const rest = groupItems.filter((i) => i.source !== 'adhoc');
         const isExpanded = expanded[group];
         const visibleRest = isExpanded ? rest : rest.slice(0, VISIBLE_PER_GROUP);
         const hiddenCount = rest.length - visibleRest.length;
@@ -261,6 +275,7 @@ export default function SignalsBoard({
                   onSnooze={onSnooze}
                   onUnsnooze={onUnsnooze}
                   onDone={onDone}
+                  onSetPriority={onSetPriority}
                   sourceIsStale={failingSources?.has(item.source)}
                   onOpenScoringReference={onOpenScoringReference}
                 />
@@ -305,6 +320,7 @@ export default function SignalsBoard({
                   onSnooze={onSnooze}
                   onUnsnooze={onUnsnooze}
                   onDone={onDone}
+                  onSetPriority={onSetPriority}
                   sourceIsStale={failingSources?.has(item.source)}
                   onOpenScoringReference={onOpenScoringReference}
                 />
