@@ -46,3 +46,30 @@ describe('POST /api/items', () => {
     expect(body.source).toBe('adhoc');
   });
 });
+
+describe('POST /api/items with a priority', () => {
+  it('stores a starting priority and stamps when it was set', async () => {
+    const res = await POST(
+      new Request('http://localhost/api/items', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Someone asked at my desk', priority: 'high' }),
+      })
+    );
+    const body = await res.json();
+    expect(res.status).toBe(201);
+    expect(body.priority).toBe('high');
+    expect(body.prioritySetAt).not.toBeNull();
+  });
+
+  it('leaves the priority unset when none is given', async () => {
+    const res = await POST(
+      new Request('http://localhost/api/items', {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Just record it' }),
+      })
+    );
+    const body = await res.json();
+    expect(body.priority).toBeNull();
+    expect(body.prioritySetAt).toBeNull();
+  });
+});

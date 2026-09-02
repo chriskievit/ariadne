@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
-import type { Item, NewSyncedItemInput, NewAdhocItemInput, Status } from './types';
+import type { Item, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
+import { canCarryPriority } from './scoring';
 
 function rowToItem(row: any): Item {
   return {
@@ -23,6 +24,8 @@ function rowToItem(row: any): Item {
     parked: !!row.parked,
     todayDate: row.today_date,
     starred: !!row.starred,
+    priority: row.priority ?? null,
+    prioritySetAt: row.priority_set_at ?? null,
     snoozedUntil: row.snoozed_until,
     triageState: (row.triage_state ?? 'none') as Item['triageState'],
     wokeEarly: !!row.woke_early,
@@ -88,10 +91,19 @@ export function createAdhocItem(db: Database.Database, input: NewAdhocItemInput)
   const now = new Date().toISOString();
   const result = db
     .prepare(
-      `INSERT INTO items (source, external_id, title, url, reason, category, due_date, status, created_at)
-       VALUES ('adhoc', NULL, @title, NULL, 'manual', @category, @dueDate, 'inbox', @now)`
+      `INSERT INTO items (source, external_id, title, url, reason, category, due_date, status, created_at, priority, priority_set_at)
+       VALUES ('adhoc', NULL, @title, NULL, 'manual', @category, @dueDate, 'inbox', @now, @priority, @prioritySetAt)`
     )
-    .run({ title: input.title, category: input.category ?? null, dueDate: input.dueDate ?? null, now });
+    .run({
+      title: input.title,
+      category: input.category ?? null,
+      dueDate: input.dueDate ?? null,
+      now,
+      priority: input.priority ?? null,
+      // Stamped together with the value so the popover can report the age of
+      // the assertion, never a priority with no known age.
+      prioritySetAt: input.priority ? now : null,
+    });
   return rowToItem(db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid));
 }
 
@@ -122,6 +134,31 @@ export function setTodayDate(db: Database.Database, id: number, date: string | n
 
 export function setStarred(db: Database.Database, id: number, starred: boolean): void {
   db.prepare('UPDATE items SET starred = ? WHERE id = ?').run(starred ? 1 : 0, id);
+}
+
+export class PriorityNotAllowedError extends Error {
+  readonly itemId: number;
+
+  constructor(itemId: number) {
+    super('Only ad-hoc items can carry a priority. Ariadne does not re-rank what GitHub and Azure DevOps send.');
+    this.name = 'PriorityNotAllowedError';
+    this.itemId = itemId;
+  }
+}
+
+// Value and timestamp always move together: clearing the priority clears
+// its age too, and re-marking an item restamps it, because the age the
+// popover reports is the age of the assertion rather than of the row.
+export function setPriority(db: Database.Database, id: number, priority: Priority | null): void {
+  const row = db.prepare('SELECT source FROM items WHERE id = ?').get(id) as { source: Source } | undefined;
+  if (!row) return;
+  if (!canCarryPriority(row.source)) throw new PriorityNotAllowedError(id);
+
+  db.prepare('UPDATE items SET priority = ?, priority_set_at = ? WHERE id = ?').run(
+    priority,
+    priority ? new Date().toISOString() : null,
+    id
+  );
 }
 
 // Setting a new snooze always clears any previous "woke early" marker -- a

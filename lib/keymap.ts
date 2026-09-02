@@ -17,10 +17,16 @@ export interface KeyBinding {
 // checks isTypingTarget before acting on any binding (naturally inert while
 // typing, since focus never reaches a row while an input has it).
 //
-// Deliberately NOT included yet: `space` (start/stop timer) and `P` (plan
-// the day) -- both trigger Phase 3 features that don't exist in this
-// codebase yet. Declaring a binding for a nonexistent action would ship a
-// dead shortcut; they're added here once Phase 3 builds what they call.
+// A row binding must not reuse a letter the global switch also matches:
+// GlobalKeymapProvider does not bail when a row has focus, so both handlers
+// would fire. That switch currently matches `/ ? r w p g` case-insensitively
+// even though `P`/`R`/`W` are declared uppercase here, which is why the
+// priority cycle is `f` (for the flag icon it carries) and not `p`.
+//
+// Deliberately NOT included yet: `space` (start/stop timer) -- it triggers a
+// Phase 3 feature that doesn't exist in this codebase yet. Declaring a
+// binding for a nonexistent action would ship a dead shortcut; it gets added
+// here once Phase 3 builds what it calls.
 export const KEYMAP: KeyBinding[] = [
   { keys: 'j', description: 'Move focus to the next item', scope: 'row' },
   { keys: 'k', description: 'Move focus to the previous item', scope: 'row' },
@@ -28,9 +34,11 @@ export const KEYMAP: KeyBinding[] = [
   { keys: 'x', description: 'Show the score breakdown', scope: 'row' },
   { keys: 'c', description: 'Complete the focused item', scope: 'row' },
   { keys: 's', description: 'Star (local only)', scope: 'row' },
+  { keys: 'f', description: 'Cycle priority (ad-hoc only)', scope: 'row' },
   { keys: 'e', description: 'Snooze (local only)', scope: 'row' },
   { keys: 'd', description: 'Mark done (local only)', scope: 'row' },
   { keys: 't', description: 'Pin to Today', scope: 'row' },
+  { keys: 'a', description: 'Add an ad-hoc item', scope: 'global' },
   { keys: '/', description: 'Focus the query bar', scope: 'global' },
   { keys: 'P', description: 'Plan the day', scope: 'global' },
   { keys: '⌘K / Ctrl+K', description: 'Search or jump to', scope: 'global' },

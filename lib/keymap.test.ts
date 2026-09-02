@@ -50,3 +50,32 @@ describe('isTypingTarget', () => {
     expect(isTypingTarget(undefined)).toBe(false);
   });
 });
+
+describe('KEYMAP priority and capture bindings', () => {
+  it('declares the row-scoped priority cycle wired up in ItemRow', () => {
+    expect(KEYMAP.find((b) => b.keys === 'f')).toEqual({
+      keys: 'f',
+      description: 'Cycle priority (ad-hoc only)',
+      scope: 'row',
+    });
+  });
+
+  it('declares the global capture binding wired up in GlobalKeymapProvider', () => {
+    expect(KEYMAP.find((b) => b.keys === 'a')).toEqual({
+      keys: 'a',
+      description: 'Add an ad-hoc item',
+      scope: 'global',
+    });
+  });
+
+  // GlobalKeymapProvider matches `/ ? r w p g` case-insensitively and does
+  // not bail when a row has focus, so a row binding on any of those letters
+  // would fire two handlers at once.
+  it('never puts a row binding on a letter the global switch also matches', () => {
+    const globallyMatched = new Set(['/', '?', 'r', 'w', 'p', 'g']);
+    const rowKeys = KEYMAP.filter((b) => b.scope === 'row').map((b) => b.keys);
+    for (const keys of rowKeys) {
+      expect(globallyMatched.has(keys.toLowerCase())).toBe(false);
+    }
+  });
+});

@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS items (
   pr_status TEXT,
   repo TEXT,
   has_unresolved_conversations INTEGER,
+  priority TEXT CHECK (priority IS NULL OR priority IN ('low','medium','high')),
+  priority_set_at TEXT,
   UNIQUE(source, external_id)
 );
 
@@ -159,6 +161,11 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'snoozed_until', 'TEXT');
       addColumnIfMissing(db, 'items', 'triage_state', 'TEXT');
       addColumnIfMissing(db, 'items', 'woke_early', 'INTEGER');
+      // No CHECK on the added column: SQLite cannot add a constraint to an
+      // existing table without a full rebuild, and the value domain is
+      // already enforced by setPriority/createAdhocItem.
+      addColumnIfMissing(db, 'items', 'priority', 'TEXT');
+      addColumnIfMissing(db, 'items', 'priority_set_at', 'TEXT');
       migrateTimeLogsToHours(db);
 
       return db;

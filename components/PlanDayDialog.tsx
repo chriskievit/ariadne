@@ -143,6 +143,7 @@ export default function PlanDayDialog({
                       <div key={item.id} className="flex items-center justify-between gap-2 py-1 text-sm">
                         <span className="flex min-w-0 items-center gap-2">
                           <ScoreChip
+                            source={item.source}
                             score={item.score}
                             scoreBreakdown={item.scoreBreakdown}
                             notFired={item.notFired}

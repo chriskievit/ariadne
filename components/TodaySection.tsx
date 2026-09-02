@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import ItemRow from './ItemRow';
 import SortableRows from './SortableRows';
 import type { ScoredItem } from '@/lib/dashboard';
-import type { Item } from '@/lib/types';
+import type { Item, Priority } from '@/lib/types';
 
 interface Props {
   items: ScoredItem[];
@@ -16,6 +16,7 @@ interface Props {
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
+  onSetPriority?: (id: number, priority: Priority | null) => void;
   onPark?: (id: number) => void;
   onUnpark?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
@@ -42,6 +43,7 @@ export default function TodaySection({
   onComplete,
   onOpenClaude,
   onDelete,
+  onSetPriority,
   onPark,
   onUnpark,
   onUnpinToday,
@@ -91,6 +93,7 @@ export default function TodaySection({
                     onComplete={onComplete}
                     onOpenClaude={onOpenClaude}
                     onDelete={onDelete}
+                    onSetPriority={onSetPriority}
                     onPark={onPark}
                     onUnpark={onUnpark}
                     onUnpinToday={onUnpinToday}

@@ -1,11 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { scoreItem, scoreBreakdown, sortByUrgency, getPriorityTier, getScoringReference } from './scoring';
+import {
+  scoreItem,
+  scoreBreakdown,
+  sortByUrgency,
+  getUrgencyBand,
+  getScoringReference,
+  maxScoreFor,
+} from './scoring';
 
 const NOW = new Date('2026-07-02T12:00:00.000Z');
 
+function explain(item: Parameters<typeof scoreItem>[0]) {
+  const withScore = sortByUrgency([item], NOW)[0];
+  return { entries: withScore.scoreBreakdown, notFired: withScore.notFired };
+}
+
 function baseItem(overrides: Partial<Parameters<typeof scoreItem>[0]> = {}) {
   return {
+    source: 'adhoc' as const,
     reason: 'manual' as const,
     status: 'inbox' as const,
     dueDate: null,
@@ -212,6 +225,9 @@ describe('scoreBreakdown property', () => {
       { nil: null }
     );
     const itemArb = fc.record({
+      source: fc.constantFrom('github_pr', 'ado_workitem', 'adhoc'),
+      priority: fc.option(fc.constantFrom('low', 'medium', 'high'), { nil: null }),
+      prioritySetAt: fc.option(fc.constant('2026-08-01T00:00:00.000Z'), { nil: null }),
       reason: reasonArb,
       status: statusArb,
       dueDate: isoDateArb,
@@ -230,24 +246,24 @@ describe('scoreBreakdown property', () => {
   });
 });
 
-describe('getPriorityTier', () => {
+describe('getUrgencyBand', () => {
   it('returns low below the needs-attention threshold', () => {
-    expect(getPriorityTier(24)).toBe('low');
+    expect(getUrgencyBand(24)).toBe('low');
   });
 
   it('returns medium from 25 up to 39', () => {
-    expect(getPriorityTier(25)).toBe('medium');
-    expect(getPriorityTier(39)).toBe('medium');
+    expect(getUrgencyBand(25)).toBe('medium');
+    expect(getUrgencyBand(39)).toBe('medium');
   });
 
   it('returns high from 40 up to 59', () => {
-    expect(getPriorityTier(40)).toBe('high');
-    expect(getPriorityTier(59)).toBe('high');
+    expect(getUrgencyBand(40)).toBe('high');
+    expect(getUrgencyBand(59)).toBe('high');
   });
 
   it('returns critical at 60 and above', () => {
-    expect(getPriorityTier(60)).toBe('critical');
-    expect(getPriorityTier(85)).toBe('critical');
+    expect(getUrgencyBand(60)).toBe('critical');
+    expect(getUrgencyBand(85)).toBe('critical');
   });
 });
 
@@ -285,10 +301,127 @@ describe('getScoringReference', () => {
     ]);
   });
 
-  it('discloses the two rules that are not points', () => {
+  it('discloses all three rules that are not points, including the starred-first sort', () => {
     const ref = getScoringReference();
-    expect(ref.nonPointRules).toHaveLength(2);
+    expect(ref.nonPointRules).toHaveLength(3);
     expect(ref.nonPointRules[0]).toMatch(/in progress/i);
-    expect(ref.nonPointRules[1]).toMatch(/ad-hoc/i);
+    expect(ref.nonPointRules[1]).toMatch(/starred/i);
+    expect(ref.nonPointRules[2]).toMatch(/ad-hoc/i);
+  });
+
+  // The old copy claimed ad-hoc items "have no upstream activity to earn
+  // points from", which stopped being true the moment priority was a way
+  // to earn them.
+  it('no longer claims ad-hoc items cannot earn points', () => {
+    const ref = getScoringReference();
+    expect(ref.nonPointRules[2]).not.toMatch(/no upstream activity to earn points/i);
+  });
+
+  it('publishes the self-set priority rows separately from the source-observed ones', () => {
+    const ref = getScoringReference();
+    expect(ref.selfSetRules).toEqual([
+      { label: 'You marked it high', points: 40 },
+      { label: 'You marked it medium', points: 20 },
+      { label: 'You marked it low', points: 0 },
+    ]);
+  });
+});
+
+describe('manual priority', () => {
+  it('adds 40 for high, 20 for medium, and nothing for low', () => {
+    expect(scoreItem(baseItem({ priority: 'high' }), NOW)).toBe(10 + 40);
+    expect(scoreItem(baseItem({ priority: 'medium' }), NOW)).toBe(10 + 20);
+    expect(scoreItem(baseItem({ priority: 'low' }), NOW)).toBe(10);
+  });
+
+  it('lands a bare ad-hoc item in the band it was named after', () => {
+    expect(getUrgencyBand(scoreItem(baseItem({ priority: 'high' }), NOW))).toBe('high');
+    expect(getUrgencyBand(scoreItem(baseItem({ priority: 'medium' }), NOW))).toBe('medium');
+    expect(getUrgencyBand(scoreItem(baseItem({ priority: 'low' }), NOW))).toBe('low');
+  });
+
+  it('is ignored on synced items, which cannot carry a priority', () => {
+    const pr = baseItem({ source: 'github_pr', reason: 'authored', priority: 'high' });
+    expect(scoreItem(pr, NOW)).toBe(10);
+    expect(scoreBreakdown(pr, NOW)).toEqual([{ label: 'Your PR', points: 10 }]);
+  });
+
+  it('marks the priority entry as self-set, so the popover can separate provenance', () => {
+    const breakdown = scoreBreakdown(baseItem({ priority: 'high' }), NOW);
+    expect(breakdown).toEqual([
+      { label: 'You marked this high', points: 40, provenance: 'you', detail: null },
+      { label: 'Ad-hoc', points: 10 },
+    ]);
+  });
+
+  it('carries the age of the assertion when prioritySetAt is known', () => {
+    const breakdown = scoreBreakdown(
+      baseItem({ priority: 'high', prioritySetAt: '2026-06-11T12:00:00.000Z' }),
+      NOW
+    );
+    expect(breakdown[0]).toEqual({
+      label: 'You marked this high',
+      points: 40,
+      provenance: 'you',
+      detail: 'set 3 weeks ago',
+    });
+  });
+
+  it('shows a low priority as a fired 0-point entry, not as an unfired rule', () => {
+    const { entries, notFired } = explain(baseItem({ priority: 'low' }));
+    expect(entries).toContainEqual({
+      label: 'You marked this low',
+      points: 0,
+      provenance: 'you',
+      detail: null,
+    });
+    expect(notFired).not.toContain('No priority set');
+  });
+
+  it('reports an unset priority as an unfired rule on ad-hoc items only', () => {
+    expect(explain(baseItem()).notFired).toContain('No priority set');
+    expect(explain(baseItem({ source: 'github_pr', reason: 'authored' })).notFired).not.toContain(
+      'No priority set'
+    );
+  });
+
+  it('stacks with a deadline, so the named band is not the band you always land in', () => {
+    const score = scoreItem(baseItem({ priority: 'medium', dueDate: '2026-07-03T12:00:00.000Z' }), NOW);
+    expect(score).toBe(10 + 20 + 25);
+    expect(getUrgencyBand(score)).toBe('high');
+  });
+
+  it('sorts a high ad-hoc item above a review request', () => {
+    const sorted = sortByUrgency(
+      [
+        { ...baseItem({ source: 'github_pr', reason: 'review_requested' }), id: 'pr' },
+        { ...baseItem({ priority: 'high' }), id: 'adhoc' },
+      ],
+      NOW
+    );
+    expect(sorted.map((i) => i.id)).toEqual(['adhoc', 'pr']);
+  });
+});
+
+describe('maxScoreFor', () => {
+  // Ad-hoc items are created without raw_updated_at or unresolved
+  // conversations and nothing ever sets them, so the +15 and +20 rules are
+  // structurally unreachable there. Reporting "of 105" on a row capped at
+  // 75 overstates the headroom.
+  it('caps ad-hoc items at 75, the only rules that can actually fire', () => {
+    expect(maxScoreFor('adhoc')).toBe(75);
+  });
+
+  it('leaves synced items at the full 105', () => {
+    expect(maxScoreFor('github_pr')).toBe(105);
+    expect(maxScoreFor('ado_workitem')).toBe(105);
+  });
+
+  it('is never exceeded by any reachable ad-hoc score', () => {
+    const worst = scoreItem(
+      baseItem({ priority: 'high', dueDate: '2026-07-01T12:00:00.000Z', rawUpdatedAt: null }),
+      NOW
+    );
+    expect(worst).toBeLessThanOrEqual(maxScoreFor('adhoc'));
   });
 });

@@ -33,6 +33,7 @@ export interface ToolDefinition {
 }
 
 const itemId = z.number().int().describe("The Ariadne item id, as returned by list_items");
+const priorityValue = z.enum(['low', 'medium', 'high']);
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a YYYY-MM-DD date')
@@ -171,10 +172,15 @@ export const TOOLS: readonly ToolDefinition[] = [
       title: z.string().min(1).describe('What the item is'),
       category: z.string().optional().describe('Optional grouping label'),
       dueDate: isoDate.optional(),
+      priority: priorityValue
+        .optional()
+        .describe(
+          'Starting priority. high adds 40 to the score, medium 20, low 0. Ad-hoc items have no review activity or staleness to earn points from, so this is how they earn a place in the ranking.'
+        ),
     },
     annotations: WRITES,
-    run: (client, { title, category, dueDate }) =>
-      client.post('/api/items', body({ title, category, dueDate })),
+    run: (client, { title, category, dueDate, priority }) =>
+      client.post('/api/items', body({ title, category, dueDate, priority })),
   }),
   define({
     name: 'start_item',
@@ -269,6 +275,15 @@ export const TOOLS: readonly ToolDefinition[] = [
     inputSchema: { itemId, starred: z.boolean() },
     annotations: WRITES,
     run: (client, { itemId: id, starred }) => client.post(`/api/items/${id}/star`, { starred }),
+  }),
+  define({
+    name: 'set_priority',
+    title: 'Set an item priority',
+    description:
+      'Sets the hand-set priority on an ad-hoc item, or clears it when priority is null. high adds 40 to the score, medium 20, low 0. Only ad-hoc items can carry one: Ariadne never re-ranks work that came from GitHub or Azure DevOps, and the call is refused on those.',
+    inputSchema: { itemId, priority: priorityValue.nullable() },
+    annotations: WRITES,
+    run: (client, { itemId: id, priority }) => client.post(`/api/items/${id}/priority`, { priority }),
   }),
   define({
     name: 'set_triage_done',

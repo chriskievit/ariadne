@@ -10,6 +10,8 @@ import {
   setParked,
   setTodayDate,
   setStarred,
+  setPriority,
+  PriorityNotAllowedError,
   setSnoozedUntil,
   setTriageState,
   deleteItem,
@@ -727,5 +729,84 @@ describe('upsertSyncedItem item_links', () => {
     });
     const rows = db.prepare('SELECT * FROM item_links WHERE pr_item_id = ?').all(wi.id);
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe('priority', () => {
+  it('creates an ad-hoc item with no priority by default', () => {
+    const item = createAdhocItem(db, { title: 'Someone asked at my desk' });
+    expect(item.priority).toBeNull();
+    expect(item.prioritySetAt).toBeNull();
+  });
+
+  it('creates an ad-hoc item with a starting priority and stamps when it was set', () => {
+    const item = createAdhocItem(db, { title: 'Urgent favour', priority: 'high' });
+    expect(item.priority).toBe('high');
+    expect(item.prioritySetAt).not.toBeNull();
+    expect(new Date(item.prioritySetAt!).getTime()).toBeGreaterThan(0);
+  });
+
+  it('sets a priority on an existing ad-hoc item', () => {
+    const created = createAdhocItem(db, { title: 'Later' });
+    setPriority(db, created.id, 'medium');
+    const item = getItemById(db, created.id);
+    expect(item?.priority).toBe('medium');
+    expect(item?.prioritySetAt).not.toBeNull();
+  });
+
+  it('clears a priority and its timestamp together, so no orphan age survives', () => {
+    const created = createAdhocItem(db, { title: 'Never mind', priority: 'high' });
+    setPriority(db, created.id, null);
+    const item = getItemById(db, created.id);
+    expect(item?.priority).toBeNull();
+    expect(item?.prioritySetAt).toBeNull();
+  });
+
+  // The age shown in the popover is the age of the assertion, so re-marking
+  // an item high has to move the clock forward.
+  it('restamps prioritySetAt when the priority changes', () => {
+    const created = createAdhocItem(db, { title: 'Rethought', priority: 'low' });
+    const first = getItemById(db, created.id)!.prioritySetAt;
+    setPriority(db, created.id, 'high');
+    const second = getItemById(db, created.id)!.prioritySetAt;
+    expect(second).not.toBeNull();
+    expect(new Date(second!).getTime()).toBeGreaterThanOrEqual(new Date(first!).getTime());
+  });
+
+  it('refuses a priority on a synced item, because Ariadne does not re-rank what the sources send', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'github_pr',
+      externalId: 'gh-prio-1',
+      title: 'A PR',
+      url: null,
+      reason: 'authored',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: '2026-07-01T00:00:00.000Z',
+      repo: 'x/y',
+    });
+    expect(() => setPriority(db, pr.id, 'high')).toThrow(PriorityNotAllowedError);
+    expect(getItemById(db, pr.id)?.priority).toBeNull();
+  });
+
+  it('carries a message the caller can show rather than a bare status code', () => {
+    const pr = upsertSyncedItem(db, {
+      source: 'ado_workitem',
+      externalId: 'ado-prio-1',
+      title: 'A work item',
+      url: null,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+    try {
+      setPriority(db, pr.id, 'high');
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(PriorityNotAllowedError);
+      expect((error as Error).message).toMatch(/ad-hoc/i);
+    }
   });
 });
