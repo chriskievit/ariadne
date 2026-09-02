@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/chriskievit/ariadne/compare/v1.5.0...v1.6.0) (2026-09-02)
+
+
+### Features
+
+* **scoring:** give ad-hoc items a starting priority ([#77](https://github.com/chriskievit/ariadne/issues/77)) ([9f4117d](https://github.com/chriskievit/ariadne/commit/9f4117dfc6cf8087432d27a640360c0b803d6ae5)), closes [#76](https://github.com/chriskievit/ariadne/issues/76)
+
 # [1.5.0](https://github.com/chriskievit/ariadne/compare/v1.4.2...v1.5.0) (2026-09-01)
 
 
