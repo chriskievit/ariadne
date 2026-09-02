@@ -301,12 +301,28 @@ describe('getScoringReference', () => {
     ]);
   });
 
-  it('discloses all three rules that are not points, including the starred-first sort', () => {
+  it('discloses all five rules that are not points, including the starred-first sort', () => {
     const ref = getScoringReference();
-    expect(ref.nonPointRules).toHaveLength(3);
+    expect(ref.nonPointRules).toHaveLength(5);
     expect(ref.nonPointRules[0]).toMatch(/in progress/i);
     expect(ref.nonPointRules[1]).toMatch(/starred/i);
     expect(ref.nonPointRules[2]).toMatch(/ad-hoc/i);
+    expect(ref.nonPointRules[3]).toMatch(/same score/i);
+    expect(ref.nonPointRules[4]).toMatch(/collapse/i);
+  });
+
+  // Both of these were live rules with no entry here, and the tie-break is
+  // what pushed a review request opened that morning behind a collapsed
+  // group: it decides order, so PRODUCT.md requires it to be disclosed.
+  it('discloses the tie-break direction, not just that a tie-break exists', () => {
+    const ref = getScoringReference();
+    expect(ref.nonPointRules[3]).toMatch(/oldest/i);
+  });
+
+  it('promises the collapse never splits a tie and never hides waiting-on-you', () => {
+    const ref = getScoringReference();
+    expect(ref.nonPointRules[4]).toMatch(/never splits a tie/i);
+    expect(ref.nonPointRules[4]).toMatch(/waiting on you/i);
   });
 
   // The old copy claimed ad-hoc items "have no upstream activity to earn

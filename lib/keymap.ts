@@ -11,8 +11,12 @@ export interface KeyBinding {
 // Most of them (enter/o, x, c, s, e, d, t) fire from that row's own bubbled
 // onKeyDown; j/k are the exception -- they navigate *between* rows, so they
 // fire from GlobalKeymapProvider's document-level listener instead, which
-// scans every `[data-row-id]` on the page (Today, In-progress, and Signals
-// alike) rather than one section's own container. `scope: 'global'`
+// scans every `[data-row-id]` and `[data-row-nav]` on the page (Today,
+// In-progress, and Signals alike) rather than one section's own container.
+// `[data-row-nav]` is how Signals' group-disclosure controls join that
+// walk: they gate whether rows are in the DOM at all, so j/k must be able
+// to stop on one instead of stepping over the rows it is hiding.
+// `scope: 'global'`
 // bindings are page-level and always fire from GlobalKeymapProvider, which
 // checks isTypingTarget before acting on any binding (naturally inert while
 // typing, since focus never reaches a row while an input has it).
@@ -31,6 +35,7 @@ export const KEYMAP: KeyBinding[] = [
   { keys: 'j', description: 'Move focus to the next item', scope: 'row' },
   { keys: 'k', description: 'Move focus to the previous item', scope: 'row' },
   { keys: '↵ / o', description: 'Open upstream in a new tab', scope: 'row' },
+  { keys: '↵', description: "Expand a group's lower-scoring rows, when focused", scope: 'row' },
   { keys: 'x', description: 'Show the score breakdown', scope: 'row' },
   { keys: 'c', description: 'Complete the focused item', scope: 'row' },
   { keys: 's', description: 'Star (local only)', scope: 'row' },

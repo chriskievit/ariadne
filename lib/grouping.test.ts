@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { groupOf, isKeptVisible, needsYou, GROUP_ORDER, sortStarredFirst } from './grouping';
+import {
+  groupOf,
+  isKeptVisible,
+  needsYou,
+  GROUP_ORDER,
+  sortStarredFirst,
+  visibleCount,
+  VISIBLE_PER_GROUP_MAX,
+} from './grouping';
 import type { Reason } from './types';
 
 const ALL_REASONS: Reason[] = [
@@ -123,5 +131,41 @@ describe('sortStarredFirst', () => {
       { id: 2, starred: false },
     ];
     expect(sortStarredFirst(input).map((i) => i.id)).toEqual([1, 2]);
+  });
+});
+
+describe('visibleCount', () => {
+  const rows = (...scores: number[]) => scores.map((score, i) => ({ id: i, score }));
+
+  it('shows everything when the group is no bigger than the cap', () => {
+    expect(visibleCount(rows(40, 40, 40), 'lower_priority', false)).toBe(3);
+    expect(visibleCount(rows(50, 40, 30, 20, 10), 'lower_priority', false)).toBe(5);
+  });
+
+  it('cuts at the cap when the scores actually differ there', () => {
+    expect(visibleCount(rows(60, 50, 40, 30, 20, 10), 'lower_priority', false)).toBe(5);
+  });
+
+  // The bug this function exists for: eight review requests all score 40,
+  // so cutting at index 5 hid four rows that had lost no comparison.
+  it('extends past the cap rather than splitting a run of equal scores', () => {
+    expect(visibleCount(rows(55, 40, 40, 40, 40, 40, 40, 40, 40), 'lower_priority', false)).toBe(9);
+  });
+
+  it('stops extending as soon as the score changes', () => {
+    expect(visibleCount(rows(40, 40, 40, 40, 40, 40, 25, 25), 'lower_priority', false)).toBe(6);
+  });
+
+  it('gives up at the hard ceiling so one huge tie cannot render unbounded', () => {
+    const huge = rows(...Array<number>(40).fill(40));
+    expect(visibleCount(huge, 'lower_priority', false)).toBe(VISIBLE_PER_GROUP_MAX);
+  });
+
+  it('never collapses waiting_on_you, because every row in it is owed action', () => {
+    expect(visibleCount(rows(60, 50, 40, 30, 20, 10), 'waiting_on_you', false)).toBe(6);
+  });
+
+  it('never collapses a filtered result, because a query is a request to see a set', () => {
+    expect(visibleCount(rows(60, 50, 40, 30, 20, 10), 'lower_priority', true)).toBe(6);
   });
 });
