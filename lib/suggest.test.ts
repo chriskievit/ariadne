@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveDuration,
   suggestDay,
+  leanCaps,
   ANCHOR_MIN_MINUTES,
+  DEFAULT_LEAN,
+  LEAN_WORK_ITEM_SHARE,
   FALLBACK_MINUTES,
   MIN_SAMPLES_FOR_MEDIAN,
   type SuggestCandidate,
@@ -236,5 +239,130 @@ describe('suggestDay', () => {
   it('echoes the algorithm, lean, and capacity it was asked for', () => {
     const result = suggestDay(input({ algorithm: 'quick_wins', lean: 4, capacityMinutes: 240 }));
     expect(result).toMatchObject({ algorithm: 'quick_wins', lean: 4, capacityMinutes: 240 });
+  });
+});
+
+function pr(id: number, score: number, minutes: number) {
+  return sized(id, score, minutes, { source: 'github_pr', reason: 'review_requested' });
+}
+
+function workItem(id: number, score: number, minutes: number) {
+  return sized(id, score, minutes, { source: 'ado_workitem', reason: 'assigned' });
+}
+
+function adhoc(id: number, score: number, minutes: number) {
+  return sized(id, score, minutes, { source: 'adhoc', reason: 'manual' });
+}
+
+describe('leanCaps', () => {
+  it('splits capacity by the notch, and the two caps always sum to capacity', () => {
+    expect(leanCaps(600, 4)).toEqual({ work_item: 480, pr: 120 });
+    expect(leanCaps(600, 0)).toEqual({ work_item: 120, pr: 480 });
+    for (const notch of [0, 1, 2, 3, 4] as const) {
+      const caps = leanCaps(600, notch);
+      expect(caps.pr + caps.work_item).toBe(600);
+    }
+  });
+
+  it('is neutral at the default notch', () => {
+    expect(LEAN_WORK_ITEM_SHARE[DEFAULT_LEAN]).toBe(0.5);
+    expect(leanCaps(600, DEFAULT_LEAN)).toEqual({ work_item: 300, pr: 300 });
+  });
+});
+
+describe('suggestDay lean', () => {
+  it('defers a pull request past its cap while a work item is still waiting', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 200,
+        lean: 4, // prCap = 40, workItemCap = 160
+        candidates: [pr(1, 65, 60), workItem(2, 45, 60)],
+      })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([2]);
+    expect(result.deferredByLean.map((c) => c.itemId)).toEqual([1]);
+    expect(result.deferredByLean[0].exclusionReason).toBe('deferred_by_lean');
+  });
+
+  it('leaves the room the lean cost visible rather than reclaiming it', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 200,
+        lean: 4,
+        candidates: [pr(1, 65, 60), workItem(2, 45, 60)],
+      })
+    );
+    // 140 minutes of the day are unspent, and the deferred list is why. That
+    // pairing is the whole disclosure; a retry would erase it.
+    expect(result.suggestedMinutes).toBe(60);
+    expect(result.deferredByLean).toHaveLength(1);
+    expect(result.note).toBeNull();
+  });
+
+  it('lifts the cap when the other side has nothing left to offer', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 100,
+        lean: 4, // prCap = 20
+        candidates: [pr(1, 65, 60), pr(2, 45, 30)],
+      })
+    );
+    // No work item anywhere, so the cap never blocks anything.
+    expect(result.picks.map((p) => p.itemId)).toEqual([1, 2]);
+    expect(result.deferredByLean).toEqual([]);
+  });
+
+  it('reports a deferred candidate as did_not_fit once the room is gone', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 60,
+        lean: 4, // prCap = 12
+        candidates: [pr(1, 65, 60), workItem(2, 45, 60)],
+      })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([2]);
+    expect(result.didNotFit.map((c) => c.itemId)).toEqual([1]);
+    expect(result.deferredByLean).toEqual([]);
+  });
+
+  it('applies a cap only while the other side has a later candidate that fits', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 200,
+        lean: 4, // prCap = 40
+        // The work item is longer than the whole day, so the look-ahead finds
+        // no alternative on the other side and the cap does not apply.
+        candidates: [pr(1, 65, 60), workItem(2, 45, 250)],
+      })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([1]);
+    expect(result.deferredByLean).toEqual([]);
+    expect(result.didNotFit.map((c) => c.itemId)).toEqual([2]);
+  });
+
+  it('exempts ad-hoc items from both caps and counts them toward neither side', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 300,
+        lean: 4, // prCap = 60
+        candidates: [adhoc(1, 65, 240), pr(2, 45, 60)],
+      })
+    );
+    // The ad-hoc item consumed 240 of the day without touching either cap, so
+    // the pull request is still inside its 60 minute allowance.
+    expect(result.picks.map((p) => p.itemId)).toEqual([1, 2]);
+    expect(result.deferredByLean).toEqual([]);
+  });
+
+  it('holds nothing back at the neutral notch on a balanced pool', () => {
+    const result = suggestDay(
+      input({
+        capacityMinutes: 300,
+        lean: DEFAULT_LEAN,
+        candidates: [pr(1, 65, 60), workItem(2, 45, 60), pr(3, 40, 60)],
+      })
+    );
+    expect(result.deferredByLean).toEqual([]);
+    expect(result.picks).toHaveLength(3);
   });
 });

@@ -65,6 +65,25 @@ export const FALLBACK_MINUTES: Record<WorkType, number> = {
 // What counts as "a long item" for the Balanced anchor.
 export const ANCHOR_MIN_MINUTES = 60;
 
+// Target share of capacity for Azure DevOps work items. The control the user
+// sees is this table, nothing more: no score is ever multiplied to produce a
+// suggestion, because a ranking number that disagreed with the score chip on
+// the same row would break the one promise this product actually makes.
+export const LEAN_WORK_ITEM_SHARE: Record<LeanNotch, number> = {
+  0: 0.2,
+  1: 0.35,
+  2: 0.5,
+  3: 0.65,
+  4: 0.8,
+};
+
+export const DEFAULT_LEAN: LeanNotch = 2;
+
+export function leanCaps(capacityMinutes: number, lean: LeanNotch): Record<LeanSide, number> {
+  const workItem = Math.round(capacityMinutes * LEAN_WORK_ITEM_SHARE[lean]);
+  return { work_item: workItem, pr: capacityMinutes - workItem };
+}
+
 /**
  * How long this item is likely to take, and where that number came from.
  *
@@ -196,13 +215,49 @@ function excluded(item: Sized, exclusionReason: ExclusionReason): ExcludedCandid
   };
 }
 
-// One greedy pass over an ordering. A candidate is taken whenever it fits.
-function runPass(state: PassState, order: Sized[], pickReason: PickReason): void {
-  order.forEach((item) => {
+// True when a later entry in this ordering sits on the other side of the
+// split and would fit the room that is left. This look-ahead is what makes a
+// cap self-lifting: the lean should shape a mix, never leave the day empty
+// because one side ran out of work.
+function otherSideStillHasAFit(order: Sized[], fromIndex: number, side: LeanSide, remaining: number): boolean {
+  for (let i = fromIndex; i < order.length; i += 1) {
+    const other = leanSide(order[i].source);
+    if (other && other !== side && order[i].durationMinutes <= remaining) return true;
+  }
+  return false;
+}
+
+// One greedy pass over an ordering, applying the lean as a soft cap.
+// Candidates the cap holds back land in state.deferred, and stay there: one
+// pass, no retry. Deferring can leave part of the day unspent, and the
+// instinct is to reclaim it, but unspent capacity sitting next to a
+// "Deferred by your lean" disclosure is the clearest possible report of what
+// the control just did. A retry that took the candidate anyway would make
+// that list almost always empty, and the lean would feel inert. The lean is
+// allowed to cost the user some minutes; it is not allowed to do so
+// invisibly.
+function runPass(
+  state: PassState,
+  order: Sized[],
+  pickReason: PickReason,
+  caps: Record<LeanSide, number>
+): void {
+  order.forEach((item, index) => {
     if (item.durationMinutes > state.remaining) {
       state.didNotFit.push(item);
       return;
     }
+
+    const side = leanSide(item.source);
+    if (
+      side &&
+      state.committed[side] + item.durationMinutes > caps[side] &&
+      otherSideStillHasAFit(order, index + 1, side, state.remaining)
+    ) {
+      state.deferred.push(item);
+      return;
+    }
+
     take(state, item, pickReason);
   });
 }
@@ -264,23 +319,28 @@ export function suggestDay(input: SuggestInput): Suggestion {
     didNotFit: [],
   };
 
+  const caps = leanCaps(capacityMinutes, lean);
+
   let degradedToQuickWins = false;
 
   if (algorithm === 'urgency') {
-    runPass(state, sizedCandidates, 'top_urgency');
+    runPass(state, sizedCandidates, 'top_urgency', caps);
   } else if (algorithm === 'quick_wins') {
-    runPass(state, [...sizedCandidates].sort(byValueDensity), 'best_value');
+    runPass(state, [...sizedCandidates].sort(byValueDensity), 'best_value', caps);
   } else {
     const anchor = pickAnchor(sizedCandidates, capacityMinutes);
     if (anchor) {
+      // The anchor takes no cap check by design: it is the one pick this
+      // strategy is named for, and capping it away would leave Balanced with
+      // nothing to anchor on.
       take(state, anchor, 'anchor');
       const rest = sizedCandidates.filter((item) => item.id !== anchor.id).sort(byValueDensity);
-      runPass(state, rest, 'fills_room');
+      runPass(state, rest, 'fills_room', caps);
     } else {
       // No long item on the list, so this genuinely ran quick wins. Say so
       // rather than presenting it as an anchored plan.
       degradedToQuickWins = true;
-      runPass(state, [...sizedCandidates].sort(byValueDensity), 'best_value');
+      runPass(state, [...sizedCandidates].sort(byValueDensity), 'best_value', caps);
     }
   }
 
