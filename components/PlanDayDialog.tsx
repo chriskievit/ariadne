@@ -12,8 +12,36 @@ import type { ScoredItem } from '@/lib/dashboard';
 import type { Item, Plan, PlanItem } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
 import { formatMinutes } from '@/lib/format-duration';
+import SegmentedChoice, { type SegmentedOption } from './SegmentedChoice';
+import SuggestPanel from './SuggestPanel';
+import type { LeanNotch, SuggestAlgorithm, Suggestion, SuggestionItem } from '@/lib/suggest';
 
 type Step = 1 | 2 | 3 | 4;
+
+// Step 2 is already the "choose what to work on" step, and a suggestion is a
+// way of choosing rather than a separate act, so it is a second mode here
+// instead of a fifth step -- two lists to reconcile is what a dedicated step
+// would have produced. 'all' stays the default: the suggestion is a mode you
+// opt into.
+type Step2Mode = 'suggested' | 'all';
+
+const MODE_OPTIONS: SegmentedOption<Step2Mode>[] = [
+  { value: 'suggested', label: 'Suggested' },
+  { value: 'all', label: 'All signals' },
+];
+
+export interface SuggestBridge {
+  suggestion: Suggestion | null;
+  itemsById: Map<number, SuggestionItem>;
+  loading: boolean;
+  error: boolean;
+  algorithm: SuggestAlgorithm;
+  lean: LeanNotch;
+  onAlgorithmChange: (value: SuggestAlgorithm) => void;
+  onLeanChange: (value: LeanNotch) => void;
+  onRetry: () => void;
+  onPin: (itemIds: number[]) => void | Promise<void>;
+}
 
 interface Props {
   open: boolean;
@@ -33,6 +61,9 @@ interface Props {
   onSetCapacity: (minutes: number) => void;
   calibration: CalibrationEntry[];
   onOpenScoringReference: () => void;
+  initialStep?: 1 | 2;
+  initialStep2Mode?: Step2Mode;
+  suggest: SuggestBridge;
 }
 
 function parseDurationInput(raw: string): number | null {
@@ -62,15 +93,20 @@ export default function PlanDayDialog({
   onSetCapacity,
   calibration,
   onOpenScoringReference,
+  initialStep,
+  initialStep2Mode,
+  suggest,
 }: Props) {
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(initialStep ?? 1);
+  const [mode, setMode] = useState<Step2Mode>(initialStep2Mode ?? 'all');
   const pickedIds = new Set(today.map((i) => i.id));
   const totalEstimateMinutes = today.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
   const overMinutes = totalEstimateMinutes - plan.capacityMinutes;
 
   function close() {
     onOpenChange(false);
-    setStep(1);
+    setStep(initialStep ?? 1);
+    setMode(initialStep2Mode ?? 'all');
   }
 
   return (
@@ -119,55 +155,92 @@ export default function PlanDayDialog({
 
         {step === 2 && (
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div className="flex shrink-0 items-center justify-between text-sm text-muted-foreground">
-              <span>Ordered by score. Nothing is recommended.</span>
-              <span className="font-mono tabular-nums">{today.length} picked</span>
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <SegmentedChoice
+                options={MODE_OPTIONS}
+                value={mode}
+                onChange={(next) => next && setMode(next)}
+                ariaLabel="How to choose today's work"
+              />
+              {/* Two counts share this panel. This one is what is already in
+                  today's plan, in both modes; the Pin button counts checked
+                  rows, which is why it is phrased as an act. */}
+              <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                {today.length} picked
+              </span>
             </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-              {GROUP_ORDER.map((group) => {
-                const groupItems = signals.filter((i) => groupOf(i) === group);
-                if (groupItems.length === 0) return null;
-                return (
-                  <div key={group}>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">
-                      {GROUP_LABEL[group]} · {groupItems.length}
-                    </p>
-                    {groupItems.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-2 py-1 text-sm">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <ScoreChip
-                            source={item.source}
-                            score={item.score}
-                            scoreBreakdown={item.scoreBreakdown}
-                            notFired={item.notFired}
-                            keptVisible={false}
-                            open={false}
-                            onOpenChange={() => {}}
-                            onOpenScoringReference={onOpenScoringReference}
-                          />
-                          <span className="min-w-0 truncate">{item.title}</span>
-                        </span>
-                        {pickedIds.has(item.id) ? (
-                          <span className="shrink-0 text-xs text-muted-foreground">Pinned ✓</span>
-                        ) : (
-                          <Button type="button" size="sm" variant="outline" onClick={() => onAdd(item.id)}>
-                            Add <kbd className="ml-1 font-mono text-xs">t</kbd>
-                          </Button>
-                        )}
+
+            {mode === 'suggested' ? (
+              <SuggestPanel
+                suggestion={suggest.suggestion}
+                itemsById={suggest.itemsById}
+                loading={suggest.loading}
+                error={suggest.error}
+                algorithm={suggest.algorithm}
+                lean={suggest.lean}
+                onAlgorithmChange={suggest.onAlgorithmChange}
+                onLeanChange={suggest.onLeanChange}
+                onRetry={suggest.onRetry}
+                onPin={async (itemIds) => {
+                  await suggest.onPin(itemIds);
+                  setStep(3);
+                }}
+                onDismiss={close}
+                onOpenScoringReference={onOpenScoringReference}
+              />
+            ) : (
+              <>
+                {/* Unchanged, copy included. The claim only holds for this
+                    list, so it sits with this list rather than above a toggle
+                    that can show a recommendation. */}
+                <p className="shrink-0 text-sm text-muted-foreground">Ordered by score. Nothing is recommended.</p>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+                  {GROUP_ORDER.map((group) => {
+                    const groupItems = signals.filter((i) => groupOf(i) === group);
+                    if (groupItems.length === 0) return null;
+                    return (
+                      <div key={group}>
+                        <p className="mb-1 text-xs font-medium text-muted-foreground">
+                          {GROUP_LABEL[group]} · {groupItems.length}
+                        </p>
+                        {groupItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between gap-2 py-1 text-sm">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <ScoreChip
+                                source={item.source}
+                                score={item.score}
+                                scoreBreakdown={item.scoreBreakdown}
+                                notFired={item.notFired}
+                                keptVisible={false}
+                                open={false}
+                                onOpenChange={() => {}}
+                                onOpenScoringReference={onOpenScoringReference}
+                              />
+                              <span className="min-w-0 truncate">{item.title}</span>
+                            </span>
+                            {pickedIds.has(item.id) ? (
+                              <span className="shrink-0 text-xs text-muted-foreground">Pinned ✓</span>
+                            ) : (
+                              <Button type="button" size="sm" variant="outline" onClick={() => onAdd(item.id)}>
+                                Add <kbd className="ml-1 font-mono text-xs">t</kbd>
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex shrink-0 items-center justify-between pt-2">
-              <Button type="button" variant="ghost" onClick={() => setStep(1)}>
-                Back
-              </Button>
-              <Button type="button" onClick={() => setStep(3)}>
-                Next
-              </Button>
-            </div>
+                    );
+                  })}
+                </div>
+                <div className="flex shrink-0 items-center justify-between pt-2">
+                  <Button type="button" variant="ghost" onClick={() => setStep(1)}>
+                    Back
+                  </Button>
+                  <Button type="button" onClick={() => setStep(3)}>
+                    Next
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
