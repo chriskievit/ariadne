@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/chriskievit/ariadne/compare/v1.6.1...v1.7.0) (2026-09-03)
+
+
+### Features
+
+* **suggest:** propose a day from capacity, urgency, and a work-item lean ([#81](https://github.com/chriskievit/ariadne/issues/81)) ([d85b285](https://github.com/chriskievit/ariadne/commit/d85b285171415cbc69c349747afb7fcb2752ae3b))
+
 ## [1.6.1](https://github.com/chriskievit/ariadne/compare/v1.6.0...v1.6.1) (2026-09-02)
 
 
