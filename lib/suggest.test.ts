@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveDuration,
   suggestDay,
+  isSuggestCandidate,
   leanCaps,
   ANCHOR_MIN_MINUTES,
   DEFAULT_LEAN,
@@ -11,6 +12,7 @@ import {
   type SuggestCandidate,
   type SuggestInput,
 } from './suggest';
+import type { Item } from './types';
 
 function candidate(overrides: Partial<SuggestCandidate> = {}): SuggestCandidate {
   return {
@@ -364,5 +366,76 @@ describe('suggestDay lean', () => {
     );
     expect(result.deferredByLean).toEqual([]);
     expect(result.picks).toHaveLength(3);
+  });
+});
+
+const TODAY = '2026-09-03';
+
+function eligibleItem(overrides: Partial<Item> = {}): Item {
+  return {
+    id: 1,
+    source: 'github_pr',
+    externalId: 'pr-1',
+    title: 'A pull request',
+    url: null,
+    reason: 'review_requested',
+    category: null,
+    dueDate: null,
+    sprintIteration: null,
+    rawUpdatedAt: null,
+    status: 'inbox',
+    createdAt: '2026-09-01T09:00:00.000Z',
+    completedAt: null,
+    adoStatus: null,
+    prStatus: null,
+    repo: 'org/repo',
+    hasUnresolvedConversations: false,
+    parked: false,
+    todayDate: null,
+    starred: false,
+    snoozedUntil: null,
+    triageState: 'none',
+    wokeEarly: false,
+    priority: null,
+    prioritySetAt: null,
+    ...overrides,
+  };
+}
+
+describe('isSuggestCandidate', () => {
+  it('accepts an inbox item', () => {
+    expect(isSuggestCandidate(eligibleItem(), TODAY, NOW)).toBe(true);
+  });
+
+  it("accepts an in-progress item that is not in today's plan, because Today and In-progress are independent axes", () => {
+    expect(isSuggestCandidate(eligibleItem({ status: 'in_progress' }), TODAY, NOW)).toBe(true);
+  });
+
+  it('rejects a parked item', () => {
+    expect(isSuggestCandidate(eligibleItem({ status: 'in_progress', parked: true }), TODAY, NOW)).toBe(false);
+  });
+
+  it('rejects a completed item', () => {
+    expect(isSuggestCandidate(eligibleItem({ status: 'done' }), TODAY, NOW)).toBe(false);
+  });
+
+  it('rejects an item snoozed into the future', () => {
+    expect(isSuggestCandidate(eligibleItem({ snoozedUntil: '2026-09-10T09:00:00.000Z' }), TODAY, NOW)).toBe(false);
+  });
+
+  it('accepts an item whose snooze has already elapsed', () => {
+    expect(isSuggestCandidate(eligibleItem({ snoozedUntil: '2026-09-01T09:00:00.000Z' }), TODAY, NOW)).toBe(true);
+  });
+
+  it('rejects an item already marked triage done', () => {
+    expect(isSuggestCandidate(eligibleItem({ triageState: 'done' }), TODAY, NOW)).toBe(false);
+  });
+
+  it("rejects an item already in today's plan", () => {
+    expect(isSuggestCandidate(eligibleItem({ todayDate: TODAY }), TODAY, NOW)).toBe(false);
+  });
+
+  it("accepts an item left over from an earlier day's plan", () => {
+    expect(isSuggestCandidate(eligibleItem({ todayDate: '2026-09-02' }), TODAY, NOW)).toBe(true);
   });
 });

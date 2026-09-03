@@ -378,3 +378,25 @@ export function suggestDay(input: SuggestInput): Suggestion {
     note,
   };
 }
+
+/**
+ * Whether an item can be suggested for a given day.
+ *
+ * A pure predicate rather than an inline filter in the API route, so the pool
+ * rules are unit-testable alongside every other rule in the engine. An item
+ * silently missing from a proposal is the hardest kind of bug to notice.
+ *
+ * Note the in-progress case: an in-progress item that is not in today's plan
+ * is a legitimate candidate, because Today and In-progress are independent
+ * axes in this product, not one bucket each.
+ */
+export function isSuggestCandidate(item: Item, today: string, now: Date): boolean {
+  if (item.status === 'done') return false;
+  if (item.status === 'in_progress' && item.parked) return false;
+  if (item.triageState === 'done') return false;
+  if (item.snoozedUntil !== null && item.snoozedUntil > now.toISOString()) return false;
+  // Already planned for today, so re-suggesting it would propose work the
+  // user has already committed to.
+  if (item.todayDate === today) return false;
+  return true;
+}
