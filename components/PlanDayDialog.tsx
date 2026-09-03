@@ -103,6 +103,21 @@ export default function PlanDayDialog({
   const totalEstimateMinutes = today.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
   const overMinutes = totalEstimateMinutes - plan.capacityMinutes;
 
+  // Durations the engine derived, keyed by item. Deliberately placeholders and
+  // not values: getCalibrationSummary() compares the user's estimate against
+  // actual logged time, so seeding it with the tool's own guesses would make
+  // the calibration loop measure itself and drift. A derived number becomes an
+  // estimate only when the user says so.
+  const roughMinutesByItemId = new Map(
+    (suggest.suggestion?.picks ?? [])
+      .filter((pick) => pick.durationSource === 'logged_median' || pick.durationSource === 'fallback')
+      .map((pick) => [pick.itemId, pick.durationMinutes])
+  );
+
+  const acceptableRough = today.filter(
+    (item) => item.estimateMinutes === null && roughMinutesByItemId.has(item.id)
+  );
+
   // This dialog stays mounted with `open` gating visibility, so the initial
   // step and mode cannot come from useState alone: it would only ever read
   // them once, and every later open would land on whatever step the last
@@ -269,13 +284,31 @@ export default function PlanDayDialog({
                     <span className="min-w-0 flex-1 truncate">{item.title}</span>
                     <Input
                       defaultValue={item.estimateMinutes ? formatMinutes(item.estimateMinutes) : ''}
-                      placeholder="e.g. 1h 30m"
+                      placeholder={
+                        roughMinutesByItemId.has(item.id)
+                          ? `~${formatMinutes(roughMinutesByItemId.get(item.id)!)}`
+                          : 'e.g. 1h 30m'
+                      }
                       className="h-8 w-28 shrink-0 text-right font-mono text-sm"
                       onBlur={(e) => onSetEstimate(item.id, parseDurationInput(e.target.value))}
                     />
                   </>
                 )}
               </SortableRows>
+              {acceptableRough.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    for (const item of acceptableRough) {
+                      onSetEstimate(item.id, roughMinutesByItemId.get(item.id)!);
+                    }
+                  }}
+                  className="pb-1 pt-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Accept all rough durations{' '}
+                  <span className="font-mono tabular-nums">· {acceptableRough.length}</span>
+                </button>
+              )}
               {calibration.map((entry) => {
                 const sentence = formatCalibrationSentence(entry);
                 return sentence ? (
