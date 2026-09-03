@@ -9,6 +9,7 @@ import {
   removePlanItem,
   setPlanItemEstimate,
   reorderPlanItems,
+  getLatestPriorEstimates,
 } from './plans-repo';
 import { DEFAULT_CAPACITY_MINUTES } from './config';
 import type Database from 'better-sqlite3';
@@ -99,5 +100,41 @@ describe('reorderPlanItems', () => {
     const reordered = reorderPlanItems(db, DATE, [c.id, a.id, b.id]);
     expect(reordered.map((i) => i.itemId)).toEqual([c.id, a.id, b.id]);
     expect(reordered.map((i) => i.sortOrder)).toEqual([0, 1, 2]);
+  });
+});
+
+describe('getLatestPriorEstimates', () => {
+  it('returns nothing when no earlier plan carried an estimate', () => {
+    expect(getLatestPriorEstimates(db, DATE)).toEqual(new Map());
+  });
+
+  it('returns the most recent estimate before the given date', () => {
+    const item = createAdhocItem(db, { title: 'Carried over' });
+    addPlanItem(db, '2026-08-10', item.id);
+    setPlanItemEstimate(db, '2026-08-10', item.id, 30);
+    addPlanItem(db, '2026-08-12', item.id);
+    setPlanItemEstimate(db, '2026-08-12', item.id, 90);
+    expect(getLatestPriorEstimates(db, DATE)).toEqual(new Map([[item.id, 90]]));
+  });
+
+  it('ignores the given date itself and anything after it', () => {
+    const item = createAdhocItem(db, { title: 'Today only' });
+    addPlanItem(db, DATE, item.id);
+    setPlanItemEstimate(db, DATE, item.id, 45);
+    expect(getLatestPriorEstimates(db, DATE)).toEqual(new Map());
+  });
+
+  it('skips a plan row that never got an estimate', () => {
+    const item = createAdhocItem(db, { title: 'Never sized' });
+    addPlanItem(db, '2026-08-10', item.id);
+    expect(getLatestPriorEstimates(db, DATE)).toEqual(new Map());
+  });
+
+  it('falls back to the most recent row that does carry an estimate', () => {
+    const item = createAdhocItem(db, { title: 'Sized once' });
+    addPlanItem(db, '2026-08-10', item.id);
+    setPlanItemEstimate(db, '2026-08-10', item.id, 30);
+    addPlanItem(db, '2026-08-12', item.id);
+    expect(getLatestPriorEstimates(db, DATE)).toEqual(new Map([[item.id, 30]]));
   });
 });
