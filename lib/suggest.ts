@@ -400,3 +400,70 @@ export function isSuggestCandidate(item: Item, today: string, now: Date): boolea
   if (item.todayDate === today) return false;
   return true;
 }
+
+export interface SuggestionAlgorithmReference {
+  key: SuggestAlgorithm;
+  label: string;
+  description: string;
+}
+
+export interface SuggestionReference {
+  algorithms: SuggestionAlgorithmReference[];
+  durationOrder: string[];
+  anchorMinMinutes: number;
+  minSamplesForMedian: number;
+  fallbackMinutes: Record<WorkType, number>;
+  leanShares: number[];
+  nonPointRules: string[];
+}
+
+/**
+ * The suggestion half of the user-facing rules reference, generated from the
+ * same constants suggestDay() reads.
+ *
+ * It lives here rather than inside getScoringReference() so lib/scoring.ts,
+ * the module every other ranking decision hangs off, keeps no dependency on
+ * this feature. ScoringReferenceDialog composes the two, which is where
+ * composition for display belongs. Generated rather than hand-written for the
+ * same reason the scoring reference is: a copied number is a number that will
+ * eventually disagree with the code.
+ */
+export function getSuggestionReference(): SuggestionReference {
+  return {
+    algorithms: [
+      {
+        key: 'urgency',
+        label: 'Urgency first',
+        description: 'Highest score first, taken while it still fits the day.',
+      },
+      {
+        key: 'quick_wins',
+        label: 'Quick wins',
+        description: 'Best score per minute first, so small things clear out.',
+      },
+      {
+        key: 'balanced',
+        label: 'Balanced',
+        description: `The top-scoring item over ${ANCHOR_MIN_MINUTES} minutes is taken first, then quick wins fill what is left.`,
+      },
+    ],
+    durationOrder: [
+      'An estimate you set for today.',
+      'The last estimate you gave this item on an earlier day.',
+      `The median time you have actually logged on this kind of work, once there are ${MIN_SAMPLES_FOR_MEDIAN} logs to go on.`,
+      'A fixed default for this kind of work.',
+    ],
+    anchorMinMinutes: ANCHOR_MIN_MINUTES,
+    minSamplesForMedian: MIN_SAMPLES_FOR_MEDIAN,
+    fallbackMinutes: FALLBACK_MINUTES,
+    leanShares: Object.values(LEAN_WORK_ITEM_SHARE),
+    nonPointRules: [
+      'A suggestion never adjusts a score. The number on a row means the same thing here as everywhere else.',
+      'The lean is a cap on how much of the day each side can take, not a weight on any score. It lifts on its own when one side runs out of work.',
+      'Ad-hoc requests are exempt from the lean and count toward neither side of the split.',
+      'A suggestion writes nothing until you pin it, and it never reorders or removes anything on its own.',
+      'A duration the tool worked out for you never becomes an estimate until you accept it.',
+      'Where the lean holds something back, the day is left with room in it rather than filled from the other side. The rows it held back are listed, so the cost is visible.',
+    ],
+  };
+}

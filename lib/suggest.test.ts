@@ -3,6 +3,7 @@ import {
   resolveDuration,
   suggestDay,
   isSuggestCandidate,
+  getSuggestionReference,
   leanCaps,
   ANCHOR_MIN_MINUTES,
   DEFAULT_LEAN,
@@ -437,5 +438,29 @@ describe('isSuggestCandidate', () => {
 
   it("accepts an item left over from an earlier day's plan", () => {
     expect(isSuggestCandidate(eligibleItem({ todayDate: '2026-09-02' }), TODAY, NOW)).toBe(true);
+  });
+});
+
+describe('getSuggestionReference', () => {
+  it('names all three algorithms', () => {
+    const ref = getSuggestionReference();
+    expect(ref.algorithms.map((a) => a.key)).toEqual(['urgency', 'quick_wins', 'balanced']);
+    expect(ref.algorithms.every((a) => a.description.length > 0)).toBe(true);
+  });
+
+  it('states the duration resolution order, one entry per resolution step', () => {
+    expect(getSuggestionReference().durationOrder).toHaveLength(4);
+  });
+
+  it('generates its numbers from the engine rather than restating them', () => {
+    const ref = getSuggestionReference();
+    expect(ref.anchorMinMinutes).toBe(ANCHOR_MIN_MINUTES);
+    expect(ref.minSamplesForMedian).toBe(MIN_SAMPLES_FOR_MEDIAN);
+    expect(ref.fallbackMinutes).toEqual(FALLBACK_MINUTES);
+    expect(ref.leanShares).toEqual(Object.values(LEAN_WORK_ITEM_SHARE));
+  });
+
+  it('states that the score is never adjusted to produce a suggestion', () => {
+    expect(getSuggestionReference().nonPointRules.join(' ')).toContain('never adjusts a score');
   });
 });
