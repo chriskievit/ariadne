@@ -11,6 +11,7 @@ import { formatCalibrationSentence, type CalibrationEntry } from '@/lib/calibrat
 import type { ScoredItem } from '@/lib/dashboard';
 import type { Item, Plan, PlanItem } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
+import { formatMinutes } from '@/lib/format-duration';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -32,14 +33,6 @@ interface Props {
   onSetCapacity: (minutes: number) => void;
   calibration: CalibrationEntry[];
   onOpenScoringReference: () => void;
-}
-
-function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function parseDurationInput(raw: string): number | null {

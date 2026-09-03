@@ -19,6 +19,7 @@ import {
 } from '@/lib/api-client';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { formatCalibrationSentence, type CalibrationEntry } from '@/lib/calibration';
+import { formatMinutes } from '@/lib/format-duration';
 
 interface Props {
   open: boolean;
@@ -27,14 +28,6 @@ interface Props {
   onSnooze: (id: number, option: SnoozeOption) => void;
   onDrop: (id: number) => void;
   calibration?: CalibrationEntry[];
-}
-
-function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = Math.round(minutes % 60);
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 function formatWrapUpDate(dateStr: string): string {

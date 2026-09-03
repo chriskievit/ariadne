@@ -6,6 +6,7 @@ import ItemRow from './ItemRow';
 import SortableRows from './SortableRows';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { Item, Priority } from '@/lib/types';
+import { formatMinutes } from '@/lib/format-duration';
 
 interface Props {
   items: ScoredItem[];
@@ -24,14 +25,6 @@ interface Props {
   onReorder: (orderedItemIds: number[]) => void | Promise<void>;
   failingSources?: Set<Item['source']>;
   onOpenScoringReference: () => void;
-}
-
-function formatMinutes(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 export default function TodaySection({
