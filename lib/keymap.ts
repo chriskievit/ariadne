@@ -23,9 +23,10 @@ export interface KeyBinding {
 //
 // A row binding must not reuse a letter the global switch also matches:
 // GlobalKeymapProvider does not bail when a row has focus, so both handlers
-// would fire. That switch currently matches `/ ? r w p g` case-insensitively
+// would fire. That switch currently matches `/ ? r w p g i` case-insensitively
 // even though `P`/`R`/`W` are declared uppercase here, which is why the
-// priority cycle is `f` (for the flag icon it carries) and not `p`.
+// priority cycle is `f` (for the flag icon it carries) and not `p`, and why
+// Suggest a day is `i` and not the `S` it wants to be -- `s` is Star.
 //
 // Deliberately NOT included yet: `space` (start/stop timer) -- it triggers a
 // Phase 3 feature that doesn't exist in this codebase yet. Declaring a
@@ -46,6 +47,7 @@ export const KEYMAP: KeyBinding[] = [
   { keys: 'a', description: 'Add an ad-hoc item', scope: 'global' },
   { keys: '/', description: 'Focus the query bar', scope: 'global' },
   { keys: 'P', description: 'Plan the day', scope: 'global' },
+  { keys: 'i', description: 'Suggest a day', scope: 'global' },
   { keys: '⌘K / Ctrl+K', description: 'Search or jump to', scope: 'global' },
   { keys: '⌘Z', description: 'Undo the last triage action', scope: 'global' },
   { keys: 'g d', description: 'Go to the dashboard', scope: 'global' },

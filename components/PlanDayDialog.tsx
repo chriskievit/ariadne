@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -103,10 +103,19 @@ export default function PlanDayDialog({
   const totalEstimateMinutes = today.reduce((sum, i) => sum + (i.estimateMinutes ?? 0), 0);
   const overMinutes = totalEstimateMinutes - plan.capacityMinutes;
 
-  function close() {
-    onOpenChange(false);
+  // This dialog stays mounted with `open` gating visibility, so the initial
+  // step and mode cannot come from useState alone: it would only ever read
+  // them once, and every later open would land on whatever step the last
+  // visit left behind. Resetting on each open is also what makes the two
+  // entry points distinct, since they differ only in these two props.
+  useEffect(() => {
+    if (!open) return;
     setStep(initialStep ?? 1);
     setMode(initialStep2Mode ?? 'all');
+  }, [open, initialStep, initialStep2Mode]);
+
+  function close() {
+    onOpenChange(false);
   }
 
   return (

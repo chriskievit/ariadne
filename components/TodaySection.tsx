@@ -22,6 +22,7 @@ interface Props {
   onUnpark?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   onPlanDay: () => void;
+  onSuggestDay: () => void;
   onReorder: (orderedItemIds: number[]) => void | Promise<void>;
   failingSources?: Set<Item['source']>;
   onOpenScoringReference: () => void;
@@ -41,6 +42,7 @@ export default function TodaySection({
   onUnpark,
   onUnpinToday,
   onPlanDay,
+  onSuggestDay,
   onReorder,
   failingSources,
   onOpenScoringReference,
@@ -63,9 +65,16 @@ export default function TodaySection({
         {items.length === 0 ? (
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">Nothing chosen yet.</p>
-            <Button type="button" size="lg" className="h-11" onClick={onPlanDay}>
-              Plan the day <kbd className="ml-2 font-mono text-xs opacity-70">P</kbd>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="lg" className="h-11" onClick={onPlanDay}>
+                Plan the day <kbd className="ml-2 font-mono text-xs opacity-70">P</kbd>
+              </Button>
+              {/* Outline, not primary: one clearly-primary action per
+                  context, and planning by hand is still the default path. */}
+              <Button type="button" size="lg" variant="outline" className="h-11" onClick={onSuggestDay}>
+                Suggest a day <kbd className="ml-2 font-mono text-xs opacity-70">i</kbd>
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
               or pin anything below with <kbd className="font-mono">t</kbd>
             </p>

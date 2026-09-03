@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import ScoreChip from './ScoreChip';
 import SegmentedChoice, { type SegmentedOption } from './SegmentedChoice';
@@ -25,10 +25,18 @@ const ALGORITHM_OPTIONS: SegmentedOption<SuggestAlgorithm>[] = [
 
 const LEAN_NOTCHES: LeanNotch[] = [0, 1, 2, 3, 4];
 
-const LEAN_OPTIONS: SegmentedOption<LeanNotch>[] = LEAN_NOTCHES.map((notch) => ({
-  value: notch,
-  label: `${Math.round(LEAN_WORK_ITEM_SHARE[notch] * 100)}`,
-}));
+// Each notch states the whole split rather than one side of it. A bare "20"
+// sitting next to the "PRs" axis label reads as "pull requests get 20", which
+// is the opposite of what that notch means.
+const LEAN_OPTIONS: SegmentedOption<LeanNotch>[] = LEAN_NOTCHES.map((notch) => {
+  const workItems = Math.round(LEAN_WORK_ITEM_SHARE[notch] * 100);
+  const prs = 100 - workItems;
+  return {
+    value: notch,
+    label: `${prs}/${workItems}`,
+    ariaLabel: `${prs}% pull requests, ${workItems}% work items`,
+  };
+});
 
 const PICK_REASON_LABEL: Record<PickReason, string> = {
   anchor: 'anchor, top item over an hour',
@@ -88,12 +96,57 @@ export default function SuggestPanel({
   const [openDisclosure, setOpenDisclosure] = useState<'did_not_fit' | 'deferred' | null>(null);
   const [openChipId, setOpenChipId] = useState<number | null>(null);
 
+  // The shortcuts read live state through a ref so the document listener can
+  // be registered once instead of being torn down on every keystroke.
+  const keyStateRef = useRef({ onAlgorithmChange, onPin, checkedIds: [] as number[] });
+
   // A fresh proposal arrives fully checked: the fastest path through a good
   // suggestion is one keystroke, and unchecking is cheaper than checking four
   // rows by hand. Nothing is written until Pin is pressed either way.
   useEffect(() => {
     setChecked(new Set(suggestion?.picks.map((pick) => pick.itemId) ?? []));
   }, [suggestion]);
+
+  keyStateRef.current = {
+    onAlgorithmChange,
+    onPin,
+    checkedIds: (suggestion?.picks ?? []).filter((pick) => checked.has(pick.itemId)).map((pick) => pick.itemId),
+  };
+
+  // 1/2/3 pick an algorithm and Enter accepts, so a suggestion can be taken
+  // without reaching for the mouse. Keyboard-first is a durable principle
+  // here, not a roadmap item.
+  //
+  // Document-level, not a container onKeyDown: this panel renders inside a
+  // dialog whose initial focus lands on the dialog shell, so a container
+  // handler would silently ignore every keystroke until the user tabbed in.
+  // Scoping is automatic anyway, since the panel is only mounted while it is
+  // the visible step. Space on a row is the native checkbox behaviour and the
+  // arrow keys belong to SegmentedChoice, so neither is handled here.
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+
+      const index = ['1', '2', '3'].indexOf(e.key);
+      if (index !== -1) {
+        e.preventDefault();
+        keyStateRef.current.onAlgorithmChange(ALGORITHM_OPTIONS[index].value);
+        return;
+      }
+
+      // Enter on a control is that control's own business; only a bare Enter
+      // means accept, so a focused Dismiss still dismisses.
+      if (e.key === 'Enter' && !(e.target as HTMLElement | null)?.closest?.('button, input, label, [role="radio"]')) {
+        const { checkedIds, onPin: pin } = keyStateRef.current;
+        if (checkedIds.length === 0) return;
+        e.preventDefault();
+        void pin(checkedIds);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   if (error) {
     return (
@@ -121,7 +174,6 @@ export default function SuggestPanel({
     ? Math.min(100, Math.round((checkedMinutes / suggestion.capacityMinutes) * 100))
     : 0;
   const anyDerived = checkedPicks.some((pick) => isDerived(pick.durationSource));
-  const workItemPct = Math.round(LEAN_WORK_ITEM_SHARE[lean] * 100);
 
   function toggle(itemId: number) {
     setChecked((prev) => {
@@ -130,27 +182,6 @@ export default function SuggestPanel({
       else next.add(itemId);
       return next;
     });
-  }
-
-  // 1/2/3 pick an algorithm and Enter accepts, so a suggestion can be taken
-  // without reaching for the mouse. Keyboard-first is a durable principle
-  // here, not a roadmap item. Space on a row is the native checkbox
-  // behaviour and the arrow keys belong to SegmentedChoice, so neither is
-  // handled again here.
-  function onPanelKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (isTypingTarget(e.target)) return;
-    const index = ['1', '2', '3'].indexOf(e.key);
-    if (index !== -1) {
-      e.preventDefault();
-      onAlgorithmChange(ALGORITHM_OPTIONS[index].value);
-      return;
-    }
-    // Enter on a control is that control's own business; only a bare Enter
-    // in the panel means accept.
-    if (e.key === 'Enter' && !(e.target as HTMLElement).closest('button, input, label')) {
-      e.preventDefault();
-      if (checkedPicks.length > 0) void onPin(checkedPicks.map((pick) => pick.itemId));
-    }
   }
 
   function renderExcluded(kind: 'did_not_fit' | 'deferred') {
@@ -191,7 +222,7 @@ export default function SuggestPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3" onKeyDown={onPanelKeyDown}>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="shrink-0 space-y-2">
         <SegmentedChoice
           options={ALGORITHM_OPTIONS}
@@ -208,11 +239,10 @@ export default function SuggestPanel({
             value={lean}
             onChange={(value) => value !== null && onLeanChange(value)}
             ariaLabel="Lean toward pull requests or work items"
+            fill
+            className="flex-1"
           />
           <span className="shrink-0 text-xs text-muted-foreground">work items</span>
-          <span className="ml-auto shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-            {100 - workItemPct} / {workItemPct}
-          </span>
         </div>
       </div>
 

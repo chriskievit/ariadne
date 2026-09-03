@@ -7,6 +7,9 @@ export interface SegmentedOption<T extends string | number> {
   value: T;
   label: string;
   readout?: string;
+  // Spoken name, when the visible label is a compact form a screen reader
+  // would read as noise ("80/20").
+  ariaLabel?: string;
 }
 
 interface Props<T extends string | number> {
@@ -93,6 +96,7 @@ export default function SegmentedChoice<T extends string | number>({
             type="button"
             role="radio"
             aria-checked={selected}
+            aria-label={option.ariaLabel}
             tabIndex={i === focusIndex ? 0 : -1}
             disabled={disabled}
             onClick={() => onChange(selected && clearable ? null : option.value)}

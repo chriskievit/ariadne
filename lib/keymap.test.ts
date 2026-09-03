@@ -16,6 +16,13 @@ describe('KEYMAP', () => {
     }
   });
 
+  it('binds Suggest a day to a letter no row binding claims', () => {
+    const suggest = KEYMAP.find((entry) => entry.keys === 'i');
+    expect(suggest).toMatchObject({ description: 'Suggest a day', scope: 'global' });
+    const rowLetters = KEYMAP.filter((entry) => entry.scope === 'row').map((entry) => entry.keys);
+    expect(rowLetters).not.toContain('i');
+  });
+
   it('declares the row-scoped complete binding wired up in ItemRow', () => {
     const complete = KEYMAP.find((binding) => binding.keys === 'c');
     expect(complete).toEqual({ keys: 'c', description: 'Complete the focused item', scope: 'row' });

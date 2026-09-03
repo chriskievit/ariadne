@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/components/ui/sonner';
 import { Accordion } from '@/components/ui/accordion';
@@ -54,7 +54,8 @@ import {
 import { isSnoozed, SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { needsYou } from '@/lib/grouping';
 import { localDateString, addDays } from '@/lib/date';
-import { DEFAULT_CAPACITY_MINUTES } from '@/lib/config';
+import { DEFAULT_CAPACITY_MINUTES, DEFAULT_SUGGEST_ALGORITHM, SETTINGS_KEYS } from '@/lib/config';
+import { DEFAULT_LEAN, type LeanNotch, type SuggestAlgorithm, type Suggestion, type SuggestionItem } from '@/lib/suggest';
 import type { CalibrationEntry } from '@/lib/calibration';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SprintProgress } from '@/lib/sprint';
@@ -84,6 +85,21 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [sourceStatuses, setSourceStatuses] = useState<SourceStatus[]>([]);
   const [planDayOpen, setPlanDayOpen] = useState(false);
+  // Which step and mode the wizard opens on. The two entry points differ:
+  // Plan the day starts at the carry-over step in All signals, Suggest a day
+  // jumps straight to the choose step with the proposal showing.
+  const [planInitial, setPlanInitial] = useState<{ step: 1 | 2; mode: 'suggested' | 'all' }>({
+    step: 1,
+    mode: 'all',
+  });
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestItems, setSuggestItems] = useState<Map<number, SuggestionItem>>(new Map());
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState(false);
+  const [suggestAlgorithm, setSuggestAlgorithm] = useState<SuggestAlgorithm>(
+    DEFAULT_SUGGEST_ALGORITHM as SuggestAlgorithm
+  );
+  const [suggestLean, setSuggestLean] = useState<LeanNotch>(DEFAULT_LEAN);
   const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [switchTimerOpen, setSwitchTimerOpen] = useState(false);
   const [pendingStartId, setPendingStartId] = useState<number | null>(null);
@@ -248,6 +264,68 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
 
   async function handlePinToday(id: number) {
     await pinToday(id);
+    await refresh();
+  }
+
+  const loadSuggestion = useCallback(async (algorithm: SuggestAlgorithm, lean: LeanNotch) => {
+    setSuggestLoading(true);
+    setSuggestError(false);
+    try {
+      const res = await fetch(`/api/suggest?algorithm=${algorithm}&lean=${lean}`);
+      if (!res.ok) throw new Error('suggest failed');
+      const payload = (await res.json()) as { suggestion: Suggestion; items: SuggestionItem[] };
+      setSuggestion(payload.suggestion);
+      setSuggestItems(new Map(payload.items.map((item) => [item.id, item])));
+    } catch {
+      setSuggestError(true);
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, []);
+
+  // The panel is where these are chosen, so the panel is where they persist.
+  // No duplicate control in Settings to keep in sync.
+  const persistSuggestSettings = useCallback((next: { algorithm?: SuggestAlgorithm; lean?: LeanNotch }) => {
+    const body: Record<string, string> = {};
+    if (next.algorithm) body[SETTINGS_KEYS.suggestAlgorithm] = next.algorithm;
+    if (next.lean !== undefined) body[SETTINGS_KEYS.suggestLean] = String(next.lean);
+    void fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }, []);
+
+  function openPlanDay() {
+    setPlanInitial({ step: 1, mode: 'all' });
+    setPlanDayOpen(true);
+  }
+
+  function openSuggestDay() {
+    setPlanInitial({ step: 2, mode: 'suggested' });
+    setPlanDayOpen(true);
+    void loadSuggestion(suggestAlgorithm, suggestLean);
+  }
+
+  function handleSuggestAlgorithmChange(algorithm: SuggestAlgorithm) {
+    setSuggestAlgorithm(algorithm);
+    persistSuggestSettings({ algorithm });
+    void loadSuggestion(algorithm, suggestLean);
+  }
+
+  function handleSuggestLeanChange(lean: LeanNotch) {
+    setSuggestLean(lean);
+    persistSuggestSettings({ lean });
+    void loadSuggestion(suggestAlgorithm, lean);
+  }
+
+  // Sequential, not parallel: addPlanItem derives sort_order from the current
+  // maximum, so concurrent calls would race the suggested order into an
+  // arbitrary one.
+  async function handlePinSuggested(itemIds: number[]) {
+    for (const id of itemIds) {
+      await pinToday(id);
+    }
     await refresh();
   }
 
@@ -421,7 +499,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       onOpenHelp={() => setHelpOpen(true)}
       onGoToDashboard={() => router.push('/')}
       onGoToSettings={() => router.push('/settings')}
-      onPlanDay={() => setPlanDayOpen(true)}
+      onPlanDay={openPlanDay}
+      onSuggestDay={openSuggestDay}
       onQuickAdd={() => setQuickAddOpen(true)}
     >
     <main className="mx-auto max-w-6xl space-y-6 p-6">
@@ -453,7 +532,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onUnpark={handleUnpark}
             onUnpinToday={handleUnpinToday}
             onSetPriority={handleSetPriority}
-            onPlanDay={() => setPlanDayOpen(true)}
+            onPlanDay={openPlanDay}
+            onSuggestDay={openSuggestDay}
             onReorder={handleReorderToday}
             failingSources={failingSources}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
@@ -513,6 +593,20 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       <PlanDayDialog
         open={planDayOpen}
         onOpenChange={setPlanDayOpen}
+        initialStep={planInitial.step}
+        initialStep2Mode={planInitial.mode}
+        suggest={{
+          suggestion,
+          itemsById: suggestItems,
+          loading: suggestLoading,
+          error: suggestError,
+          algorithm: suggestAlgorithm,
+          lean: suggestLean,
+          onAlgorithmChange: handleSuggestAlgorithmChange,
+          onLeanChange: handleSuggestLeanChange,
+          onRetry: () => void loadSuggestion(suggestAlgorithm, suggestLean),
+          onPin: handlePinSuggested,
+        }}
         today={data.today}
         signals={data.signals}
         yesterday={yesterdayItems}
