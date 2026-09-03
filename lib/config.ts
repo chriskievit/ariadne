@@ -14,12 +14,20 @@ export const SETTINGS_KEYS = {
   savedViews: 'ui.savedViews',
   dailyCapacityMinutes: 'plan.dailyCapacityMinutes',
   longRunNudgeHours: 'plan.longRunNudgeHours',
+  suggestAlgorithm: 'suggest.algorithm',
+  suggestLean: 'suggest.lean',
 } as const;
 
 export const DEFAULT_STALE_DAYS = 3;
 export const NEEDS_ATTENTION_THRESHOLD = 25;
 export const DEFAULT_CAPACITY_MINUTES = 360; // 6h, per the wireframe's default
 export const DEFAULT_LONG_RUN_NUDGE_HOURS = 2;
+
+// Balanced is the default because it is the only one of the three that both
+// protects a block for real work and clears the small stuff. Urgency first is
+// the honest fallback, but on a day with one big overdue item it produces a
+// plan with a single row in it.
+export const DEFAULT_SUGGEST_ALGORITHM = 'balanced';
 
 export type Density = 'comfortable' | 'compact';
 

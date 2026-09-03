@@ -14,6 +14,7 @@ interface Props {
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
   onPlanDay: () => void;
+  onSuggestDay: () => void;
   onQuickAdd: () => void;
 }
 
@@ -28,6 +29,7 @@ export default function GlobalKeymapProvider({
   onGoToDashboard,
   onGoToSettings,
   onPlanDay,
+  onSuggestDay,
   onQuickAdd,
 }: Props) {
   useEffect(() => {
@@ -104,6 +106,12 @@ export default function GlobalKeymapProvider({
         case 'p':
           onPlanDay();
           return;
+        // Not `s`, however much Suggest wants it: that letter is row-scope
+        // Star, and this switch does not bail when a row has focus, so both
+        // would fire. See the hazard note in lib/keymap.ts.
+        case 'i':
+          onSuggestDay();
+          return;
         case 'g':
           pendingG = true;
           pendingGTimeout = setTimeout(() => {
@@ -128,6 +136,7 @@ export default function GlobalKeymapProvider({
     onGoToDashboard,
     onGoToSettings,
     onPlanDay,
+    onSuggestDay,
     onQuickAdd,
   ]);
 

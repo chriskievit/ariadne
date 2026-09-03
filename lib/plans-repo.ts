@@ -75,3 +75,25 @@ export function reorderPlanItems(db: Database.Database, date: string, orderedIte
   orderedItemIds.forEach((itemId, index) => update.run(index, date, itemId));
   return getPlanItems(db, date);
 }
+
+// The last size the user gave an item on any earlier day. Carried-over work
+// should keep the number the user chose rather than being re-guessed from a
+// bucket average, so this beats the logged median in resolveDuration's order.
+// Rows with no estimate are skipped rather than treated as zero: never sized
+// is not the same fact as sized at nothing.
+export function getLatestPriorEstimates(db: Database.Database, beforeDate: string): Map<number, number> {
+  const rows = db
+    .prepare(
+      `SELECT item_id as itemId, estimate_minutes as estimateMinutes
+       FROM plan_items
+       WHERE plan_date < ? AND estimate_minutes IS NOT NULL
+       ORDER BY plan_date ASC`
+    )
+    .all(beforeDate) as { itemId: number; estimateMinutes: number }[];
+
+  // Ascending order means a later row overwrites an earlier one, leaving the
+  // most recent estimate per item.
+  const byItem = new Map<number, number>();
+  for (const row of rows) byItem.set(row.itemId, row.estimateMinutes);
+  return byItem;
+}

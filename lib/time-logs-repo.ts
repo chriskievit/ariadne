@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
-import type { TimeLog } from './types';
+import type { Reason, TimeLog } from './types';
 import { localDateString } from './date';
+import { classifyWorkType, type WorkType } from './calibration';
+import type { WorkTypeDuration } from './suggest';
 
 function rowToLog(row: any): TimeLog {
   return {
@@ -145,4 +147,36 @@ export function sumHoursLoggedOn(db: Database.Database, date: string): number {
   let total = 0;
   for (const hours of sumHoursLoggedOnByItem(db, date).values()) total += hours;
   return total;
+}
+
+// Median, not mean: one afternoon lost to a single work item should not
+// reprice the whole bucket for every future suggestion. Grouped by work type
+// rather than by source, so it lines up with the calibration report the user
+// already reads instead of being a second, competing classification.
+export function medianMinutesByWorkType(db: Database.Database): Partial<Record<WorkType, WorkTypeDuration>> {
+  const rows = db
+    .prepare(
+      `SELECT i.reason as reason, tl.duration_hours as durationHours
+       FROM time_logs tl JOIN items i ON i.id = tl.item_id
+       WHERE tl.duration_hours IS NOT NULL`
+    )
+    .all() as { reason: Reason; durationHours: number }[];
+
+  const byType = new Map<WorkType, number[]>();
+  for (const row of rows) {
+    const workType = classifyWorkType(row.reason);
+    const bucket = byType.get(workType) ?? [];
+    bucket.push(row.durationHours * 60);
+    byType.set(workType, bucket);
+  }
+
+  const result: Partial<Record<WorkType, WorkTypeDuration>> = {};
+  for (const [workType, minutes] of byType) {
+    minutes.sort((a, b) => a - b);
+    const middle = Math.floor(minutes.length / 2);
+    const medianMinutes =
+      minutes.length % 2 === 1 ? minutes[middle] : (minutes[middle - 1] + minutes[middle]) / 2;
+    result[workType] = { medianMinutes, sampleCount: minutes.length };
+  }
+  return result;
 }

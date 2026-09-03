@@ -12,6 +12,17 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS, DEFAULT_DENSITY } from '@/lib/config';
 import SettingsScoringLink from './SettingsScoringLink';
+import { formatMinutes } from '@/lib/format-duration';
+import type { WorkType } from '@/lib/calibration';
+
+export interface LearnedDuration {
+  workType: WorkType;
+  label: string;
+  // The median from the logs, or null when there are too few to trust.
+  medianMinutes: number | null;
+  sampleCount: number;
+  fallbackMinutes: number;
+}
 
 // "Token saved", not "Connected" — this only reflects that a PAT is stored,
 // never that it's valid against GitHub/ADO, so the label shouldn't claim more.
@@ -40,9 +51,10 @@ type SettingsValues = z.infer<typeof settingsSchema>;
 
 interface Props {
   initialSettings: Record<string, string>;
+  learnedDurations: LearnedDuration[];
 }
 
-export default function SettingsForm({ initialSettings }: Props) {
+export default function SettingsForm({ initialSettings, learnedDurations }: Props) {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [githubPatIsSet, setGithubPatIsSet] = useState(
@@ -211,6 +223,48 @@ export default function SettingsForm({ initialSettings }: Props) {
                 )}
               />
               <SettingsScoringLink />
+            </div>
+
+            {/* Read-only on purpose. The algorithm and the lean are set in the
+                suggestion itself, so there is no second copy of them here to
+                drift out of sync, and the durations are shown rather than
+                tuned: an override is a later decision, not a default. */}
+            <div className="space-y-4 border-b pb-6">
+              <h2 className="text-base font-semibold">Suggestions</h2>
+              <p className="text-sm text-muted-foreground">
+                When an item has no estimate, a suggestion sizes it from the time you have actually logged on that
+                kind of work. Below <span className="font-mono tabular-nums">3</span> logs it uses a fixed default
+                instead.
+              </p>
+              <div className="space-y-1">
+                {learnedDurations.map((row) => (
+                  <div key={row.workType} className="flex items-baseline justify-between gap-3 text-sm">
+                    <span>{row.label}</span>
+                    {row.medianMinutes === null ? (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-mono tabular-nums">{formatMinutes(row.fallbackMinutes)}</span> default
+                        {row.sampleCount > 0 && (
+                          <>
+                            {' '}
+                            · <span className="font-mono tabular-nums">{row.sampleCount}</span> log
+                            {row.sampleCount === 1 ? '' : 's'} so far
+                          </>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-mono tabular-nums text-foreground">
+                          {formatMinutes(row.medianMinutes)}
+                        </span>{' '}
+                        median · <span className="font-mono tabular-nums">{row.sampleCount}</span> logs
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The algorithm and the lean are set in the suggestion itself, not here.
+              </p>
             </div>
 
             <div className="space-y-4 border-b pb-6">
