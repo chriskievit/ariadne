@@ -123,6 +123,28 @@ export function listOpenAgentSessions(db: Database.Database): AgentSession[] {
   return rows.map(rowToSession);
 }
 
+/**
+ * The session currently occupying a ticket, if one does.
+ *
+ * "Active" is narrower than the rail's "live". The rail shows everything
+ * with a null ended_at, which deliberately includes a session the
+ * reconciler marked failed for never registering -- that row keeps a null
+ * ended_at precisely so a late SessionStart can revive it.
+ *
+ * A failed session must not block a relaunch, though. Claude Code puts its
+ * folder-trust prompt up before SessionStart, so the commonest way a
+ * session dies is a dialog nobody answered in time; treating that row as
+ * occupying the ticket would lock the ticket out of ever being handed over
+ * again, and the only escape would be a dismissal action that does not
+ * exist yet. A rare duplicate is the cheaper failure.
+ */
+export function getActiveAgentSessionForItem(db: Database.Database, itemId: number): AgentSession | undefined {
+  const row = db
+    .prepare("SELECT * FROM agent_sessions WHERE item_id = ? AND ended_at IS NULL AND state != 'failed' ORDER BY id DESC LIMIT 1")
+    .get(itemId) as AgentSessionRow | undefined;
+  return row ? rowToSession(row) : undefined;
+}
+
 // The shape of an AgentSession an API response may return. Named fields
 // rather than a spread-and-omit of AgentSession, so a column added to the
 // session later is excluded by default instead of leaking until someone

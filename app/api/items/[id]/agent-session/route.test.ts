@@ -6,7 +6,7 @@ import { openDb } from '@/lib/db';
 import { createAdhocItem, getItemById } from '@/lib/items-repo';
 import { setSetting } from '@/lib/settings-repo';
 import { SETTINGS_KEYS } from '@/lib/config';
-import { listAgentSessions } from '@/lib/agent-sessions-repo';
+import { listAgentSessions, applyAgentSessionPatch } from '@/lib/agent-sessions-repo';
 import { addPlanItem, getPlanItems } from '@/lib/plans-repo';
 import { getRunningTimer } from '@/lib/time-logs-repo';
 import { localDateString } from '@/lib/date';
@@ -153,5 +153,53 @@ describe('POST /api/items/[id]/agent-session', () => {
     const res = await post(bare);
     expect(res.status).toBe(400);
     expect(listAgentSessions(testDb)).toHaveLength(0);
+  });
+});
+
+describe('one session per ticket', () => {
+  it('returns the session already on the ticket instead of starting a second one', async () => {
+    const first = await post(itemId);
+    expect(first.status).toBe(200);
+    expect(listAgentSessions(testDb)).toHaveLength(1);
+
+    const second = await post(itemId);
+    const body = await second.json();
+
+    expect(second.status).toBe(200);
+    expect(body.existing).toBe(true);
+    expect(body.session.id).toBe((await first.json()).session.id);
+    // No warpUrl: the tab config runs the agent's command, so opening it
+    // again would start a second process under the same launch token.
+    expect(body.warpUrl).toBeUndefined();
+    expect(body.session.launchToken).toBeUndefined();
+    expect(listAgentSessions(testDb)).toHaveLength(1);
+  });
+
+  it('lets a ticket be handed over again once its session has ended', async () => {
+    const first = await post(itemId);
+    const { session } = await first.json();
+    applyAgentSessionPatch(testDb, session.id, {
+      state: 'stopped',
+      endedAt: new Date().toISOString(),
+      endReason: 'closed',
+    });
+
+    const second = await post(itemId);
+    expect(second.status).toBe(200);
+    expect((await second.json()).existing).toBeUndefined();
+    expect(listAgentSessions(testDb)).toHaveLength(2);
+  });
+
+  it('lets a ticket be handed over again after a session failed without ending', async () => {
+    // An unanswered folder-trust prompt leaves state failed with a null
+    // ended_at. Blocking on that would strand the ticket for good.
+    const first = await post(itemId);
+    const { session } = await first.json();
+    applyAgentSessionPatch(testDb, session.id, { state: 'failed', endReason: 'never_registered' });
+
+    const second = await post(itemId);
+    expect(second.status).toBe(200);
+    expect((await second.json()).existing).toBeUndefined();
+    expect(listAgentSessions(testDb)).toHaveLength(2);
   });
 });
