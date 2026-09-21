@@ -62,9 +62,19 @@ export function writeHookSettings(
   }
 
   const settings = buildHookSettings(`${baseUrl.replace(/\/+$/, '')}/api/agent-hooks/${token}`, authToken);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  // This file can contain ARIADNE_AUTH_TOKEN in plaintext (see curlCommand
+  // above), so both the directory and the file get an explicit, restrictive
+  // mode rather than whatever the process umask happens to leave: without
+  // this, the default is 0644 and the operator's token sits world-readable.
+  // Cleanup of old files on disk is deliberately out of scope for this phase;
+  // the mode is what keeps a stale one from being a problem in the meantime.
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   const path = hookSettingsPath(dir, token);
-  writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, 'utf8');
+  // The token is also visible to anything that can read this process's
+  // argv (e.g. `ps -u ":$token"` on the curl command line, via /proc or
+  // ps on most systems). Moving it to a curl config file instead of the
+  // command line closes that too, but is deferred past phase 1.
+  writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   return path;
 }

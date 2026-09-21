@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildHookSettings, writeHookSettings, hookSettingsPath } from './agent-hooks-config';
@@ -100,5 +100,18 @@ describe('writeHookSettings', () => {
   it('rejects a launch token that is not url-safe', () => {
     dir = mkdtempSync(join(tmpdir(), 'ariadne-hooks-test-'));
     expect(() => writeHookSettings(dir, '../escape', 'http://127.0.0.1:3000', null)).toThrow(/launch token/i);
+  });
+
+  // The file can carry ARIADNE_AUTH_TOKEN in plaintext, so the mode is set
+  // explicitly rather than left to the umask. The mask below is what makes
+  // this assertion independent of whatever umask the test runner has; if it
+  // proves flaky on some platform, that would point at the explicit mode
+  // arg not taking effect, not at the assertion itself.
+  it('writes the settings file with owner-only permissions', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-hooks-test-'));
+
+    const path = writeHookSettings(dir, TOKEN_A, 'http://127.0.0.1:3000', 's3cret');
+
+    expect(statSync(path).mode & 0o777).toBe(0o600);
   });
 });
