@@ -70,16 +70,27 @@ export default function TopBar() {
           stop sitting flush right. Pin whatever you add here too, or an
           idle timer will silently break its alignment.
 
-          Both outer tracks are floored at 10.0625rem (161px), the intrinsic
-          width of ariadne-banner.png at this bar's h-8 -- update this
-          number if that artwork is ever replaced. Without the floor, a
-          bare 1fr lets the logo's track shrink below the logo's own width,
-          and max-width:100% on <img> then clamps the logo down to fit,
+          From sm up, both outer tracks are floored at 10.0625rem (161px),
+          the rendered width of the logo at this bar's h-8 -- derived from
+          the width={161} height={32} props on the <Image>, not from
+          ariadne-banner.png's own file dimensions (1200x239); update this
+          number if those props ever change. Without the floor, a bare 1fr
+          lets the logo's track shrink below the logo's own width, and
+          max-width:100% on <img> then clamps the logo down to fit,
           squashing it against its fixed h-8 height instead of leaving it
           alone. The two outer tracks must stay identical to each other:
           that symmetry, not their exact size, is what keeps the centre
-          cluster centred. */}
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)] items-center gap-4 px-6">
+          cluster centred.
+
+          Below sm, the floor is dropped and both outer tracks go back to a
+          bare minmax(0,1fr): below that width the bar cannot fit its
+          content regardless of what the logo does, and an un-shrinkable
+          322px floor there turns a cramped bar into a horizontally
+          scrolling page, which is worse than a compressed logo. The
+          resulting narrow-width compression is inherited pre-existing
+          behaviour, not something this layout endorses. sm is the only
+          breakpoint this bar uses; do not add another tier. */}
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,20rem)_minmax(0,1fr)] items-center gap-4 px-6 sm:grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)]">
         <Link
           href="/"
           className="group col-start-1 flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
