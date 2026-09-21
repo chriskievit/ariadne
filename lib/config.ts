@@ -10,6 +10,8 @@ export const SETTINGS_KEYS = {
   sprintEnd: 'sprint.end',
   localReposBaseDir: 'warp.localReposBaseDir',
   repoPathOverrides: 'warp.repoPathOverrides',
+  agentDefault: 'agent.default',
+  agentHookBaseUrl: 'agent.hookBaseUrl',
   density: 'ui.density',
   savedViews: 'ui.savedViews',
   dailyCapacityMinutes: 'plan.dailyCapacityMinutes',
@@ -22,6 +24,11 @@ export const DEFAULT_STALE_DAYS = 3;
 export const NEEDS_ATTENTION_THRESHOLD = 25;
 export const DEFAULT_CAPACITY_MINUTES = 360; // 6h, per the wireframe's default
 export const DEFAULT_LONG_RUN_NUDGE_HOURS = 2;
+
+// Where a launched agent's hooks POST back to. A setting rather than a
+// constant because the operator can move the port, and the hook command is
+// baked into a file on disk at launch time rather than resolved later.
+export const DEFAULT_AGENT_HOOK_BASE_URL = 'http://127.0.0.1:3000';
 
 // Balanced is the default because it is the only one of the three that both
 // protects a block for real work and clears the small stuff. Urgency first is
