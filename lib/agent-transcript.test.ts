@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTranscriptTail } from './agent-transcript';
+import { readTranscriptTail, TRANSCRIPT_TAIL_BYTES } from './agent-transcript';
 
 let dir: string;
 
@@ -98,5 +98,56 @@ describe('readTranscriptTail', () => {
 
   it('returns nothing for a missing file rather than throwing', () => {
     expect(readTranscriptTail('/no/such/transcript.jsonl')).toEqual([]);
+  });
+
+  it('tolerates a bare null line between valid records', () => {
+    const path = writeTranscript([
+      {
+        type: 'assistant',
+        timestamp: '2026-09-21T10:00:00.000Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'First.' }] },
+      },
+      null,
+      {
+        type: 'assistant',
+        timestamp: '2026-09-21T10:00:01.000Z',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'Last.' }] },
+      },
+    ]);
+
+    expect(readTranscriptTail(path).map((e) => e.text)).toEqual(['First.', 'Last.']);
+  });
+
+  it('skips old entries beyond the tail bytes', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-transcript-test-'));
+    const path = join(dir, 'session.jsonl');
+
+    // Build a transcript larger than TRANSCRIPT_TAIL_BYTES with early and late messages
+    const early = { type: 'assistant', timestamp: '2026-09-21T10:00:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'EARLY_MARKER' }] } };
+    const late = { type: 'assistant', timestamp: '2026-09-21T10:00:10.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'LATE_MARKER' }] } };
+
+    // Padding: enough lines to exceed TRANSCRIPT_TAIL_BYTES when serialized
+    const padding = Array.from({ length: 2000 }, (_, i) => ({
+      type: 'assistant',
+      timestamp: `2026-09-21T10:00:0${String(i).padStart(2, '0')}.000Z`,
+      message: { role: 'assistant', content: [{ type: 'text', text: `padding ${i} `.repeat(10) }] },
+    }));
+
+    const allLines = [early, ...padding, late];
+    const content = allLines.map((line) => JSON.stringify(line)).join('\n') + '\n';
+
+    // Verify the file is actually larger than TRANSCRIPT_TAIL_BYTES
+    writeFileSync(path, content, 'utf8');
+    const { size } = statSync(path);
+    expect(size).toBeGreaterThan(TRANSCRIPT_TAIL_BYTES);
+
+    const entries = readTranscriptTail(path);
+    const texts = entries.map((e) => e.text);
+
+    // Early message should NOT be in the tail (it was before TRANSCRIPT_TAIL_BYTES)
+    expect(texts.some((t) => t.includes('EARLY_MARKER'))).toBe(false);
+
+    // Late message SHOULD be in the tail
+    expect(texts.some((t) => t.includes('LATE_MARKER'))).toBe(true);
   });
 });

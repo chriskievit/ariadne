@@ -83,6 +83,7 @@ export function readTranscriptTail(path: string, limit: number = DEFAULT_LIMIT):
       continue;
     }
 
+    if (typeof record !== 'object' || record === null) continue;
     if (record.type !== 'user' && record.type !== 'assistant') continue;
 
     const text = extractText(record.message?.content);
