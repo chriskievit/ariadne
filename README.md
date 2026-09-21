@@ -38,9 +38,10 @@ you should do next.
 - **You control your time, not the algorithm.** There's no auto-scheduling
   of your day and no calendar it rearranges for you. Ariadne surfaces
   signals; you decide what to work on and when.
-- **Deliberately small surface.** A dashboard route, a time report, and
-  Settings. New features are scoped tightly, and real tradeoffs are
-  accepted explicitly rather than hidden. For example, access tokens are
+- **Deliberately small surface.** Two faces (the ranked dashboard and the
+  Work mode watch floor at `/work`), a time report, and Settings. New
+  features are scoped tightly, and real tradeoffs are accepted explicitly
+  rather than hidden. For example, access tokens are
   stored in plaintext locally, the same trust model as a `.env` file.
 
 ## Stack
