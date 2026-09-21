@@ -14,7 +14,7 @@ test('settings page groups fields into sections with per-source connection badge
   // The e2e database starts empty each run, so neither PAT is saved yet.
   await expect(page.getByText('No token saved')).toHaveCount(2);
 
-  await expect(page.getByRole('button', { name: 'How urgency is scored' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'How Ariadne ranks things' })).toBeVisible();
 });
 
 test('saving a field round-trips after reload', async ({ page }) => {

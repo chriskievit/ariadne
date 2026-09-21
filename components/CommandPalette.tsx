@@ -102,7 +102,7 @@ export default function CommandPalette({
             Settings
           </CommandItem>
           <CommandItem value="go-scoring-reference" onSelect={() => select(onOpenScoringReference)}>
-            How urgency is scored
+            How Ariadne ranks things
           </CommandItem>
           <CommandItem value="go-keyboard-shortcuts" onSelect={() => select(onOpenHelp)}>
             Keyboard shortcuts
