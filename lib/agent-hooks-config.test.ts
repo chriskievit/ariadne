@@ -62,6 +62,18 @@ describe('buildHookSettings', () => {
   it('rejects a hook url containing a quote', () => {
     expect(() => buildHookSettings('http://127.0.0.1:3000/x"y', null)).toThrow(/must not contain quotes/);
   });
+
+  it('rejects a hook url containing command substitution with $(', () => {
+    expect(() => buildHookSettings('http://127.0.0.1:3000/api/agent-hooks/tok$(touch /tmp/PWNED)', null)).toThrow(
+      /must not contain.*dollar signs/
+    );
+  });
+
+  it('rejects an auth token containing a backtick for command substitution', () => {
+    expect(() => buildHookSettings('http://127.0.0.1:3000/api/agent-hooks/tok', 'sec`whoami`ret')).toThrow(
+      /must not contain.*backticks/
+    );
+  });
 });
 
 describe('writeHookSettings', () => {

@@ -9,11 +9,13 @@ export const HOOK_EVENTS: HookEventName[] = ['SessionStart', 'PreToolUse', 'Noti
 
 const LAUNCH_TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 
-function assertNoQuotes(value: string, label: string): void {
+function assertShellSafe(value: string, label: string): void {
   // The value is interpolated unescaped into a shell command that Claude Code
-  // executes, so a quote would let it break out and run anything.
-  if (/["'\n\r\\]/.test(value)) {
-    throw new Error(`${label} must not contain quotes, backslashes, or newlines.`);
+  // executes. It is placed inside double-quoted strings, where bash performs
+  // command substitution on $ and backticks. Quotes and backslashes also break
+  // out of the string. All must be rejected to prevent arbitrary command execution.
+  if (/["'$`\n\r\\]/.test(value)) {
+    throw new Error(`${label} must not contain quotes, dollar signs, backticks, backslashes, or newlines.`);
   }
 }
 
@@ -33,8 +35,8 @@ function curlCommand(url: string, authToken: string | null): string {
 }
 
 export function buildHookSettings(hookUrl: string, authToken: string | null): object {
-  assertNoQuotes(hookUrl, 'Hook URL');
-  if (authToken !== null) assertNoQuotes(authToken, 'Auth token');
+  assertShellSafe(hookUrl, 'Hook URL');
+  if (authToken !== null) assertShellSafe(authToken, 'Auth token');
 
   const command = curlCommand(hookUrl, authToken);
   const hooks: Record<string, unknown[]> = {};
