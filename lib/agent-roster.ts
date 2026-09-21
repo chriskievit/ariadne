@@ -67,6 +67,37 @@ export function sortRoster<T extends RosterSession>(sessions: readonly T[]): T[]
   return [...sessions].sort(compareRoster);
 }
 
+// The fields ended-list ordering reads. Just the id and the timestamp that
+// answers "what just happened" -- this module never needs the rest of the row.
+export type EndedRosterSession = Pick<AgentSession, 'id' | 'endedAt'>;
+
+/**
+ * The order the Ended list puts closed sessions in, and why it is the
+ * opposite of `compareRoster`.
+ *
+ * A live band answers "how long has this been waiting on me", so the
+ * longest wait sorts first and pulls your attention to what has gone
+ * stalest. A closed session asks nothing of you any more; the only useful
+ * question left is "what just happened", so the one that closed most
+ * recently belongs on top instead of buried under nine-year-old sessions
+ * that happen to have a later id.
+ */
+export function compareEndedRoster(a: EndedRosterSession, b: EndedRosterSession): number {
+  // Both rows come from the already-filtered ended set, so endedAt is never
+  // actually null here; the fallback only keeps the comparator total if a
+  // caller ever passes a live row by mistake.
+  const endedDelta = (b.endedAt ?? '').localeCompare(a.endedAt ?? '');
+  if (endedDelta !== 0) return endedDelta;
+
+  // Same reasoning as compareRoster's id tiebreak: two sessions that ended in
+  // the same second must not be free to swap order on every re-render.
+  return b.id - a.id;
+}
+
+export function sortEndedRoster<T extends EndedRosterSession>(sessions: readonly T[]): T[] {
+  return [...sessions].sort(compareEndedRoster);
+}
+
 export interface RosterBandCount {
   state: AgentSessionState;
   count: number;

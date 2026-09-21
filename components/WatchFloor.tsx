@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { fetchAgentSessions } from '@/lib/api-client';
-import { sortRoster, rosterBandCounts, ROSTER_BAND_REASON } from '@/lib/agent-roster';
+import { sortRoster, sortEndedRoster, rosterBandCounts, ROSTER_BAND_REASON } from '@/lib/agent-roster';
 import { agentStateDisplay, sessionExplanation } from '@/lib/agent-session-display';
 import type { SessionListEntry } from '@/lib/agent-session-list';
 import SessionRosterRail from './SessionRosterRail';
@@ -48,7 +48,9 @@ export default function WatchFloor({ initialSessions }: { initialSessions: Sessi
   // registered deliberately keeps a null endedAt so a late SessionStart can
   // still revive it, and it has to stay on screen while that is possible.
   const live = sortRoster(sessions.filter((session) => session.endedAt === null));
-  const ended = sortRoster(sessions.filter((session) => session.endedAt !== null));
+  // Most-recently-ended first, not sortRoster's longest-waiting-first: see
+  // compareEndedRoster for why the two lists sort in opposite directions.
+  const ended = sortEndedRoster(sessions.filter((session) => session.endedAt !== null));
   const selected = sessions.find((session) => session.id === selectedId) ?? null;
 
   if (sessions.length === 0) {

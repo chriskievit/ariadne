@@ -3,9 +3,11 @@ import {
   ROSTER_BAND_ORDER,
   rosterWaitingSince,
   sortRoster,
+  sortEndedRoster,
   rosterBandCounts,
   getRosterReference,
   type RosterSession,
+  type EndedRosterSession,
 } from './agent-roster';
 import type { AgentSessionState } from './types';
 
@@ -100,6 +102,55 @@ describe('sortRoster', () => {
     const input = [session({ id: 1, state: 'stopped' }), session({ id: 2, state: 'needs_you' })];
     sortRoster(input);
     expect(input.map((s) => s.id)).toEqual([1, 2]);
+  });
+});
+
+function endedSession(overrides: Partial<EndedRosterSession> & { id: number }): EndedRosterSession {
+  return { endedAt: '2026-09-21T10:00:00.000Z', ...overrides };
+}
+
+describe('sortEndedRoster', () => {
+  it('puts the most recently ended session first, the opposite of sortRoster', () => {
+    const sorted = sortEndedRoster([
+      endedSession({ id: 1, endedAt: '2026-09-21T09:00:00.000Z' }),
+      endedSession({ id: 2, endedAt: '2026-09-21T12:00:00.000Z' }),
+      endedSession({ id: 3, endedAt: '2026-09-21T11:00:00.000Z' }),
+    ]);
+    expect(sorted.map((s) => s.id)).toEqual([2, 3, 1]);
+  });
+
+  it('breaks an exact tie by id descending, so it stays stable across re-renders', () => {
+    const at = '2026-09-21T09:00:00.000Z';
+    const first = sortEndedRoster([
+      endedSession({ id: 4, endedAt: at }),
+      endedSession({ id: 9, endedAt: at }),
+    ]);
+    const second = sortEndedRoster([
+      endedSession({ id: 9, endedAt: at }),
+      endedSession({ id: 4, endedAt: at }),
+    ]);
+    expect(first.map((s) => s.id)).toEqual([9, 4]);
+    expect(second.map((s) => s.id)).toEqual([9, 4]);
+  });
+
+  it('does not mutate its input', () => {
+    const input = [
+      endedSession({ id: 1, endedAt: '2026-09-21T09:00:00.000Z' }),
+      endedSession({ id: 2, endedAt: '2026-09-21T12:00:00.000Z' }),
+    ];
+    sortEndedRoster(input);
+    expect(input.map((s) => s.id)).toEqual([1, 2]);
+  });
+
+  it('is a total order: sorting an already-sorted list is a no-op', () => {
+    const input = [
+      endedSession({ id: 3, endedAt: '2026-09-21T12:00:00.000Z' }),
+      endedSession({ id: 2, endedAt: '2026-09-21T11:00:00.000Z' }),
+      endedSession({ id: 1, endedAt: '2026-09-21T10:00:00.000Z' }),
+    ];
+    const sorted = sortEndedRoster(input);
+    expect(sorted.map((s) => s.id)).toEqual(input.map((s) => s.id));
+    expect(sortEndedRoster(sorted).map((s) => s.id)).toEqual(sorted.map((s) => s.id));
   });
 });
 
