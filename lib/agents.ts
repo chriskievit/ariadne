@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 import type { AgentKind } from './types';
 
 export interface BuildCommandOptions {
@@ -63,7 +62,11 @@ export function getAgentDefinition(kind: AgentKind): AgentDefinition | undefined
  */
 export function detectInstalledAgents(pathEnv: string, exists: (candidate: string) => boolean): AgentKind[] {
   const dirs = pathEnv.split(':').filter(Boolean);
-  return AGENT_DEFINITIONS.filter((agent) => dirs.some((dir) => exists(join(dir, agent.binary)))).map(
-    (agent) => agent.kind
-  );
+  // A plain join, not node:path: PATH is already parsed as POSIX (split on
+  // ':'), and this module is imported by value from client components
+  // through agent-session-display.ts, so pulling in a node built-in here
+  // would break that bundle for the one function that needs it least.
+  return AGENT_DEFINITIONS.filter((agent) =>
+    dirs.some((dir) => exists(`${dir.replace(/\/+$/, '')}/${agent.binary}`))
+  ).map((agent) => agent.kind);
 }

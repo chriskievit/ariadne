@@ -5,6 +5,7 @@ import type { Item, Plan, Priority } from '@/lib/types';
 import type { SnoozeOption } from '@/lib/snooze';
 import type { SourceStatus } from '@/lib/sync-status';
 import type { CalibrationEntry } from '@/lib/calibration';
+import type { SessionListEntry } from './agent-session-list';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -218,5 +219,10 @@ export async function fetchSettings(): Promise<Record<string, string>> {
 
 export async function fetchCalibration(start: string, end: string): Promise<CalibrationEntry[]> {
   const res = await fetch(`/api/calibration?start=${start}&end=${end}`);
+  return res.json();
+}
+
+export async function fetchAgentSessions(): Promise<{ sessions: SessionListEntry[] }> {
+  const res = await fetch('/api/agent-sessions');
   return res.json();
 }
