@@ -68,8 +68,18 @@ export default function TopBar() {
           item after it one track left -- putting the action cluster in the
           search field's track and leaving the last 1fr empty, so the icons
           stop sitting flush right. Pin whatever you add here too, or an
-          idle timer will silently break its alignment. */}
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
+          idle timer will silently break its alignment.
+
+          Both outer tracks are floored at 10.0625rem (161px), the intrinsic
+          width of ariadne-banner.png at this bar's h-8 -- update this
+          number if that artwork is ever replaced. Without the floor, a
+          bare 1fr lets the logo's track shrink below the logo's own width,
+          and max-width:100% on <img> then clamps the logo down to fit,
+          squashing it against its fixed h-8 height instead of leaving it
+          alone. The two outer tracks must stay identical to each other:
+          that symmetry, not their exact size, is what keeps the centre
+          cluster centred. */}
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)] items-center gap-4 px-6">
         <Link
           href="/"
           className="group col-start-1 flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
