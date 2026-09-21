@@ -9,7 +9,7 @@ export default function SettingsScoringLink() {
   return (
     <>
       <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        How urgency is scored
+        How Ariadne ranks things
       </Button>
       <ScoringReferenceDialog open={open} onOpenChange={setOpen} />
     </>

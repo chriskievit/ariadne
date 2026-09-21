@@ -25,6 +25,10 @@ what he's working on and log time against it. It is explicitly not trying
 to manage his calendar. It will propose a day when asked, and only when
 asked, with its reasoning shown and nothing written until he accepts; what
 it will not do is decide for him or arrange his time on its own.
+Work mode extends the same idea to work he has handed to a coding agent:
+Ariadne opens the session, then shows whose turn it is across every live
+session at once, so a handed-off ticket stays as visible as one he is
+working himself.
 
 ## Positioning
 
@@ -53,6 +57,19 @@ work with opaque, ML-driven priority.
   items (local-only status, cascades only touch Ariadne's own `items`
   table), tracking sprint progress, and logging time via a timer/report
   view.
+- Work mode (`/work`) is the app's second face. Chris hands an item to a
+  coding agent, and the Watch Floor shows every live session and whose
+  turn it is in one rail.
+- Launching a session writes a Warp launch configuration and opens a Warp
+  tab in the item's configured local repo; Ariadne does not run the agent
+  itself. Warp is the only terminal supported today. Treat that as the
+  first adapter, not a settled commitment.
+- Six agents are configured (Claude Code, Codex, Cursor Agent, OpenCode,
+  Gemini CLI, Aider). Only Claude Code reports its own lifecycle back, via
+  a per-session settings file Ariadne writes to disk carrying the launch
+  token and, when set, `ARIADNE_AUTH_TOKEN` — the same trust model as the
+  PATs in the settings table. An agent that cannot report is marked as not
+  reporting rather than shown as silently healthy.
 
 ## Capabilities and Constraints
 
@@ -65,7 +82,11 @@ work with opaque, ML-driven priority.
 - **Read-only against source systems, always.** Ariadne never writes back
   to GitHub or Azure DevOps. Actions like Start/Complete, even when they
   cascade to linked items, only ever touch Ariadne's own local `items`
-  table.
+  table. One carve-out, named rather than blurred: Work mode launches a
+  coding agent Chris chose, in a repo he configured, and that agent writes
+  code and can open a pull request. Ariadne issues no such request itself.
+  The blast radius grew even though its own API surface did not, and every
+  diff and every push stays his to review.
 - **Transparent, deterministic scoring, not AI-driven.** Urgency is a
   visible point formula (own PR approved, mentioned, stale, due soon, ...)
   in `lib/scoring.ts`, not an opaque ML ranking. Every score chip on the
@@ -95,9 +116,22 @@ work with opaque, ML-driven priority.
   back, the day is left with room in it rather than filled from the other
   side, and the rows it held back are listed, so the cost of the setting is
   visible rather than silent.
-- **Deliberately small surface.** A dashboard route, a time report, and
-  Settings. New features are scoped tightly; real tradeoffs (like plaintext
-  token storage) are accepted explicitly rather than hidden.
+- **Delegation is launched and watched, never supervised.** Chris chooses
+  what to hand to an agent and which agent gets it. Ariadne opens the
+  session and then only reports: it never picks the ticket, never answers
+  the agent, never approves a diff, and never merges. Handing over marks
+  the item in progress, because work has begun on it, and deliberately
+  starts no timer: an agent working while Chris does something else must
+  not bill his hours. The handover never adds the item to today's plan and
+  only reorders it when it is already there, which preserves the
+  Today/Signals exclusivity above. The roster's order is a fixed answer to
+  "whose turn is it", not a second ranking: there is exactly one ranking
+  number in Ariadne and it belongs to the score chip
+  (`lib/agent-roster.ts`).
+- **Deliberately small surface.** Two faces (the ranked dashboard and the
+  Work mode watch floor at `/work`), a time report, and Settings. New
+  features are scoped tightly; real tradeoffs (like plaintext token
+  storage) are accepted explicitly rather than hidden.
 - **Keyboard-first is a durable principle, not just a roadmap feature.**
   Future surfaces should stay fast and usable via keyboard, not only mouse
   driven — this motivates the existing keyboard-shortcut layer and Cmd+K

@@ -232,17 +232,24 @@ export default function SuggestPanel({
           fill
           className="w-full"
         />
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">PRs</span>
+        <div>
           <SegmentedChoice
             options={LEAN_OPTIONS}
             value={lean}
             onChange={(value) => value !== null && onLeanChange(value)}
             ariaLabel="Lean toward pull requests or work items"
             fill
-            className="flex-1"
+            className="w-full"
           />
-          <span className="shrink-0 text-xs text-muted-foreground">work items</span>
+          {/* The axis ends sit under the ends they name rather than beside
+              them, so this control spans the same width as the algorithm
+              control above instead of being indented by its own labels. The
+              group's aria-label and each notch's spoken name already carry
+              the axis, so these are decoration to a screen reader. */}
+          <div className="mt-1 flex justify-between px-1 text-xs text-muted-foreground" aria-hidden>
+            <span>PRs</span>
+            <span>work items</span>
+          </div>
         </div>
       </div>
 

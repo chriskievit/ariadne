@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -96,8 +96,25 @@ describe('readTranscriptTail', () => {
     expect(readTranscriptTail(path).map((e) => e.text)).toEqual(['Complete.']);
   });
 
-  it('returns nothing for a missing file rather than throwing', () => {
+  it('returns nothing for a missing file rather than throwing, and logs why', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(readTranscriptTail('/no/such/transcript.jsonl')).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('logs a persistently missing path only once, but still logs a different missing path', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    readTranscriptTail('/no/such/transcript-a.jsonl');
+    readTranscriptTail('/no/such/transcript-a.jsonl');
+    readTranscriptTail('/no/such/transcript-a.jsonl');
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    readTranscriptTail('/no/such/transcript-b.jsonl');
+    expect(warn).toHaveBeenCalledTimes(2);
+
+    warn.mockRestore();
   });
 
   it('tolerates a bare null line between valid records', () => {

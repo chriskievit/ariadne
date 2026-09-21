@@ -1,4 +1,5 @@
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
+import { logWarn } from './log';
 
 export interface TranscriptEntry {
   role: 'user' | 'assistant';
@@ -12,6 +13,14 @@ export interface TranscriptEntry {
 export const TRANSCRIPT_TAIL_BYTES = 256 * 1024;
 
 const DEFAULT_LIMIT = 50;
+
+// Paths already warned about, so a transcript that stays missing logs once
+// instead of once per open session per five-second poll. Never cleared and
+// never bounded: every path in it came from a hook event on a session the
+// user personally launched, so its size is capped by how many sessions one
+// person can run in a day, not by anything external -- fine to keep for a
+// single-user local tool that restarts this set on every process restart.
+const warnedPaths = new Set<string>();
 
 interface RawRecord {
   type?: string;
@@ -34,7 +43,19 @@ function readTailBytes(path: string): string | null {
     } finally {
       closeSync(fd);
     }
-  } catch {
+  } catch (error) {
+    // A transcript that cannot be read is not a broken session -- the path
+    // comes from the agent and the file may simply have been rotated away --
+    // so the caller gets an empty tail rather than an error. It is still
+    // worth a line: a rail showing no output for every session at once is
+    // this, not six quiet agents. But only the first line: this runs per
+    // open session per five-second poll, and a persistently missing file
+    // would otherwise bury the very logError calls this warning exists
+    // alongside to keep findable.
+    if (!warnedPaths.has(path)) {
+      warnedPaths.add(path);
+      logWarn('agent-transcript', 'could not read the transcript tail', error);
+    }
     return null;
   }
 }

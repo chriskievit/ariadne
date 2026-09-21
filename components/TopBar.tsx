@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
 import { useKeymapHelp } from '@/components/KeymapHelpProvider';
+import ModeSwitch from '@/components/ModeSwitch';
 import RunningTimerChip from '@/components/RunningTimerChip';
 import { useRunningTimer } from '@/components/RunningTimerProvider';
 import { toast } from '@/components/ui/sonner';
@@ -55,10 +56,44 @@ export default function TopBar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
+      {/* Five columns, not four: the mode switch joins the timer chip and
+          the search field in the centre cluster rather than crowding the
+          logo, because a left column carrying both the lockup and the
+          switch would outgrow the action cluster opposite it and drag the
+          whole cluster off centre.
+
+          Every child below is pinned to its column with an explicit
+          col-start-N. RunningTimerChip renders nothing while idle, and
+          without a pinned column grid auto-placement would slide every
+          item after it one track left -- putting the action cluster in the
+          search field's track and leaving the last 1fr empty, so the icons
+          stop sitting flush right. Pin whatever you add here too, or an
+          idle timer will silently break its alignment.
+
+          From sm up, both outer tracks are floored at 10.0625rem (161px),
+          the rendered width of the logo at this bar's h-8 -- derived from
+          the width={161} height={32} props on the <Image>, not from
+          ariadne-banner.png's own file dimensions (1200x239); update this
+          number if those props ever change. Without the floor, a bare 1fr
+          lets the logo's track shrink below the logo's own width, and
+          max-width:100% on <img> then clamps the logo down to fit,
+          squashing it against its fixed h-8 height instead of leaving it
+          alone. The two outer tracks must stay identical to each other:
+          that symmetry, not their exact size, is what keeps the centre
+          cluster centred.
+
+          Below sm, the floor is dropped and both outer tracks go back to a
+          bare minmax(0,1fr): below that width the bar cannot fit its
+          content regardless of what the logo does, and an un-shrinkable
+          322px floor there turns a cramped bar into a horizontally
+          scrolling page, which is worse than a compressed logo. The
+          resulting narrow-width compression is inherited pre-existing
+          behaviour, not something this layout endorses. sm is the only
+          breakpoint this bar uses; do not add another tier. */}
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,20rem)_minmax(0,1fr)] items-center gap-4 px-6 sm:grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)]">
         <Link
           href="/"
-          className="group flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="group col-start-1 flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Image
             src="/brand/ariadne-banner.png"
@@ -70,24 +105,30 @@ export default function TopBar() {
           />
         </Link>
 
-        <RunningTimerChip
-          runningTimer={runningTimer}
-          onStop={handleStopTimer}
-          onComplete={handleCompleteTimer}
-          longRunNudgeHours={longRunNudgeHours}
-        />
+        <div className="col-start-2">
+          <ModeSwitch />
+        </div>
+
+        <div className="col-start-3">
+          <RunningTimerChip
+            runningTimer={runningTimer}
+            onStop={handleStopTimer}
+            onComplete={handleCompleteTimer}
+            longRunNudgeHours={longRunNudgeHours}
+          />
+        </div>
 
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 justify-self-stretch rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="col-start-4 flex items-center gap-2 justify-self-stretch rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Search className="h-4 w-4" aria-hidden="true" />
           Search or jump to
           <kbd className="ml-auto font-mono text-xs">⌘K</kbd>
         </button>
 
-        <div className="flex items-center justify-end gap-1">
+        <div className="col-start-5 flex items-center justify-end gap-1">
           <Button type="button" variant="ghost" size="icon" asChild aria-label="Report">
             <Link href="/report">
               <BarChart3 className="h-4 w-4" />

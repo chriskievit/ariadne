@@ -3,6 +3,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { getScoringReference } from '@/lib/scoring';
 import { getSuggestionReference } from '@/lib/suggest';
+import { getRosterReference } from '@/lib/agent-roster';
+import { agentStateDisplay } from '@/lib/agent-session-display';
 import { WORK_TYPE_LABEL, type WorkType } from '@/lib/calibration';
 import { formatMinutes } from '@/lib/format-duration';
 
@@ -16,12 +18,16 @@ export default function ScoringReferenceDialog({ open, onOpenChange }: Props) {
   // Two generated halves, composed here rather than in either lib, so
   // lib/scoring.ts keeps no dependency on the suggestion feature.
   const suggest = getSuggestionReference();
+  // Third generated section. Work mode's rail is ordered by a fixed rule
+  // rather than a score, and a fixed rule nobody can read is just as opaque
+  // as a hidden weight -- so it is published in the same dialog.
+  const roster = getRosterReference();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>How urgency is scored, and how a day is suggested</DialogTitle>
+          <DialogTitle>How Ariadne ranks things</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <p className="text-muted-foreground">
@@ -172,9 +178,32 @@ export default function ScoringReferenceDialog({ open, onOpenChange }: Props) {
               ))}
             </div>
           </div>
+
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+              Work mode · the agent rail · a fixed order, not a score
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Sessions sort by whose turn it is, and inside a band the longest waiting comes first. There is no
+              second ranking number.
+            </p>
+            <div className="space-y-1">
+              {roster.map((row, index) => (
+                <div key={row.state} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    <span className="mr-2 font-mono tabular-nums text-muted-foreground">{index + 1}</span>
+                    {agentStateDisplay(row.state).label}
+                  </span>
+                  <span className="text-right text-xs text-muted-foreground">{row.reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
         <DialogFooter className="sm:justify-between">
-          <span className="text-xs text-muted-foreground">generated from lib/scoring.ts and lib/suggest.ts</span>
+          <span className="text-xs text-muted-foreground">
+            generated from lib/scoring.ts, lib/suggest.ts, and lib/agent-roster.ts
+          </span>
         </DialogFooter>
       </DialogContent>
     </Dialog>

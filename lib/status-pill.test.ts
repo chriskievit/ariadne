@@ -61,7 +61,7 @@ describe('getStatusPill', () => {
     });
   });
 
-  it('never returns the default (indigo) variant', () => {
+  it('never returns the default (azure) variant', () => {
     const adoStatuses = ['Blocked', 'In Progress', 'To Do', 'Code Review', 'Removed', 'Done'];
     for (const adoStatus of adoStatuses) {
       expect(getStatusPill({ source: 'ado_workitem', prStatus: null, adoStatus })?.variant).not.toBe('default');

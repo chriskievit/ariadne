@@ -64,7 +64,7 @@ export default function NeedsYouPopover({ items, onShowInSignals }: Props) {
           <div className="border-t pt-2">
             <button
               type="button"
-              className="text-xs text-primary underline-offset-2 hover:underline"
+              className="text-xs text-link underline-offset-2 hover:underline"
               onClick={() => {
                 setOpen(false);
                 onShowInSignals();

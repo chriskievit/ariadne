@@ -85,7 +85,7 @@ const SM_ROW_HEIGHT_CLASS = { comfortable: 'sm:h-11', compact: 'sm:h-9' } as con
 
 type ReasonVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'warning';
 
-// Indigo ('default') never appears on a badge — that channel is
+// Azure ('default') never appears on a badge — that channel is
 // interactive-only. approved_unmerged's urgency is already carried by the
 // priority dot, so its reason pill is neutral outline like the others.
 const REASON_VARIANT: Record<Item['reason'], ReasonVariant> = {
@@ -817,7 +817,7 @@ export default function ItemRow({
         <button
           type="button"
           onClick={() => onUnpark?.(item.id)}
-          className="shrink-0 text-sm font-medium text-primary hover:underline"
+          className="shrink-0 text-sm font-medium text-link hover:underline"
         >
           Resume
         </button>
