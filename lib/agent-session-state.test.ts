@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyHookEvent, isNeverRegistered, LAUNCH_REGISTRATION_TIMEOUT_MS } from './agent-session-state';
+import { sessionExplanation } from './agent-session-display';
 import type { AgentSession, AgentSessionState } from './types';
 
 const NOW = new Date('2026-09-21T12:00:00.000Z');
@@ -50,6 +51,36 @@ describe('applyHookEvent: SessionStart', () => {
     expect(patch.model).toBe('claude-opus-5');
     expect(patch.registeredAt).toBe(NOW.toISOString());
     expect(patch.lastEventAt).toBe(NOW.toISOString());
+  });
+
+  // The reconciler marks a silent launch 'failed'/'never_registered' with no
+  // endedAt so a late SessionStart -- the folder-trust prompt finally
+  // answered -- can still revive it. If the reason survives that revival,
+  // the rail shows a spinning "Working" row next to an explanation that
+  // says the session is dead: a live session lying about its own state.
+  it('clears a stale never_registered reason when a late SessionStart revives the session', () => {
+    const neverRegistered = session({
+      state: 'failed',
+      endReason: 'never_registered',
+      endedAt: null,
+      registeredAt: null,
+    });
+
+    // Before: the stale reason still drives the explanation shown in the pane.
+    expect(sessionExplanation(neverRegistered)).toMatch(/never reported in/);
+
+    const patch = applyHookEvent(
+      neverRegistered,
+      { hook_event_name: 'SessionStart', session_id: 'sess-1', transcript_path: '/t/sess-1.jsonl' },
+      NOW
+    );
+
+    expect(patch.state).toBe('working');
+    expect(patch.endReason).toBeNull();
+
+    // After: the revived session, with the patch applied, explains itself correctly.
+    const revived = { ...neverRegistered, ...patch };
+    expect(sessionExplanation(revived)).toBeNull();
   });
 });
 

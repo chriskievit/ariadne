@@ -45,6 +45,14 @@ export function applyHookEvent(session: AgentSession, event: HookEvent, now: Dat
     case 'SessionStart':
       patch.state = 'working';
       patch.registeredAt = timestamp;
+      // A live session's endReason is only ever stale, never current: the
+      // reconciler is the one place that writes endReason without ending the
+      // session (never_registered, to leave the door open for exactly this
+      // event), and every other writer sets endedAt in the same patch. Only
+      // SessionStart needs to clear it -- it is the sole event Claude Code
+      // can send before registeredAt exists, so it is the only branch a
+      // never_registered session can ever reach first.
+      patch.endReason = null;
       if (event.session_id) patch.agentSessionId = event.session_id;
       if (event.transcript_path) patch.transcriptPath = event.transcript_path;
       if (event.cwd) patch.cwd = event.cwd;
