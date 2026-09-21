@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -96,8 +96,11 @@ describe('readTranscriptTail', () => {
     expect(readTranscriptTail(path).map((e) => e.text)).toEqual(['Complete.']);
   });
 
-  it('returns nothing for a missing file rather than throwing', () => {
+  it('returns nothing for a missing file rather than throwing, and logs why', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(readTranscriptTail('/no/such/transcript.jsonl')).toEqual([]);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('tolerates a bare null line between valid records', () => {

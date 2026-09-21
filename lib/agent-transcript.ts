@@ -1,4 +1,5 @@
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
+import { logWarn } from './log';
 
 export interface TranscriptEntry {
   role: 'user' | 'assistant';
@@ -34,7 +35,13 @@ function readTailBytes(path: string): string | null {
     } finally {
       closeSync(fd);
     }
-  } catch {
+  } catch (error) {
+    // A transcript that cannot be read is not a broken session -- the path
+    // comes from the agent and the file may simply have been rotated away --
+    // so the caller gets an empty tail rather than an error. It is still
+    // worth a line: a rail showing no output for every session at once is
+    // this, not six quiet agents.
+    logWarn('agent-transcript', 'could not read the transcript tail', error);
     return null;
   }
 }

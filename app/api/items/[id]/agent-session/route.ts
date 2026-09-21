@@ -10,6 +10,7 @@ import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
 import { createAgentSession, applyAgentSessionPatch, toPublicAgentSession } from '@/lib/agent-sessions-repo';
 import { getAgentDefinition, DEFAULT_AGENT } from '@/lib/agents';
 import { writeHookSettings } from '@/lib/agent-hooks-config';
+import { logError } from '@/lib/log';
 import { sessionTabTitle, sessionWarpUrl, writeSessionTabConfig, AGENT_TAB_COLOR } from '@/lib/agent-launch';
 import { agentTabConfigDir, agentSettingsDir } from '@/lib/agent-paths';
 import type { AgentKind } from '@/lib/types';
@@ -85,7 +86,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       agentTabConfigDir()
     );
-  } catch {
+  } catch (error) {
+    logError('agent-launch', `could not write the launch files for session ${session.id}`, error);
     // Ariadne itself failed to write the launch files -- not the same thing
     // as an agent that never reported in. Task 9's reconciler marks any
     // session still 'launching' after its window as failed with
@@ -97,10 +99,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         endedAt: new Date().toISOString(),
         endReason: 'launch_failed',
       });
-    } catch {
+    } catch (patchError) {
       // The database write above is best-effort: if it also fails, the
       // session row is left misleading, but the 500 below must still reach
       // the client rather than being masked by a second thrown error.
+      logError('agent-launch', `could not mark session ${session.id} as failed`, patchError);
     }
     return NextResponse.json({ error: 'Failed to write the Warp launch configuration.' }, { status: 500 });
   }

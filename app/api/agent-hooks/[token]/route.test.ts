@@ -75,14 +75,43 @@ describe('POST /api/agent-hooks/[token]', () => {
     expect(getAgentSessionById(testDb, sessionId)?.state).toBe('launching');
   });
 
-  it('answers 200 when the database lookup itself fails', async () => {
+  it('answers 200 and logs when the database lookup itself fails', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     testDb.exec('BEGIN; DROP TABLE agent_sessions;');
     try {
       const res = await post(TOKEN, { hook_event_name: 'Stop' });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({});
+      expect(error).toHaveBeenCalled();
     } finally {
       testDb.exec('ROLLBACK;');
+      error.mockRestore();
+    }
+  });
+
+  // Distinct from the lookup failure above: the session is found (the SELECT
+  // still works), and only the UPDATE that applies the hook event fails, so
+  // this exercises the inner catch and its logWarn rather than the outer
+  // catch's logError.
+  it('still answers 200 and logs when the patch write fails', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    testDb.exec(`
+      CREATE TRIGGER block_agent_session_update
+      BEFORE UPDATE ON agent_sessions
+      BEGIN
+        SELECT RAISE(ABORT, 'blocked for test');
+      END;
+    `);
+
+    try {
+      const res = await post(TOKEN, { hook_event_name: 'Stop' });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({});
+      expect(warn).toHaveBeenCalled();
+      expect(getAgentSessionById(testDb, sessionId)?.state).toBe('launching');
+    } finally {
+      testDb.exec('DROP TRIGGER block_agent_session_update;');
+      warn.mockRestore();
     }
   });
 });

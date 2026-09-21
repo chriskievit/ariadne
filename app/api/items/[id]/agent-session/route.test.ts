@@ -127,6 +127,7 @@ describe('POST /api/items/[id]/agent-session', () => {
     const blockerFile = join(originalTabDir, 'blocker');
     writeFileSync(blockerFile, '');
     tabDir = join(blockerFile, 'nested');
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     try {
       const res = await post(itemId);
@@ -135,8 +136,10 @@ describe('POST /api/items/[id]/agent-session', () => {
       const session = listAgentSessions(testDb)[0];
       expect(session.state).toBe('failed');
       expect(session.endReason).toBe('launch_failed');
+      expect(error).toHaveBeenCalled();
     } finally {
       tabDir = originalTabDir;
+      error.mockRestore();
     }
   });
 
