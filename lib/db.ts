@@ -67,6 +67,30 @@ CREATE TABLE IF NOT EXISTS plan_items (
   estimate_minutes INTEGER,
   PRIMARY KEY (plan_date, item_id)
 );
+
+CREATE TABLE IF NOT EXISTS agent_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id INTEGER NOT NULL REFERENCES items(id),
+  agent TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'launching',
+  launch_token TEXT NOT NULL UNIQUE,
+  agent_session_id TEXT,
+  transcript_path TEXT,
+  cwd TEXT,
+  git_branch TEXT,
+  model TEXT,
+  tab_title TEXT NOT NULL,
+  tab_color TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  registered_at TEXT,
+  last_event_at TEXT,
+  ended_at TEXT,
+  end_reason TEXT,
+  last_message TEXT,
+  needs_you_message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_sessions_item ON agent_sessions(item_id);
 `;
 
 function sleepSync(ms: number): void {
