@@ -74,4 +74,15 @@ describe('POST /api/agent-hooks/[token]', () => {
     expect(res.status).toBe(200);
     expect(getAgentSessionById(testDb, sessionId)?.state).toBe('launching');
   });
+
+  it('answers 200 when the database lookup itself fails', async () => {
+    testDb.exec('BEGIN; DROP TABLE agent_sessions;');
+    try {
+      const res = await post(TOKEN, { hook_event_name: 'Stop' });
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({});
+    } finally {
+      testDb.exec('ROLLBACK;');
+    }
+  });
 });
