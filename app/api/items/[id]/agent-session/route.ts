@@ -7,7 +7,7 @@ import { getSetting } from '@/lib/settings-repo';
 import { localDateString } from '@/lib/date';
 import { SETTINGS_KEYS, DEFAULT_AGENT_HOOK_BASE_URL } from '@/lib/config';
 import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
-import { createAgentSession } from '@/lib/agent-sessions-repo';
+import { createAgentSession, applyAgentSessionPatch } from '@/lib/agent-sessions-repo';
 import { getAgentDefinition, DEFAULT_AGENT } from '@/lib/agents';
 import { writeHookSettings } from '@/lib/agent-hooks-config';
 import { sessionTabTitle, sessionWarpUrl, writeSessionTabConfig, AGENT_TAB_COLOR } from '@/lib/agent-launch';
@@ -86,6 +86,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       agentTabConfigDir()
     );
   } catch {
+    // Ariadne itself failed to write the launch files -- not the same thing
+    // as an agent that never reported in. Task 9's reconciler marks any
+    // session still 'launching' after its window as failed with
+    // 'never_registered'; recording the real reason here now stops this row
+    // from being blamed on the agent when it never had a chance to run.
+    try {
+      applyAgentSessionPatch(db, session.id, {
+        state: 'failed',
+        endedAt: new Date().toISOString(),
+        endReason: 'launch_failed',
+      });
+    } catch {
+      // The database write above is best-effort: if it also fails, the
+      // session row is left misleading, but the 500 below must still reach
+      // the client rather than being masked by a second thrown error.
+    }
     return NextResponse.json({ error: 'Failed to write the Warp launch configuration.' }, { status: 500 });
   }
 

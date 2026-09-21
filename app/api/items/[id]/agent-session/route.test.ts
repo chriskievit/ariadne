@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '@/lib/db';
@@ -106,6 +106,28 @@ describe('POST /api/items/[id]/agent-session', () => {
     const res = await post(itemId, { workingDir: '/etc' });
     expect(res.status).toBe(400);
     expect(listAgentSessions(testDb)).toHaveLength(0);
+  });
+
+  it('marks the session failed, not left launching, when the tab config write fails', async () => {
+    // Force writeSessionTabConfig's mkdirSync to throw ENOTDIR: point the tab
+    // config dir at a path nested under a plain file, which can never be
+    // created into as a directory. Restore tabDir afterwards so afterEach's
+    // rmSync (which needs a real directory tree) still has one to clean up.
+    const originalTabDir = tabDir;
+    const blockerFile = join(originalTabDir, 'blocker');
+    writeFileSync(blockerFile, '');
+    tabDir = join(blockerFile, 'nested');
+
+    try {
+      const res = await post(itemId);
+      expect(res.status).toBe(500);
+
+      const session = listAgentSessions(testDb)[0];
+      expect(session.state).toBe('failed');
+      expect(session.endReason).toBe('launch_failed');
+    } finally {
+      tabDir = originalTabDir;
+    }
   });
 
   it('404s for an unknown item', async () => {
