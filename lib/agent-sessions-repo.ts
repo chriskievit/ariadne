@@ -123,6 +123,56 @@ export function listOpenAgentSessions(db: Database.Database): AgentSession[] {
   return rows.map(rowToSession);
 }
 
+// The shape of an AgentSession an API response may return. Named fields
+// rather than a spread-and-omit of AgentSession, so a column added to the
+// session later is excluded by default instead of leaking until someone
+// remembers to strip it. launchToken is the hook credential and must never
+// reach a client; phase 2 renders these responses in a browser, and this is
+// easy to forget by then.
+export interface PublicAgentSession {
+  id: number;
+  itemId: number;
+  agent: AgentKind;
+  state: AgentSessionState;
+  agentSessionId: string | null;
+  transcriptPath: string | null;
+  cwd: string | null;
+  gitBranch: string | null;
+  model: string | null;
+  tabTitle: string;
+  tabColor: string;
+  createdAt: string;
+  registeredAt: string | null;
+  lastEventAt: string | null;
+  endedAt: string | null;
+  endReason: string | null;
+  lastMessage: string | null;
+  needsYouMessage: string | null;
+}
+
+export function toPublicAgentSession(session: AgentSession): PublicAgentSession {
+  return {
+    id: session.id,
+    itemId: session.itemId,
+    agent: session.agent,
+    state: session.state,
+    agentSessionId: session.agentSessionId,
+    transcriptPath: session.transcriptPath,
+    cwd: session.cwd,
+    gitBranch: session.gitBranch,
+    model: session.model,
+    tabTitle: session.tabTitle,
+    tabColor: session.tabColor,
+    createdAt: session.createdAt,
+    registeredAt: session.registeredAt,
+    lastEventAt: session.lastEventAt,
+    endedAt: session.endedAt,
+    endReason: session.endReason,
+    lastMessage: session.lastMessage,
+    needsYouMessage: session.needsYouMessage,
+  };
+}
+
 export function applyAgentSessionPatch(db: Database.Database, id: number, patch: AgentSessionPatch): void {
   const keys = (Object.keys(patch) as (keyof AgentSessionPatch)[]).filter((key) => patch[key] !== undefined);
   if (keys.length === 0) return;

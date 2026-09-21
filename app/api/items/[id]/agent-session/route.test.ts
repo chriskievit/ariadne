@@ -61,6 +61,16 @@ describe('POST /api/items/[id]/agent-session', () => {
     expect(body.warpUrl).toBe(`warp://tab_config/ariadne-session-${sessions[0].id}`);
   });
 
+  // The token exists so a hook can prove which session it belongs to. A
+  // browser reading this response never needs it, and phase 2 does put
+  // these responses in a browser.
+  it('does not return the launch token', async () => {
+    const res = await post(itemId);
+    const body = await res.json();
+
+    expect(body.session.launchToken).toBeUndefined();
+  });
+
   it('writes a tab config whose command points at this session\'s hook settings', async () => {
     await post(itemId);
     const session = listAgentSessions(testDb)[0];

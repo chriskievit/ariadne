@@ -7,7 +7,7 @@ import { getSetting } from '@/lib/settings-repo';
 import { localDateString } from '@/lib/date';
 import { SETTINGS_KEYS, DEFAULT_AGENT_HOOK_BASE_URL } from '@/lib/config';
 import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
-import { createAgentSession, applyAgentSessionPatch } from '@/lib/agent-sessions-repo';
+import { createAgentSession, applyAgentSessionPatch, toPublicAgentSession } from '@/lib/agent-sessions-repo';
 import { getAgentDefinition, DEFAULT_AGENT } from '@/lib/agents';
 import { writeHookSettings } from '@/lib/agent-hooks-config';
 import { sessionTabTitle, sessionWarpUrl, writeSessionTabConfig, AGENT_TAB_COLOR } from '@/lib/agent-launch';
@@ -120,5 +120,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     reorderPlanItems(db, today, [id, ...todayPlanItems.filter((pi) => pi.itemId !== id).map((pi) => pi.itemId)]);
   }
 
-  return NextResponse.json({ session, warpUrl: sessionWarpUrl(session.id) });
+  // launchToken is the hook credential; a client rendering this response
+  // never needs it, and phase 2 puts these responses in a browser where a
+  // leaked token would matter a lot more than it does today.
+  return NextResponse.json({ session: toPublicAgentSession(session), warpUrl: sessionWarpUrl(session.id) });
 }
