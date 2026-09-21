@@ -16,10 +16,25 @@ const WORK_POLL_INTERVAL_MS = 5000;
 export default function WatchFloor({ initialSessions }: { initialSessions: SessionListEntry[] }) {
   const [sessions, setSessions] = useState<SessionListEntry[]>(initialSessions);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // When the current run of failed polls began, or null while polling is
+  // healthy. A timestamp rather than a boolean so a second and third failure
+  // in a row do not each restart the clock on how long the view has been
+  // stale -- not that anything reads the value yet beyond "is it set".
+  const [staleSince, setStaleSince] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
-    const data = await fetchAgentSessions();
-    setSessions(data.sessions);
+    try {
+      const data = await fetchAgentSessions();
+      setSessions(data.sessions);
+      setStaleSince(null);
+    } catch {
+      // The dev server restarting is the everyday cause of this, and polling
+      // must keep going so the rail recovers on its own the moment it is
+      // back -- a failed poll is exactly the situation that must not stop
+      // future polls. Silent otherwise: the marker below is the whole
+      // surface for this, per the phase's scope (no toast, no retry button).
+      setStaleSince((since) => since ?? Date.now());
+    }
   }, []);
 
   useEffect(() => {
@@ -63,6 +78,11 @@ export default function WatchFloor({ initialSessions }: { initialSessions: Sessi
 
   return (
     <main className="mx-auto max-w-6xl p-6">
+      {staleSince !== null && (
+        <p role="status" className="mb-4 text-xs text-warning">
+          This isn&apos;t updating right now. Ariadne will catch up on its own once it can reach the server again.
+        </p>
+      )}
       <div className="flex flex-col gap-6 sm:grid sm:grid-cols-[18rem_minmax(0,1fr)] sm:items-start">
         <SessionRosterRail live={live} ended={ended} selectedId={selectedId} onSelect={setSelectedId} />
 

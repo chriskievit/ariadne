@@ -224,5 +224,13 @@ export async function fetchCalibration(start: string, end: string): Promise<Cali
 
 export async function fetchAgentSessions(): Promise<{ sessions: SessionListEntry[] }> {
   const res = await fetch('/api/agent-sessions');
+  // The rail polls this every five seconds forever, so a 500 is routine (the
+  // user restarting their own dev server, most often) rather than exceptional.
+  // Checking res.ok here, before res.json() gets a chance to throw its own
+  // opaque parse error on an empty error body, is what lets the caller tell
+  // "the server is down" apart from "the response was malformed".
+  if (!res.ok) {
+    throw new Error(`Could not load agent sessions (${res.status}).`);
+  }
   return res.json();
 }
