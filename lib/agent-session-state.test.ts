@@ -150,4 +150,22 @@ describe('isNeverRegistered', () => {
     });
     expect(isNeverRegistered(s, NOW)).toBe(false);
   });
+
+  // Five of the six registry agents cannot fire a hook at all: no settings
+  // file is written for them, so silence is simply how they always look.
+  it('is false for a hookless agent stuck in launching, however stale', () => {
+    const s = session({
+      agent: 'codex',
+      createdAt: new Date(NOW.getTime() - LAUNCH_REGISTRATION_TIMEOUT_MS - 1).toISOString(),
+    });
+    expect(isNeverRegistered(s, NOW)).toBe(false);
+  });
+
+  it('is still true for a stale claude session, which does support hooks', () => {
+    const s = session({
+      agent: 'claude',
+      createdAt: new Date(NOW.getTime() - LAUNCH_REGISTRATION_TIMEOUT_MS - 1).toISOString(),
+    });
+    expect(isNeverRegistered(s, NOW)).toBe(true);
+  });
 });

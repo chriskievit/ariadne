@@ -1,5 +1,6 @@
 import type { AgentSession } from './types';
 import type { AgentSessionPatch } from './agent-sessions-repo';
+import { getAgentDefinition } from './agents';
 
 export type HookEventName = 'SessionStart' | 'PreToolUse' | 'PostToolUse' | 'Notification' | 'Stop' | 'SessionEnd';
 
@@ -90,5 +91,12 @@ export function applyHookEvent(session: AgentSession, event: HookEvent, now: Dat
 export function isNeverRegistered(session: AgentSession, now: Date): boolean {
   if (session.state !== 'launching') return false;
   if (session.registeredAt !== null) return false;
+  // A hookless agent (five of the six registry kinds) never writes a
+  // settings file and so can never fire a hook, registered or not. Calling
+  // that session "never registered" would report a healthy agent as failed.
+  // Sitting in 'launching' forever is honest about what Ariadne can see;
+  // 'failed' would be a lie.
+  const definition = getAgentDefinition(session.agent);
+  if (definition?.supportsHooks !== true) return false;
   return now.getTime() - new Date(session.createdAt).getTime() > LAUNCH_REGISTRATION_TIMEOUT_MS;
 }
