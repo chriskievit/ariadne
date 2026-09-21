@@ -62,6 +62,11 @@ describe('sessionTabTitle', () => {
     expect(sessionTabTitle(item({ source: 'adhoc', externalId: null, repo: null, title: 'a"b\nc' })))
       .toBe('abc');
   });
+
+  it('strips backslashes, which would corrupt TOML escape sequences', () => {
+    expect(sessionTabTitle(item({ source: 'adhoc', externalId: null, repo: null, title: 'Fix A\\B routing' })))
+      .toBe('Fix AB routing');
+  });
 });
 
 describe('writeSessionTabConfig', () => {
@@ -104,7 +109,17 @@ describe('writeSessionTabConfig', () => {
         { sessionId: 1, title: 't', color: 'yellow', directory: '/w"\ncommands = ["evil"]', command: 'claude' },
         dir
       )
-    ).toThrow(/must not contain quotes or newlines/);
+    ).toThrow(/must not contain quotes.*newlines/);
+  });
+
+  it('rejects a directory containing a backslash, which would corrupt TOML escape sequences', () => {
+    dir = mkdtempSync(join(tmpdir(), 'ariadne-agent-launch-test-'));
+    expect(() =>
+      writeSessionTabConfig(
+        { sessionId: 1, title: 't', color: 'yellow', directory: '/w/Fix A\\B', command: 'claude' },
+        dir
+      )
+    ).toThrow(/must not contain quotes, backslashes, or newlines/);
   });
 
   // Warp hands the directory and the command to a shell, and bash expands
@@ -142,7 +157,7 @@ describe('writeSessionTabConfig', () => {
     dir = mkdtempSync(join(tmpdir(), 'ariadne-agent-launch-test-'));
     expect(() =>
       writeSessionTabConfig({ sessionId: 1, title: 'a\nb', color: 'yellow', directory: '/w', command: 'claude' }, dir)
-    ).toThrow(/must not contain quotes or newlines/);
+    ).toThrow(/must not contain quotes.*newlines/);
   });
 
   it('rejects a colour outside Warp\'s fixed set, which is a hard parse error in Warp', () => {

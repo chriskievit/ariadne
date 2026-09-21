@@ -16,11 +16,13 @@ const MAX_TAB_TITLE = 32;
 
 function assertTomlSafe(value: string, label: string): void {
   // Values are interpolated unescaped into a TOML file that Warp executes
-  // commands from, so a quote or newline could inject arbitrary keys. Same
-  // guard as lib/warp-launch.ts, applied to every interpolated value here
-  // rather than only the directory.
-  if (/["\n\r]/.test(value)) {
-    throw new Error(`${label} must not contain quotes or newlines.`);
+  // commands from, so a quote, backslash, or newline could inject arbitrary
+  // keys or corrupt values. TOML basic strings treat \ as an escape introducer;
+  // a stray backslash is a parse error, and a recognized escape like \t silently
+  // corrupts the value. Same guard as lib/warp-launch.ts, applied to every
+  // interpolated value here rather than only the directory.
+  if (/["\\\n\r]/.test(value)) {
+    throw new Error(`${label} must not contain quotes, backslashes, or newlines.`);
   }
 }
 
@@ -60,7 +62,7 @@ export function sessionTabTitle(item: Item): string {
   const label = shortLabel(item);
   const parts = [label, item.repo].filter((part): part is string => Boolean(part));
   const raw = parts.length > 0 ? parts.join(' ') : item.title;
-  return raw.replace(/["\n\r]/g, '').slice(0, MAX_TAB_TITLE).trim();
+  return raw.replace(/["\\\n\r]/g, '').slice(0, MAX_TAB_TITLE).trim();
 }
 
 export interface SessionTabConfigInput {
