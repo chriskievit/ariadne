@@ -3,6 +3,7 @@ import { openDb } from './db';
 import { createAdhocItem } from './items-repo';
 import {
   createAgentSession,
+  getActiveAgentSessionForItem,
   getAgentSessionByToken,
   getAgentSessionById,
   listAgentSessions,
@@ -98,5 +99,68 @@ describe('listOpenAgentSessions', () => {
 
     expect(listOpenAgentSessions(db).map((s) => s.id)).toEqual([b.id]);
     expect(listAgentSessions(db).map((s) => s.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe('getActiveAgentSessionForItem', () => {
+  it('finds the session currently occupying a ticket', () => {
+    const session = createAgentSession(db, {
+      itemId,
+      agent: 'claude',
+      launchToken: 'tok-active',
+      tabTitle: 't',
+      tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'working', registeredAt: new Date().toISOString() });
+
+    expect(getActiveAgentSessionForItem(db, itemId)?.id).toBe(session.id);
+  });
+
+  it('ignores a session that has ended, so the ticket can be handed over again', () => {
+    const session = createAgentSession(db, {
+      itemId,
+      agent: 'claude',
+      launchToken: 'tok-ended',
+      tabTitle: 't',
+      tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, {
+      state: 'stopped',
+      endedAt: new Date().toISOString(),
+      endReason: 'closed',
+    });
+
+    expect(getActiveAgentSessionForItem(db, itemId)).toBeUndefined();
+  });
+
+  it('ignores a failed session even though it never ended', () => {
+    // The reconciler marks a never-registered session failed while leaving
+    // ended_at null so a late SessionStart can revive it. If that row
+    // counted as occupying the ticket, an unanswered folder-trust prompt
+    // would lock the ticket out of ever being handed over again.
+    const session = createAgentSession(db, {
+      itemId,
+      agent: 'claude',
+      launchToken: 'tok-never',
+      tabTitle: 't',
+      tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'failed', endReason: 'never_registered' });
+
+    expect(getAgentSessionById(db, session.id)?.endedAt).toBeNull();
+    expect(getActiveAgentSessionForItem(db, itemId)).toBeUndefined();
+  });
+
+  it('does not leak a session belonging to another ticket', () => {
+    const other = createAdhocItem(db, { title: 'Another ticket' }).id;
+    createAgentSession(db, {
+      itemId: other,
+      agent: 'claude',
+      launchToken: 'tok-other',
+      tabTitle: 't',
+      tabColor: 'yellow',
+    });
+
+    expect(getActiveAgentSessionForItem(db, itemId)).toBeUndefined();
   });
 });

@@ -7,7 +7,12 @@ import { getSetting } from '@/lib/settings-repo';
 import { localDateString } from '@/lib/date';
 import { SETTINGS_KEYS, DEFAULT_AGENT_HOOK_BASE_URL } from '@/lib/config';
 import { resolveWorkingDir, listLocalRepos } from '@/lib/warp';
-import { createAgentSession, applyAgentSessionPatch, toPublicAgentSession } from '@/lib/agent-sessions-repo';
+import {
+  createAgentSession,
+  applyAgentSessionPatch,
+  toPublicAgentSession,
+  getActiveAgentSessionForItem,
+} from '@/lib/agent-sessions-repo';
 import { getAgentDefinition, DEFAULT_AGENT } from '@/lib/agents';
 import { writeHookSettings } from '@/lib/agent-hooks-config';
 import { logError } from '@/lib/log';
@@ -51,6 +56,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const agentKind = body.agent ?? (getSetting(db, SETTINGS_KEYS.agentDefault) as AgentKind | null) ?? DEFAULT_AGENT;
   const agent = getAgentDefinition(agentKind);
   if (!agent) return NextResponse.json({ error: 'Unknown agent.' }, { status: 400 });
+
+  // One session per ticket. Returning the existing row rather than a 409
+  // because the caller asked for this ticket to be in an agent's hands and
+  // it already is -- that is the requested state, not an error.
+  //
+  // Deliberately no warpUrl. The tab config runs the agent's command, so
+  // opening it a second time would start a second process reporting under
+  // the same launch token, and Warp cannot focus an existing tab. There is
+  // nothing safe to hand back that would reveal the running session, which
+  // is a gap the session pane has to close.
+  const active = getActiveAgentSessionForItem(db, id);
+  if (active) {
+    return NextResponse.json({ session: toPublicAgentSession(active), existing: true });
+  }
 
   const launchToken = newLaunchToken();
   const session = createAgentSession(db, {
