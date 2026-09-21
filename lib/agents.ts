@@ -1,5 +1,12 @@
 import type { AgentKind } from './types';
 
+// Client components reach this module *by value* through
+// agent-session-display.ts (agentStateDisplay, sessionFidelity both call
+// getAgentDefinition), so it ends up in the browser bundle. Keep it free of
+// node built-ins and anything else that only makes sense on a server --
+// filesystem probes and the like belong in agent-detect.ts instead. tsc and
+// vitest will not catch a violation of this; only `npm run build` will.
+
 export interface BuildCommandOptions {
   // Path to a per-session settings file, for agents that can take one.
   settingsPath: string | null;
@@ -52,21 +59,4 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
 
 export function getAgentDefinition(kind: AgentKind): AgentDefinition | undefined {
   return AGENT_DEFINITIONS.find((agent) => agent.kind === kind);
-}
-
-/**
- * Which agents are installed, in registry order.
- *
- * Takes the PATH string and an existence predicate rather than reading the
- * filesystem itself, so the probe is testable without a fixture tree.
- */
-export function detectInstalledAgents(pathEnv: string, exists: (candidate: string) => boolean): AgentKind[] {
-  const dirs = pathEnv.split(':').filter(Boolean);
-  // A plain join, not node:path: PATH is already parsed as POSIX (split on
-  // ':'), and this module is imported by value from client components
-  // through agent-session-display.ts, so pulling in a node built-in here
-  // would break that bundle for the one function that needs it least.
-  return AGENT_DEFINITIONS.filter((agent) =>
-    dirs.some((dir) => exists(`${dir.replace(/\/+$/, '')}/${agent.binary}`))
-  ).map((agent) => agent.kind);
 }
