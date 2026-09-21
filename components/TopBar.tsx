@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
 import { useKeymapHelp } from '@/components/KeymapHelpProvider';
+import ModeSwitch from '@/components/ModeSwitch';
 import RunningTimerChip from '@/components/RunningTimerChip';
 import { useRunningTimer } from '@/components/RunningTimerProvider';
 import { toast } from '@/components/ui/sonner';
@@ -55,7 +56,12 @@ export default function TopBar() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
+      {/* Five columns, not four: the mode switch joins the timer chip and
+          the search field in the centre cluster rather than crowding the
+          logo, because a left column carrying both the lockup and the
+          switch would outgrow the action cluster opposite it and drag the
+          whole cluster off centre. */}
+      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[1fr_auto_auto_minmax(0,20rem)_1fr] items-center gap-4 px-6">
         <Link
           href="/"
           className="group flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -69,6 +75,8 @@ export default function TopBar() {
             className="h-8 w-auto transition-transform motion-safe:group-hover:scale-[1.03]"
           />
         </Link>
+
+        <ModeSwitch />
 
         <RunningTimerChip
           runningTimer={runningTimer}
