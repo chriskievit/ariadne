@@ -7,8 +7,9 @@ colors:
   surface: "hsl(240 5.9% 10%)"
   surface-raised: "hsl(240 3.7% 15.9%)"
   muted-ink: "hsl(240 5.5% 64.3%)"
-  indigo-focus: "hsl(243 75% 65%)"
-  indigo-focus-ink: "hsl(0 0% 100%)"
+  azure-focus: "hsl(214 90% 46%)"
+  azure-focus-ink: "hsl(0 0% 100%)"
+  azure-link: "hsl(214 90% 66%)"
   threadline-gold: "hsl(41.4 53.8% 54.1%)"
   signal-red: "hsl(358.8 100% 69.6%)"
   signal-red-ink: "hsl(0 0% 98%)"
@@ -20,6 +21,7 @@ colors:
   urgency-critical-ink: "hsl(0 0% 8%)"
   slate-neutral: "hsl(240 5% 65%)"
   border-hairline: "hsl(0 0% 100% / 10%)"
+  input-hairline: "hsl(0 0% 100% / 15%)"
   ring-default: "hsl(240 4.2% 46.3%)"
   series-github: "hsl(212.8 76.8% 56.1%)"
   series-ado: "hsl(159.2 72.7% 35.9%)"
@@ -62,15 +64,17 @@ spacing:
   gap-sm: "0.5rem"
   gap-md: "0.75rem"
   gap-lg: "1.5rem"
+  page-gutter: "1.5rem"
+  topbar-height: "4rem"
 components:
   button-primary:
-    backgroundColor: "{colors.indigo-focus}"
-    textColor: "{colors.indigo-focus-ink}"
+    backgroundColor: "{colors.azure-focus}"
+    textColor: "{colors.azure-focus-ink}"
     rounded: "{rounded.md}"
     padding: "0.5rem 1rem"
     height: "2.25rem"
   button-primary-hover:
-    backgroundColor: "{colors.indigo-focus}"
+    backgroundColor: "{colors.azure-focus}"
   button-outline:
     backgroundColor: "{colors.backdrop}"
     textColor: "{colors.ink}"
@@ -82,6 +86,11 @@ components:
     textColor: "{colors.muted-ink}"
     rounded: "{rounded.md}"
     height: "2.25rem"
+  button-link:
+    backgroundColor: "{colors.backdrop}"
+    textColor: "{colors.azure-link}"
+    rounded: "{rounded.md}"
+    height: "2.25rem"
   badge-outline:
     backgroundColor: "{colors.backdrop}"
     textColor: "{colors.ink}"
@@ -90,6 +99,11 @@ components:
   badge-critical:
     backgroundColor: "{colors.urgency-critical}"
     textColor: "{colors.urgency-critical-ink}"
+    rounded: "{rounded.md}"
+    padding: "0.125rem 0.625rem"
+  badge-success:
+    backgroundColor: "{colors.success-green}"
+    textColor: "{colors.success-green-ink}"
     rounded: "{rounded.md}"
     padding: "0.125rem 0.625rem"
   card:
@@ -108,6 +122,16 @@ components:
     typography: "{typography.mono}"
     height: "1.25rem"
     width: "1.5rem"
+  segmented-track:
+    backgroundColor: "{colors.backdrop}"
+    rounded: "{rounded.md}"
+    padding: "0.125rem"
+    height: "2.25rem"
+  segmented-thumb:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sm}"
+    padding: "0 0.75rem"
   disclosure-toggle:
     backgroundColor: "{colors.backdrop}"
     textColor: "{colors.muted-ink}"
@@ -121,13 +145,13 @@ components:
 
 **Creative North Star: "The Night Instrument Panel"**
 
-Ariadne reads like calm cockpit instrumentation, not a productivity app trying to earn a click. The surface sits in near-black by default (`enableSystem: false`, `defaultTheme: "dark"` — dark is not a preference toggle here, it is the intended resting state), so nothing on screen is competing for brightness. Precise mono numerals report scores, sprint counts, and elapsed time the way a gauge reports a reading: exact, tabular, unemotional. Color is an instrument, not decoration — indigo is reserved exclusively for things you can act on (buttons, links, focus), and a single warm gold thread, echoing the product's namesake myth, marks the thread you are on right now: identity, the running timer, and the day you have committed to. The type scale barely moves; hierarchy comes from weight and restraint, not size jumps, because a dense attention-triage surface earns its calm from what it refuses to shout about.
+Ariadne reads like calm cockpit instrumentation, not a productivity app trying to earn a click. The surface sits in near-black by default (`enableSystem: false`, `defaultTheme: "dark"` — dark is not a preference toggle here, it is the intended resting state), so nothing on screen is competing for brightness. Precise mono numerals report scores, sprint counts, and elapsed time the way a gauge reports a reading: exact, tabular, unemotional. Color is an instrument, not decoration — one azure, the cool complement of the gold, is reserved exclusively for things you can act on (buttons, links, focus), and a single warm gold thread, echoing the product's namesake myth, marks the thread you are on right now: identity, the running timer, and the day you have committed to. The type scale barely moves; hierarchy comes from weight and restraint, not size jumps, because a dense attention-triage surface earns its calm from what it refuses to shout about.
 
 This is a deliberate rejection of the SaaS-dashboard palette-soup default: no gradient hero, no rainbow of status colors, no drop shadows pretending the interface is a stack of physical cards. The instrument-panel read only works if the panel stays quiet almost everywhere so the two or three signals that matter (a critical urgency chip, a stale-sync warning) can actually read as urgent.
 
 **Key Characteristics:**
 - Dark-first, near-black backdrop as the default resting state, not an alternate theme
-- Indigo is interactive-only — it never appears as a status, urgency, or decorative color
+- Azure is interactive-only — it never appears as a status, urgency, or decorative color
 - One brand accent (Threadline Gold), reserved for identity and for "this is your thread, live right now" — never for a source-reported state
 - Mono, tabular-nums numerals for every instrument reading (scores, counts, elapsed time)
 - A flat scale: hierarchy comes from weight and color restraint, not dramatic size changes
@@ -138,23 +162,29 @@ This is a deliberate rejection of the SaaS-dashboard palette-soup default: no gr
 The palette reads as three tiers: a near-monochrome backdrop, one interactive hue, and a small, urgency-only accent set that only fires when something needs attention.
 
 ### Primary
-- **Indigo Focus** (`hsl(243 75% 65%)` dark / `hsl(243 75% 59%)` light): The only interactive color in the system. Buttons' default variant, links, focus rings (`focus-visible:ring-ring`), and nothing else. Confirmed in code comments in `ScoreChip.tsx` and `ItemRow.tsx`: "Indigo never appears here — that channel is interactive-only." Never use it for a status pill, urgency chip, or any non-actionable signal.
+- **Azure Focus** (`--primary`, `hsl(214 90% 46%)` dark / `hsl(214 88% 42%)` light): The only interactive color in the system. Buttons' default variant, the filled badge, the progress bar, the pick checkboxes in the suggestion panel, and nothing else. Confirmed in code comments in `ScoreChip.tsx` and `ItemRow.tsx`: "Azure never appears here — that channel is interactive-only." Never use it for a status pill, urgency chip, or any non-actionable signal.
+
+  The hue is chosen, not inherited: 214 is the color-wheel complement of Threadline Gold's 41, so the panel's one warm accent has exactly one cool counterpart and the two never read as a palette. It also sits far from every state hue in the system (red 358, amber 38, green 142), which is what keeps an interactive control from being misread as an urgency band. The one adjacency worth knowing about is the GitHub report series at 212.8; the two are close in hue but never share a screen, since categorical color is confined to `/report` and a filled primary control is not.
+
+- **Azure Link** (`--link`, `hsl(214 90% 66%)` dark / `hsl(214 88% 42%)` light): The same hue at the lightness interactive *text* needs. This is a deliberate two-value token, not drift: a fill dark enough to carry white label text at 4.5:1 is too dark to read as text against the near-black backdrop, and a text color light enough for the backdrop cannot carry white text as a fill. No single value satisfies both, so the fill and the text are separate tokens of one hue. Every `text-primary` link in the app was moved to `text-link` for this reason: the score chip's scoring link, the two Signals disclosure links, the Needs-you popover, the row's source link, and the `Button` `link` variant. A new interactive *text* color is `text-link`; a new interactive *surface* is `bg-primary`.
 
 ### Secondary
 - **Threadline Gold** (`hsl(41.4 53.8% 54.1%)`): The one constant brand accent, identical in light and dark mode (defined once on `:root`, never overridden). It carries two related jobs and no others, both versions of the same idea — the thread you are currently holding:
   1. **Identity.** Baked into the brand lockup artwork (`public/brand/ariadne-banner.png` and the app icons), and the focus ring on the two pieces of chrome adjacent to identity (the logo link and the search trigger, `TopBar.tsx`). These are the only two focus rings in the app that are not the neutral ring.
-  2. **Your thread, live.** The pulsing dot on a running timer (`RunningTimerChip.tsx`, `ItemRow.tsx`), the left edge of the Today card (`TodaySection.tsx`), and the capacity figure for the day you have committed to (`TodaySection.tsx`, `PlanDayDialog.tsx`). The search-match highlight (`<mark>` in `ItemRow.tsx`, at 30% alpha) belongs here too: it marks the row you are currently looking for.
+  2. **Your thread, live.** The pulsing dot on a running timer (`RunningTimerChip.tsx`, `ItemRow.tsx`), the left edge of the Today card (`TodaySection.tsx`, a 2px `border-l`), and the capacity figure for the day you have committed to (`TodaySection.tsx`, `PlanDayDialog.tsx`, `SuggestPanel.tsx`). The search-match highlight (`<mark>` in `ItemRow.tsx`, at 30% alpha) belongs here too: it marks the row you are currently looking for.
 
   What unites the second group is that none of it is reported by GitHub or Azure DevOps. It is all local, present-tense, and yours: the timer that is running, the day you chose, the row you are hunting. Source-reported state never gets gold — that is what Amber Watch and Signal Red are for.
 
 ### Tertiary
-- **Amber Watch** (`hsl(38 92% 55%)`): Warning, staleness, and the "high" urgency band. Shared value doubles as `--warning` and `--urgency-high` — one hue for "needs attention soon."
-- **Signal Red** (`hsl(358.8 100% 69.6%)` destructive / `hsl(358 75% 59%)` urgency-critical, distinct tunings of the same hue): Destructive actions and the "critical" urgency band.
-- **Success Green** (`hsl(142 71% 45%)`): Defined on the `Badge` component (`variant="success"`). Reserved for exactly one meaning: "this is saved or done and needs no action," never for a status that demands attention. It has two examined uses, each admitted against the Two-Band/color-scarcity rule below rather than by default:
+- **Amber Watch** (`hsl(38 92% 55%)` dark / `hsl(38 92% 50%)` light): Warning, staleness, and the "high" urgency band. Shared value doubles as `--warning`, `--urgency-high`, and `--status-blocked` — one hue for "needs attention soon."
+- **Signal Red** (destructive `hsl(358.8 100% 69.6%)` dark / `hsl(357.1 100% 45.3%)` light; urgency-critical `hsl(358 75% 59%)` dark / `hsl(358 75% 46%)` light — distinct tunings of the same hue): Destructive actions and the "critical" urgency band.
+- **Success Green** (`hsl(142 71% 45%)` dark / `hsl(142 71% 35%)` light): Defined on the `Badge` component (`variant="success"`). Reserved for exactly one meaning: "this is saved or done and needs no action," never for a status that demands attention. It has three examined uses, each admitted against the Two-Band/color-scarcity rule below rather than by default:
   1. The "Token saved" indicator per integration on the Settings page (`SettingsForm.tsx`). Settings is a low-traffic configuration surface, not the dashboard's attention-triage view, so a quiet affirmative marker there doesn't compete with or dilute the urgency bands' scarcity.
   2. The settled check on the score chip (`ScoreChip.tsx`, driven by `lib/settled.ts`), which fires when the source system has finished an item that Ariadne, being read-only, still shows as open. This one does appear on the dashboard, and it is admitted anyway because it is the literal reserved meaning: the chip stops reporting a live urgency reading and reports "done, nothing left to do here." It cannot compete with the urgency bands because it replaces one — a row shows the check or a score, never both. The `gone` outcome (an ADO work item set to Removed) deliberately does **not** get the green: it left your plate without being finished, so it takes the neutral low-band treatment instead. Green here means you got it over the line.
 
-  A third use needs the same examination, and specifically needs to answer why it isn't competing with the urgency bands.
+  3. The Azure DevOps status pill when the work item's own state reads as finished (`adoStatusVariant()` in `lib/status-pill.ts`, matching `ADO_FINISHED_PATTERN`). This one is admitted because it adds no new green claim to the row: the pattern it matches is the same one `lib/settled.ts` uses to put the settled check on the score chip, so the green pill and the green check appear together or not at all. It labels the fact the chip is already reporting rather than introducing a second affirmative signal, and the file says so in its own comment — the two "must not drift apart." The `gone` branch stays consistent with the chip here too: a Removed work item takes `destructive`, not green.
+
+  A fourth use needs the same examination, and specifically needs to answer why it isn't competing with the urgency bands.
 
 - **Report series** (`hsl(212.8 76.8% 56.1%)` GitHub / `hsl(159.2 72.7% 35.9%)` Azure DevOps / `hsl(39.7 100% 39.4%)` ad-hoc): Three categorical hues, used only on the time-report charts (`ReportDashboard.tsx`, Recharts pie and bar). They identify a source, not a state, and they exist only on `/report` — a surface you go to deliberately rather than triage against. Keeping them off the dashboard is what stops the palette from reading as a rainbow where scarcity matters. Note the ad-hoc series sits close to Amber Watch in hue; that collision is tolerable only because the two never share a screen.
 
@@ -163,14 +193,15 @@ The palette reads as three tiers: a near-monochrome backdrop, one interactive hu
 - **Ink** (`hsl(0 0% 98%)` dark / `hsl(240 10% 3.9%)` light): Primary text.
 - **Surface** (`hsl(240 5.9% 10%)` dark / `hsl(0 0% 100%)` light): Cards, popovers, dialogs — one step off the backdrop.
 - **Surface Raised** (`hsl(240 3.7% 15.9%)` dark): Secondary buttons, muted backgrounds, hover accents — one step further off the backdrop.
-- **Muted Ink** (`hsl(240 5.5% 64.3%)`): Secondary text, metadata, timestamps, and every disclosure control.
+- **Muted Ink** (`hsl(240 5.5% 64.3%)` dark / `hsl(240 4.2% 46.3%)` light): Secondary text, metadata, timestamps, and every disclosure control.
 - **Slate Neutral** (`hsl(240 5% 65%)` dark / `hsl(240 5% 45%)` light): The "medium" and "low" urgency bands, and the neutral status pill. Deliberately colorless so only the top two urgency bands compete for attention.
-- **Border Hairline** (`hsl(0 0% 100% / 10%)` dark / `hsl(240 5.9% 90%)` light): Row dividers, card borders. An alpha-over-ink hairline in dark mode, not a separate flat gray.
+- **Border Hairline** (`--border`, `hsl(0 0% 100% / 10%)` dark / `hsl(240 5.9% 90%)` light): Row dividers, card borders, and the seam inside the segmented control. An alpha-over-ink hairline in dark mode, not a separate flat gray.
+- **Input Hairline** (`--input`, `hsl(0 0% 100% / 15%)` dark / `hsl(240 5.9% 90%)` light): The outline of anything that takes input — fields, the outline button, the search trigger, the segmented control's track. Half a step brighter than Border Hairline in dark mode, and identical to it in light mode, so a control's edge reads as an affordance against the backdrop without a structural divider having to shout. The two are one value in light mode and two in dark; use `border-input` for a control and `border-border` for a seam, whichever mode you are designing in.
 
 ### Named Rules
-**The Interactive-Only Rule.** Indigo Focus is the sole signal for "you can act on this." It never labels a state, a category, or an urgency level. If a new component needs a color for a clickable thing, it's this one; if it needs a color for a status, it's never this one.
+**The Interactive-Only Rule.** Azure Focus is the sole signal for "you can act on this." It never labels a state, a category, or an urgency level. If a new component needs a color for a clickable thing, it's this one; if it needs a color for a status, it's never this one.
 
-**The One Thread Rule.** Threadline Gold marks the thread you are on, and nothing else: the brand lockup and its two identity-adjacent focus rings, plus the four present-tense local signals (running-timer pulse, the Today card's edge, today's capacity figure, the search match). The test for a new gold element is one question: *is this fact local, present-tense, and mine?* A figure GitHub or Azure DevOps reported is never gold, however important. Nor is a generic interactive control — that is Indigo Focus's job.
+**The One Thread Rule.** Threadline Gold marks the thread you are on, and nothing else: the brand lockup and its two identity-adjacent focus rings, plus the four present-tense local signals (running-timer pulse, the Today card's edge, today's capacity figure, the search match). The test for a new gold element is one question: *is this fact local, present-tense, and mine?* A figure GitHub or Azure DevOps reported is never gold, however important. Nor is a generic interactive control — that is Azure Focus's job.
 
 **The Two-Band Rule.** Of the four urgency bands, only Critical and High are filled with color; Medium is an outline in a neutral hue and Low has no border at all. Visual weight must always fall off in the same direction as the score. A design that fills all four bands with color has broken the thesis that attention should be scarce.
 
@@ -195,11 +226,13 @@ The palette reads as three tiers: a near-monochrome backdrop, one interactive hu
 
 ## Layout
 
-A single dense information surface, not a marketing-style spacious one. The dashboard is one continuous column of sections and rows inside a `max-w-6xl` centered container; the top bar spans full width with a fixed 4-column grid (logo / running-timer chip / search trigger / actions) at a 16px horizontal page gutter (`px-6`).
+A single dense information surface, not a marketing-style spacious one. Both the dashboard (`Dashboard.tsx`) and the top bar (`TopBar.tsx`) center on a `max-w-6xl` container at a 24px horizontal page gutter (`p-6` / `px-6`), so the bar's contents line up with the column beneath it even though the bar itself is full-bleed. The bar is a fixed four-column grid, `1fr auto minmax(0,20rem) 1fr` at 4rem tall: logo, running-timer chip, search trigger, actions. The two outer `1fr` columns are what keep the timer chip and the search field centered as a pair regardless of how wide the action cluster grows.
 
-Row density is a first-class, user-facing setting with exactly two states, both on a 4px grid: **comfortable** (2.75rem/44px = 11 × 4px) and **compact** (2.25rem/36px = 9 × 4px). Row height is fixed per mode so content can never reflow it; below the `sm` breakpoint (640px, the only breakpoint the system uses) rows wrap onto two lines instead of shrinking further. Sections stack vertically with `border-b` hairline dividers between rows rather than card gaps — the list itself is the container, individual rows are not cards.
+Row density is a first-class, user-facing setting with exactly two states, both on a 4px grid: **comfortable** (2.75rem/44px = 11 × 4px) and **compact** (2.25rem/36px = 9 × 4px). Row height is fixed per mode so content can never reflow it; below the `sm` breakpoint (640px) rows wrap onto two lines instead of shrinking further. Sections stack vertically with `border-b` hairline dividers between rows rather than card gaps — the list itself is the container, individual rows are not cards.
 
-Responsive behavior is mobile-down, not mobile-up: the row-actions cluster is always visible on touch (`opacity-100`) but recedes to `opacity-60` on hover-capable pointers until hover or focus, since a hidden-until-hover affordance only makes sense where hovering is possible.
+`sm` is the only breakpoint the layout uses. The one other breakpoint in the codebase is `md:text-sm` on `Input` and `Textarea`, the stock 16px-on-mobile rule that stops iOS zooming a focused field; it is a field-level fix, not a layout tier, and new work should not read it as an invitation to add one.
+
+Responsive behavior is mobile-down, not mobile-up: the row-actions cluster is always visible at narrow widths (`opacity-100`) and recedes to `opacity-60` from `sm` up, rising to full on `group-hover` or `group-focus-within`. Note that the gate is viewport width, not pointer capability — there is no `hover: hover` media query — so a wide touch screen gets the receded treatment. That is a deliberate simplification rather than an oversight: the recede is 60% opacity, not `display: none`, so the actions stay visible and tappable either way, and width is the signal that actually correlates with having room for them.
 
 Long lists are cut rather than scrolled: an obligation group renders its highest-scoring rows and collapses the remainder behind a disclosure control. The cut is a visual rule with a semantic constraint — see the Disclosure Control component and `lib/grouping.ts`.
 
@@ -224,15 +257,19 @@ Borders are hairline and low-contrast (`hsl(0 0% 100% / 10%)` in dark mode — a
 
 ### Buttons
 - **Shape:** `0.375rem` radius (rounded-md), consistent across all variants.
-- **Primary:** Indigo Focus background, white text, subtle shadow, `hover:bg-primary/90`. Reserved for the one clearly-primary action per context (Complete, the command-palette invocation is a ghost button, not this).
+- **Primary:** Azure Focus background, white text, subtle shadow, `hover:bg-primary/90`. Reserved for the one clearly-primary action per context (Complete, the command-palette invocation is a ghost button, not this).
 - **Outline / Ghost:** Transparent or backdrop background, Ink or Muted Ink text, hairline border on outline only. This is the default for row actions (Start, Complete on `ItemRow`) — deliberately not the filled Primary treatment, since every row's action competes with every other row's, and filling all of them would break the Two-Band attention gradient at the button level too.
-- **Sizes:** `h-9` default / `h-8` small / `h-10` large / `h-9 w-9` icon-only. Density mode can push a button to `h-11` inline (see comfortable row height).
+- **Link:** Azure Link text, `underline-offset-4`, underline on hover, no fill and no border. The only `Button` variant that carries the text value of the interactive hue rather than the fill value, for the reason given under Azure Link. A link that sits inside body copy is usually a bare `<button className="text-link">` instead; this variant is for a link that has to line up in a row of buttons.
+- **Sizes:** `h-9` default / `h-8` small (`px-3 text-xs`) / `h-10` large (`px-8`) / `h-9 w-9` icon-only. Density mode can push a button to `h-11` inline (see comfortable row height).
+- **Focus:** `ring-1 ring-ring` with `ring-offset-2 ring-offset-background`, so the ring sits outside the button rather than on it. The offset is load-bearing, not decoration: the ring is pinned to the neutral hue by the Named Rules, and a neutral hairline drawn on top of the filled Primary variant disappears into the fill. Offset against the backdrop it reads at full contrast on every variant without borrowing Azure Focus or Threadline Gold.
 - **Not for disclosure.** A `Button` of any variant is the wrong primitive for expanding or collapsing a list; that has its own pattern below.
 
 ### Score Chip (signature component)
 The system's most distinctive custom primitive, not a shadcn default. A small (`h-5`, `min-w-6`) mono, tabular-nums button, `0.25rem` radius, that opens a popover breakdown of exactly which scoring rules fired. Fill and border follow the Two-Band Rule: Low is borderless text, Medium is a neutral 2px outline, High and Critical are filled with Amber Watch / Signal Red respectively using dark ink (never white) as the foreground, per the paired `*-foreground` tokens. This is the component that makes "transparent, not opaque" a visible, clickable fact rather than a claim in the README.
 
 **Settled state.** When the source system has closed an item Ariadne still shows as open, the chip stops reporting a number and reports the outcome instead: a `Check` glyph on Success Green for `finished`, a `Minus` glyph in the neutral low-band treatment for `gone`. The score stays fully inspectable in the popover underneath. A row shows a reading or an outcome, never both.
+
+**Focus.** The chip is the one control that departs from the button focus treatment: `ring-2 ring-ring ring-offset-1` rather than `ring-1 ring-offset-2`. At `h-5` a 1px ring two pixels out reads as a smudge beside the row's own hairlines, so the ring is doubled and pulled in tight against the chip. Same neutral hue, same offset-against-backdrop principle, tuned for a 20px target.
 
 ### Disclosure Control (signature pattern)
 The house grammar for "there is more here, and here is exactly how much." Used in three places — `Snoozed · 3` and a group's `Lower scoring · 4` in `SignalsBoard.tsx`, and `Paused · 2` in `ItemSection.tsx` — and it must be used for any fourth.
@@ -241,12 +278,13 @@ The house grammar for "there is more here, and here is exactly how much." Used i
 - **Type:** Micro (`text-xs font-medium`) in Muted Ink, rising to Ink on hover. It is subordinate to every row it sits under and must never carry the visual weight of the content it hides.
 - **Label:** a state, then an interpunct, then the count in the mono/tabular register: `Paused · 2`. The label names *what* the hidden rows are, not the act of revealing them. "Show more" is not a state and is not an acceptable label.
 - **Semantics:** `aria-expanded` plus `aria-controls` pointing at the wrapper `div` that holds the collapsed rows, which carries the matching `id`. Toggles both ways, always; a one-way expansion is a defect.
-- **Keyboard:** carries `data-row-nav` so `j`/`k` row navigation stops on it (`GlobalKeymapProvider.tsx`) rather than stepping over the rows it hides. Enter and Space activate it natively.
+- **Keyboard:** should carry `data-row-nav` so `j`/`k` row navigation stops on it (`GlobalKeymapProvider.tsx`) rather than stepping over the rows it hides. Enter and Space activate it natively. **Only `Lower scoring` currently does.** `Snoozed` (`SignalsBoard.tsx`) and `Paused` (`ItemSection.tsx`) are reachable by Tab but invisible to `j`/`k`, so a keyboard user walking the list with `j` steps straight past them and never learns the rows exist. Treat the attribute as required on all three; two of them are outstanding.
 - **The count is a promise.** A group's header pill shows the true total; the disclosure accounts for the difference. If a cut would separate two rows the ranking scores identically, the cut moves rather than the truth (`visibleCount()` in `lib/grouping.ts`) — hiding one row while showing its equal claims a rank the score does not have.
 
 ### Badges / Pills
 - **Style:** `0.375rem` radius, `border`, `text-xs font-semibold`, one badge per row maximum (see `ItemRow`'s inline-badge precedence logic — extra reason pills move to a hover-card rather than piling up).
-- **State:** `outline` is the default/neutral treatment for reason pills (approved, mentioned, review-requested); filled variants (`destructive`, `warning`, `blocked`, `success`) are reserved for states that demand action or, for `success`, the one affirmative meaning documented under Success Green.
+- **State:** `outline` is the default/neutral treatment for reason pills (approved, mentioned, review-requested); filled variants (`destructive`, `warning`, `blocked`, `success`) are reserved for states that demand action or, for `success`, the one affirmative meaning documented under Success Green. `secondary` is the quiet middle case — Surface Raised fill, no hue — used for an Azure DevOps state that reads as in-flight (`active`, `committed`, `doing`, `in progress`). It is a fill without a signal, which is exactly right for "someone is on this and nothing is being asked of you."
+- **Not the `default` variant.** `Badge variant="default"` is Azure Focus and must not be used for a status; `lib/status-pill.ts` says so in its own comment. It exists because shadcn ships it.
 
 ### Cards / Containers
 - **Corner Style:** `0.75rem` radius (rounded-xl), the largest radius in the system.
@@ -257,16 +295,24 @@ The house grammar for "there is more here, and here is exactly how much." Used i
 
 ### Inputs / Fields
 - **Style:** `0.375rem` radius, hairline border, transparent/backdrop background, `shadow-sm`.
-- **Focus:** `ring-1 ring-ring` — the neutral focus ring, not Indigo Focus and not Threadline Gold; those two are reserved per the Named Rules above.
+- **Focus:** `ring-1 ring-ring` — the neutral focus ring, not Azure Focus and not Threadline Gold; those two are reserved per the Named Rules above.
 - **Error:** Signal Red text below the field, not a red border on the field itself.
 
 ### Segmented Control
-`SegmentedChoice.tsx`, the shared primitive for **a value the user sets by hand**, as opposed to one a source reported. A radiogroup of adjacent segments; the selected segment carries full opacity and the unselected ones drop to 60%, with an optional readout beside each label in the mono/tabular register. Selection is signalled by opacity and weight, not by a fill, so it stays visually quieter than any urgency band — the urgency channel belongs to the score chip, and a coloured control here would read as a fifth band and break the Two-Band Rule. One tab stop, arrow keys to move, per the radiogroup pattern.
+`SegmentedChoice.tsx`, the shared primitive for **a value the user sets by hand**, as opposed to one a source reported. A radiogroup of adjacent segments, with an optional readout beside each label in the mono/tabular register. Selection is signalled by weight, dimming (unselected segments drop to 80%) and one neutral step of fill, never by hue — the urgency channel belongs to the score chip, and a coloured control here would read as a fifth band and break the Two-Band Rule. One tab stop, arrow keys to move, per the radiogroup pattern.
+
+**Track and thumb, one outline.** The frame is a track: a single hairline `border-input` outline around the whole control, `h-9`, with `p-0.5` of padding. The selected segment is a `bg-accent` thumb at `rounded-sm` filled *within* that gutter, so the fill never touches the frame. This is the rule that matters, because the alternative fails visibly: with the fill running to the container's edge, a selected first or last segment erases the frame's own border along two sides and the control reads as one lopsided filled cell hanging out of a box rather than as a selection inside a track.
+
+**Segments carry no borders.** A per-segment divider at the same weight as the container turns one control into a grid of buttons. Instead a hairline seam (`bg-border`, `inset-y-1`, 1px) is drawn between two neighbours only when *both* are unselected — the thumb's fill already separates the selected segment from whatever sits beside it, so a seam there would double the boundary. The seam is inset from the track's top and bottom so it reads as a division inside one object.
+
+**Label and readout are centred as a pair.** The two share a baseline inside an inner `inline-flex items-baseline`, and that block is then centred in the segment, so a segment with a readout sits at the same height as one without.
+
+**Focus is inset.** `ring-1 ring-ring ring-inset` on the segment, not the offset ring the buttons use. A segment has neighbours on both sides and a track edge 2px away, so an offset ring would either collide with the next segment or spill over the frame; drawn inside the segment's own box it lands cleanly whichever notch has focus. This is the third and last focus treatment in the system — offset for buttons and fields, tight-and-doubled for the score chip, inset here — and each one is a response to the target's size and surroundings, not a free choice.
 
 Three consumers, and the rationale is the same in all three:
 - **Priority** (`PrioritySegments.tsx`): the ad-hoc item's hand-set priority, `low`/`medium`/`high`, each showing its point contribution (`+0`, `+20`, `+40`). Clearable, because "I haven't decided" is a real state and the one every item starts in.
 - **Suggestion algorithm** (`SuggestPanel.tsx`): Urgency first / Quick wins / Balanced, no readout, filling the panel's width.
-- **Suggestion lean** (`SuggestPanel.tsx`): five notches, each stating the whole split it produces (`80/20` … `20/80`) rather than one side of it. A bare `20` sitting next to the "PRs" axis label reads as "pull requests get 20", which is the opposite of what that notch means, so the compact pair is the label and the spoken name spells it out in full.
+- **Suggestion lean** (`SuggestPanel.tsx`): five notches, each stating the whole split it produces (`80/20` … `20/80`) rather than one side of it. A bare `20` sitting next to the "PRs" axis label reads as "pull requests get 20", which is the opposite of what that notch means, so the compact pair is the label and the spoken name spells it out in full. The two axis ends (`PRs`, `work items`) sit in a micro caption *beneath* the control rather than beside it, so this control spans the same width as the algorithm control stacked above it instead of being indented by its own labels. The caption is `aria-hidden`: the group's `aria-label` and each notch's spoken name already carry the axis.
 
 Equal-width segments are opt-in (`fill`), so a control sized by its content keeps its proportions when the primitive is reused.
 
@@ -274,7 +320,9 @@ Equal-width segments are opt-in (`fill`), so a control sized by its content keep
 `SortableRows.tsx`, used only in Today and step 3 of Plan the day, where the list is hand-ordered rather than score-ordered. A 16px `GripVertical` glyph in Muted Ink, `cursor-grab` becoming `cursor-grabbing`, `touch-none` so a touch drag doesn't scroll the page. The row it belongs to takes the Drag lift shadow while moving. A handle appears only where order is genuinely the user's to set; a score-ordered list must never show one.
 
 ### Navigation (Top Bar)
-Sticky, full-bleed, `backdrop-blur` translucent over the backdrop color, hairline bottom border. Four-column grid: the Ariadne brand banner at 32px height (`public/brand/ariadne-banner.png`, a self-contained dark lockup that reads the same in light and dark mode), running-timer chip, `⌘K` search trigger, then icon-button actions (Report, Settings, theme toggle). The logo link and search trigger are the only two controls in the entire app whose focus ring is Threadline Gold instead of the neutral ring — a deliberate, small tell that these two controls are "about the product's identity," not just generic navigation.
+Sticky (`top-0 z-40`), full-bleed, hairline bottom border, and translucent: `bg-background/95`, dropping to `bg-background/80` behind a `backdrop-blur` where the browser supports the filter. Four-column grid (see Layout for the template): the Ariadne brand banner at 32px height (`public/brand/ariadne-banner.png`, a self-contained dark lockup that reads the same in light and dark mode), running-timer chip, `⌘K` search trigger, then icon-button actions (Report, Settings, theme toggle). The logo link and search trigger are the only two controls in the entire app whose focus ring is Threadline Gold instead of the neutral ring — a deliberate, small tell that these two controls are "about the product's identity," not just generic navigation.
+
+The logo is also the system's one piece of decorative motion: `motion-safe:group-hover:scale-[1.03]`, a 3% lift on hover. It is confined to the wordmark on purpose. Everything else that moves does so because state changed (the timer's `animate-pulse`, the accordion's height transition, a `transition-colors` on hover), and a panel of instruments that animates for pleasure stops reading as instrumentation. The `motion-safe:` prefix is not optional here; `globals.css` also carries a global `prefers-reduced-motion` block that collapses every animation and transition to 0.01ms.
 
 ### Report Charts
 `ReportDashboard.tsx` only. A Recharts pie (time by source) and bar (daily series), colored from the three Report series hues and nothing else. Charts get no gridline decoration, no gradient fills, and no drop shadows; they are readings rendered large, consistent with the instrument-panel thesis. This is the only surface in the app that carries categorical color.
@@ -282,7 +330,7 @@ Sticky, full-bleed, `backdrop-blur` translucent over the backdrop color, hairlin
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep Indigo Focus exclusively on things the user can click or activate.
+- **Do** keep Azure Focus exclusively on things the user can click or activate.
 - **Do** render every live measurement (scores, counts, durations) in the mono/tabular-nums register, including counts that sit inside a label.
 - **Do** let visual weight fall off across the urgency scale — Critical and High filled, Medium outlined, Low borderless.
 - **Do** use the larger `0.75rem` radius only for containers (cards, dialogs) and the smaller `0.25–0.375rem` radii for controls and instrumentation.

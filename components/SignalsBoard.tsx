@@ -241,7 +241,7 @@ export default function SignalsBoard({
               <button
                 key={`${filter.negate ? '-' : ''}${filter.prefix}:${filter.values.join(',')}`}
                 type="button"
-                className="text-primary underline-offset-2 hover:underline"
+                className="text-link underline-offset-2 hover:underline"
                 onClick={() => onQueryTextChange(withoutFilter(queryText, filter))}
               >
                 Drop {filter.negate ? '-' : ''}
@@ -250,7 +250,7 @@ export default function SignalsBoard({
             ))}
             <button
               type="button"
-              className="text-primary underline-offset-2 hover:underline"
+              className="text-link underline-offset-2 hover:underline"
               onClick={() => onQueryTextChange('')}
             >
               Clear the query

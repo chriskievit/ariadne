@@ -9,7 +9,7 @@ export interface StatusPill {
 }
 
 // Status is neutral outline by default; a filled variant is reserved for
-// states that demand action. Indigo ('default') never appears here — that
+// states that demand action. Azure ('default') never appears here — that
 // channel is interactive-only (see docs/wireframes/phase-0-foundation.html).
 const PR_STATUS_PILL: Record<PrStatus, StatusPill> = {
   draft: { label: 'Draft', variant: 'outline' },

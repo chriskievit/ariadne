@@ -10,8 +10,12 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 243 75% 59%;
+    --primary: 214 88% 42%;
     --primary-foreground: 0 0% 100%;
+    /* Interactive text (links, the Button 'link' variant) cannot share the
+       fill value: a fill dark enough to carry white label text is too dark to
+       read as text on the backdrop, and vice versa. Two values, one hue. */
+    --link: 214 88% 42%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
@@ -66,8 +70,9 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 5.9% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 243 75% 65%;
+    --primary: 214 90% 46%;
     --primary-foreground: 0 0% 100%;
+    --link: 214 90% 66%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;

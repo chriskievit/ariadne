@@ -13,7 +13,7 @@ import type { Source } from '@/lib/types';
 // bands are filled, medium is an outline, low has no border at all -- visual
 // weight falls off in the same direction the score does. The two filled
 // bands use dark ink, never white (see the paired *-foreground tokens).
-// Indigo never appears here; that channel is interactive-only.
+// Azure never appears here; that channel is interactive-only.
 const BAND_CHIP_CLASS: Record<UrgencyBand, string> = {
   low: 'border border-urgency-low/40 bg-transparent text-muted-foreground',
   medium: 'border-2 border-urgency-medium bg-transparent text-foreground',
@@ -178,7 +178,7 @@ export default function ScoreChip({
           </p>
           <button
             type="button"
-            className="text-xs text-primary underline-offset-2 hover:underline"
+            className="text-xs text-link underline-offset-2 hover:underline"
             onClick={() => {
               onOpenChange(false);
               onOpenScoringReference();
