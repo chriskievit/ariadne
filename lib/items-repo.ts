@@ -202,13 +202,15 @@ export class ItemHasLoggedTimeError extends Error {
 }
 
 /**
- * Three tables reference items(id) and foreign_keys is ON, so a bare delete
- * fails for any item that has ever been timed or planned.
+ * Four tables reference items(id) and foreign_keys is ON, so a bare delete
+ * fails for any item that has ever been timed, planned, linked, or handed to
+ * an agent.
  *
- * plan_items and item_links carry no history worth keeping, so they go with
- * the item. time_logs does: the time report is built on it, and deleting an
- * item should not quietly rewrite what you have already reported. An item with
- * logged time is refused, and parking covers that case instead.
+ * plan_items, item_links, and agent_sessions carry no history worth keeping,
+ * so they go with the item. time_logs does: the time report is built on it,
+ * and deleting an item should not quietly rewrite what you have already
+ * reported. An item with logged time is refused, and parking covers that
+ * case instead.
  */
 export function deleteItem(db: Database.Database, id: number): void {
   const { count } = db
@@ -219,6 +221,7 @@ export function deleteItem(db: Database.Database, id: number): void {
   db.transaction(() => {
     db.prepare('DELETE FROM plan_items WHERE item_id = ?').run(id);
     db.prepare('DELETE FROM item_links WHERE pr_item_id = ?').run(id);
+    db.prepare('DELETE FROM agent_sessions WHERE item_id = ?').run(id);
     db.prepare('DELETE FROM items WHERE id = ?').run(id);
   })();
 }

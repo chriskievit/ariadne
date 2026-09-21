@@ -22,6 +22,7 @@ import {
 import { addPlanItem, getPlanItems } from './plans-repo';
 import { startTimer, completeTimer, listLogsByItem } from './time-logs-repo';
 import { getLinksForItems } from './links-repo';
+import { createAgentSession, getAgentSessionById } from './agent-sessions-repo';
 
 let db: Database.Database;
 
@@ -403,6 +404,22 @@ describe('deleteItem', () => {
     deleteItem(db, pr.id);
 
     expect(getItemById(db, pr.id)).toBeUndefined();
+  });
+
+  it("removes the item's agent session along with it, rather than failing on the foreign key", () => {
+    const item = createAdhocItem(db, { title: 'Handed to an agent' });
+    const session = createAgentSession(db, {
+      itemId: item.id,
+      agent: 'claude',
+      launchToken: 'tok-deleteaaaaaaaaaa',
+      tabTitle: 'Handed to an agent',
+      tabColor: 'yellow',
+    });
+
+    expect(() => deleteItem(db, item.id)).not.toThrow();
+
+    expect(getItemById(db, item.id)).toBeUndefined();
+    expect(getAgentSessionById(db, session.id)).toBeUndefined();
   });
 
   it('refuses to delete an item with logged time, rather than rewriting the time report', () => {
