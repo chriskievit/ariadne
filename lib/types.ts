@@ -86,3 +86,36 @@ export interface PlanItem {
   sortOrder: number;
   estimateMinutes: number | null;
 }
+
+// Which agent CLI ran the session. Claude Code is the only one with hook
+// support today; see lib/agents.ts for the fidelity tiers.
+export type AgentKind = 'claude' | 'codex' | 'cursor' | 'opencode' | 'gemini' | 'aider';
+
+// launching: the Warp tab was opened but the agent has not reported in yet.
+// Claude Code's folder-trust prompt fires before SessionStart, so a session
+// can sit here legitimately for a while, and then never register at all.
+export type AgentSessionState = 'launching' | 'working' | 'needs_you' | 'ready' | 'failed' | 'stopped';
+
+export interface AgentSession {
+  id: number;
+  itemId: number;
+  agent: AgentKind;
+  state: AgentSessionState;
+  // Ariadne-generated and unguessable. Baked into the hook URL so every hook
+  // event is attributable before the agent's own session id is known.
+  launchToken: string;
+  agentSessionId: string | null;
+  transcriptPath: string | null;
+  cwd: string | null;
+  gitBranch: string | null;
+  model: string | null;
+  tabTitle: string;
+  tabColor: string;
+  createdAt: string;
+  registeredAt: string | null;
+  lastEventAt: string | null;
+  endedAt: string | null;
+  endReason: string | null;
+  lastMessage: string | null;
+  needsYouMessage: string | null;
+}

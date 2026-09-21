@@ -12,7 +12,7 @@ describe('openDb', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
       .all()
       .map((row: any) => row.name);
-    expect(tables).toEqual(['item_links', 'items', 'plan_items', 'plans', 'settings', 'sync_log', 'time_logs']);
+    expect(tables).toEqual(['agent_sessions', 'item_links', 'items', 'plan_items', 'plans', 'settings', 'sync_log', 'time_logs']);
     db.close();
   });
 
