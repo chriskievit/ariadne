@@ -12,6 +12,7 @@ describe('AGENT_DEFINITIONS', () => {
   it('gives every agent a unique kind and binary', () => {
     const kinds = AGENT_DEFINITIONS.map((a) => a.kind);
     expect(new Set(kinds).size).toBe(kinds.length);
+    expect(new Set(AGENT_DEFINITIONS.map((a) => a.binary)).size).toBe(AGENT_DEFINITIONS.length);
   });
 });
 
@@ -34,7 +35,7 @@ describe('buildCommand', () => {
 
 describe('detectInstalledAgents', () => {
   it('reports the agents whose binary is on PATH, in registry order', () => {
-    const present = new Set(['/opt/bin/codex', '/usr/local/bin/claude']);
+    const present = new Set(['/usr/local/bin/codex', '/opt/bin/claude']);
     const found = detectInstalledAgents('/usr/local/bin:/opt/bin', (p) => present.has(p));
     expect(found).toEqual(['claude', 'codex']);
   });
