@@ -1,4 +1,4 @@
-import type { AgentSession, AgentSessionState } from './types';
+import type { AgentSession } from './types';
 
 // Only what Planning needs from a session. Structural rather than the whole
 // row, so this never depends on the transcript or the launch token.
