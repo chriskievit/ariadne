@@ -135,14 +135,67 @@ export function listOpenAgentSessions(db: Database.Database): AgentSession[] {
  * folder-trust prompt up before SessionStart, so the commonest way a
  * session dies is a dialog nobody answered in time; treating that row as
  * occupying the ticket would lock the ticket out of ever being handed over
- * again, and the only escape would be a dismissal action that does not
- * exist yet. A rare duplicate is the cheaper failure.
+ * again until someone notices the row and dismisses it by hand.
+ * dismissAgentSession is that escape now, but nothing surfaces a locked
+ * ticket to prompt a person to go use it, so excluding a failed row here
+ * still buys a relaunch that does not wait on that noticing. A rare
+ * duplicate is the cheaper failure.
  */
 export function getActiveAgentSessionForItem(db: Database.Database, itemId: number): AgentSession | undefined {
   const row = db
     .prepare("SELECT * FROM agent_sessions WHERE item_id = ? AND ended_at IS NULL AND state != 'failed' ORDER BY id DESC LIMIT 1")
     .get(itemId) as AgentSessionRow | undefined;
   return row ? rowToSession(row) : undefined;
+}
+
+/**
+ * Every session an item has ever had, live or long ended.
+ *
+ * Unlike getActiveAgentSessionForItem, nothing here is filtered by state or
+ * endedAt: this is the list a caller needs when the item itself is about to
+ * go away and every row tied to it -- and whatever it left on disk -- has to
+ * be accounted for, not just the one currently holding the ticket.
+ */
+export function getAgentSessionsForItem(db: Database.Database, itemId: number): AgentSession[] {
+  const rows = db
+    .prepare('SELECT * FROM agent_sessions WHERE item_id = ? ORDER BY id DESC')
+    .all(itemId) as AgentSessionRow[];
+  return rows.map(rowToSession);
+}
+
+/**
+ * Stop tracking a session, whatever state it is stuck in.
+ *
+ * The escape hatch the rail has never had. A never-registered session keeps
+ * a null ended_at on purpose so a late SessionStart can revive it, an agent
+ * without hook support can never report that it finished, and a process that
+ * died without a SessionEnd leaves a row claiming to be working for ever.
+ * None of those can leave the live list on their own.
+ *
+ * This ends Ariadne's record and nothing else. Ariadne has no handle on the
+ * process -- Warp owns it -- so a dismissed agent keeps running until it is
+ * stopped in Warp, and every label on this action says so.
+ *
+ * Already-ended sessions are left alone rather than restamped, so dismissing
+ * twice cannot rewrite the moment something actually finished.
+ *
+ * endReason is set to 'dismissed' only when the row does not already have
+ * one. A session that failed to register still explains why in its own
+ * words -- the one actionable fact about it, the folder-trust prompt -- and
+ * dismissal is how it leaves the rail, not a rewrite of why it stopped
+ * updating. A plain live session has no prior reason to protect, so it gets
+ * 'dismissed' as normal.
+ */
+export function dismissAgentSession(db: Database.Database, id: number, now: Date): AgentSession | undefined {
+  const session = getAgentSessionById(db, id);
+  if (!session) return undefined;
+  if (session.endedAt !== null) return session;
+
+  applyAgentSessionPatch(db, id, {
+    endedAt: now.toISOString(),
+    endReason: session.endReason === null ? 'dismissed' : undefined,
+  });
+  return getAgentSessionById(db, id);
 }
 
 // The shape of an AgentSession an API response may return. Named fields

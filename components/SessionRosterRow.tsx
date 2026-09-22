@@ -57,9 +57,12 @@ export default function SessionRosterRow({
         className={cn(
           'mt-0.5 h-4 w-4 shrink-0',
           TONE_CLASS[display.tone],
-          // The only motion in the rail, and only for the one state that is
-          // literally in progress.
-          session.state === 'working' && 'motion-safe:animate-spin'
+          // The only motion in the rail, and only for a session that is both
+          // reporting 'working' and still live. Dismissal deliberately
+          // leaves state alone -- see dismissAgentSession -- so a dismissed
+          // session can sit in the Ended bucket still labelled "Working";
+          // the endedAt check is what stops it from spinning there too.
+          session.state === 'working' && session.endedAt === null && 'motion-safe:animate-spin'
         )}
         aria-hidden="true"
       />

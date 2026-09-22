@@ -86,7 +86,16 @@ work with opaque, ML-driven priority.
   coding agent Chris chose, in a repo he configured, and that agent writes
   code and can open a pull request. Ariadne issues no such request itself.
   The blast radius grew even though its own API surface did not, and every
-  diff and every push stays his to review.
+  diff and every push stays his to review. A second, smaller change to this
+  posture: showing a session's branch and diff runs `git` as a subprocess
+  (`lib/git-cli.ts`), the first process Ariadne itself has ever started.
+  It is read-only — `rev-parse`, `symbolic-ref`, `merge-base`, `diff`, and
+  nothing that writes — invoked through `execFile` with an argument array,
+  never a shell, so a branch name containing shell metacharacters reaches
+  git as data, not syntax. It runs under a five-second timeout and an
+  output cap, so a pathological repository degrades to "no diff available"
+  rather than hanging the pane. Read-only against source systems stays
+  true; this is the first time getting there also means running a process.
 - **Transparent, deterministic scoring, not AI-driven.** Urgency is a
   visible point formula (own PR approved, mentioned, stale, due soon, ...)
   in `lib/scoring.ts`, not an opaque ML ranking. Every score chip on the
@@ -127,7 +136,16 @@ work with opaque, ML-driven priority.
   Today/Signals exclusivity above. The roster's order is a fixed answer to
   "whose turn is it", not a second ranking: there is exactly one ranking
   number in Ariadne and it belongs to the score chip
-  (`lib/agent-roster.ts`).
+  (`lib/agent-roster.ts`). Watching stops on Chris's word, but the agent
+  does not: Ariadne holds no process handle for a launched session — Warp
+  owns that process — so dismissing a session
+  (`app/api/agent-sessions/[id]/dismiss/route.ts`) only stops Ariadne
+  tracking it and deletes the Warp tab config that would have relaunched
+  it; the agent keeps running until Chris stops it in Warp himself.
+  Resuming a dismissed session is refused for the same reason: the
+  original process may still be alive, and resuming would start a second
+  one on the same conversation rather than reattaching to the first
+  (`app/api/agent-sessions/[id]/resume/route.ts`).
 - **Deliberately small surface.** Two faces (the ranked dashboard and the
   Work mode watch floor at `/work`), a time report, and Settings. New
   features are scoped tightly; real tradeoffs (like plaintext token

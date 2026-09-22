@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
-import { fetchLocalRepos } from '@/lib/api-client';
+import { fetchLocalRepos, fetchAgentSessions } from '@/lib/api-client';
 import type { LocalRepo } from '@/lib/warp';
 import {
   Dialog,
@@ -461,6 +461,12 @@ export default function ItemRow({
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Fetched fresh each time the delete dialog opens rather than kept live:
+  // this row has no other reason to poll agent sessions, and the dialog is
+  // the one moment this fact actually matters. Starts false so the dialog
+  // never claims a live agent that a slow fetch just hasn't confirmed yet;
+  // the honest addendum only appears once it is.
+  const [deleteHasLiveAgentSession, setDeleteHasLiveAgentSession] = useState(false);
   const [claudeDialogOpen, setClaudeDialogOpen] = useState(false);
   const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
   const [selectedRepoPath, setSelectedRepoPath] = useState('');
@@ -537,6 +543,22 @@ export default function ItemRow({
     setLocalRepos(repos);
     setSelectedRepoPath(repos[0]?.path ?? '');
     setClaudeDialogOpen(true);
+  }
+
+  // Delete only ever offers itself for ad-hoc items (canDelete), but an
+  // ad-hoc item can still have had an agent handed to it -- the same route
+  // this dialog's Delete button calls stops tracking that session, not the
+  // process Warp is running. The dialog says nothing about that until this
+  // resolves, deliberately: claiming a live agent before this fetch confirms
+  // one would be worse than the base dialog's silence on it.
+  async function handleDeleteClick() {
+    setDeleteOpen(true);
+    try {
+      const { sessions } = await fetchAgentSessions();
+      setDeleteHasLiveAgentSession(sessions.some((s) => s.itemId === item.id && s.endedAt === null));
+    } catch {
+      setDeleteHasLiveAgentSession(false);
+    }
   }
 
   function handleClaudeDialogSubmit() {
@@ -633,6 +655,12 @@ export default function ItemRow({
           <DialogTitle>Delete ad-hoc item?</DialogTitle>
           <DialogDescription>
             &ldquo;{item.title}&rdquo; will be permanently removed. This can&apos;t be undone.
+            {deleteHasLiveAgentSession && (
+              // Same honesty as the dismiss dialog: Ariadne has no handle on
+              // the agent, only on its own record of it, so deleting the
+              // item cannot stop a process it never had the power to stop.
+              <> The agent working on it keeps running in Warp; Ariadne will stop tracking it.</>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -982,7 +1010,7 @@ export default function ItemRow({
           onPark={onPark}
           onUnpark={onUnpark}
           onOpenClaude={handleOpenClaudeClick}
-          onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+          onDelete={canDelete ? () => void handleDeleteClick() : undefined}
           onPinToday={onPinToday}
           onUnpinToday={onUnpinToday}
           onStar={onStar}

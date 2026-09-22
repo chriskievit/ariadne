@@ -3,6 +3,7 @@ import { openDb } from './db';
 import { createAdhocItem } from './items-repo';
 import {
   createAgentSession,
+  dismissAgentSession,
   getActiveAgentSessionForItem,
   getAgentSessionByToken,
   getAgentSessionById,
@@ -162,5 +163,103 @@ describe('getActiveAgentSessionForItem', () => {
     });
 
     expect(getActiveAgentSessionForItem(db, itemId)).toBeUndefined();
+  });
+});
+
+describe('dismissAgentSession', () => {
+  it('ends a live session so it leaves the rail', () => {
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-live', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'working', registeredAt: new Date().toISOString() });
+
+    const now = new Date('2026-09-22T12:00:00.000Z');
+    const dismissed = dismissAgentSession(db, session.id, now);
+
+    expect(dismissed?.endedAt).toBe(now.toISOString());
+    expect(dismissed?.endReason).toBe('dismissed');
+  });
+
+  it('ends a never-registered session without erasing its folder-trust explanation', () => {
+    // The reconciler marks this failed but leaves ended_at null on purpose,
+    // so a late SessionStart can still revive it. Dismissing is the only
+    // other way this row ever leaves the rail -- and the one actionable
+    // fact about it, why it never registered, must survive that.
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-never', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'failed', endReason: 'never_registered' });
+    expect(getAgentSessionById(db, session.id)?.endedAt).toBeNull();
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.state).toBe('failed');
+    expect(dismissed?.endedAt).toBe('2026-09-22T12:00:00.000Z');
+    // Not overwritten to 'dismissed' -- this row already explained itself,
+    // and that explanation is more useful than the fact it was dismissed.
+    expect(dismissed?.endReason).toBe('never_registered');
+  });
+
+  it('ends a hookless agent still sitting in launching', () => {
+    // codex has no hook support, so it can never fire SessionEnd and would
+    // otherwise sit in 'launching' for ever.
+    const session = createAgentSession(db, {
+      itemId, agent: 'codex', launchToken: 'tok-codex', tabTitle: 't', tabColor: 'yellow',
+    });
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.state).toBe('launching');
+    expect(dismissed?.endedAt).toBe('2026-09-22T12:00:00.000Z');
+    expect(dismissed?.endReason).toBe('dismissed');
+  });
+
+  it('leaves an already-ended session exactly as it was', () => {
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-ended', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, {
+      state: 'stopped',
+      endedAt: '2026-09-20T09:00:00.000Z',
+      endReason: 'closed',
+    });
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.endedAt).toBe('2026-09-20T09:00:00.000Z');
+    expect(dismissed?.endReason).toBe('closed');
+  });
+
+  it('returns undefined for a session that does not exist', () => {
+    expect(() => dismissAgentSession(db, 99999, new Date())).not.toThrow();
+    expect(dismissAgentSession(db, 99999, new Date())).toBeUndefined();
+  });
+
+  it('does not touch a sibling session on the same item', () => {
+    // A fresh per-test db hands out id 1 to both the first item and the
+    // first session, so `id` and `item_id` are numerically indistinguishable
+    // by the time an assertion runs -- a WHERE id -> WHERE item_id mistake
+    // in applyAgentSessionPatch would be invisible here otherwise. Burning a
+    // couple of item ids first pushes this test's shared item away from the
+    // low session ids below, so the two columns can never coincidentally
+    // agree and this test is actually exercising the column it claims to.
+    createAdhocItem(db, { title: 'throwaway 1' });
+    createAdhocItem(db, { title: 'throwaway 2' });
+    const sharedItemId = createAdhocItem(db, { title: 'Shared ticket' }).id;
+
+    const a = createAgentSession(db, {
+      itemId: sharedItemId, agent: 'claude', launchToken: 'tok-sib-a', tabTitle: 'a', tabColor: 'yellow',
+    });
+    const b = createAgentSession(db, {
+      itemId: sharedItemId, agent: 'claude', launchToken: 'tok-sib-b', tabTitle: 'b', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, b.id, { state: 'working', registeredAt: new Date().toISOString() });
+
+    const dismissed = dismissAgentSession(db, a.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.endedAt).not.toBeNull();
+    const sibling = getAgentSessionById(db, b.id);
+    expect(sibling?.endedAt).toBeNull();
+    expect(sibling?.endReason).toBeNull();
   });
 });

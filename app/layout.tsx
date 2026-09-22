@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { SearchProvider } from '@/components/SearchProvider';
 import { CommandPaletteProvider } from '@/components/CommandPaletteProvider';
+import CommandPaletteHost from '@/components/CommandPaletteHost';
 import { KeymapHelpProvider } from '@/components/KeymapHelpProvider';
 import { DensityProvider } from '@/components/DensityProvider';
 import { RunningTimerProvider } from '@/components/RunningTimerProvider';
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <RunningTimerProvider>
                     <TopBar />
                     {children}
+                    <CommandPaletteHost />
                   </RunningTimerProvider>
                 </KeymapHelpProvider>
               </CommandPaletteProvider>

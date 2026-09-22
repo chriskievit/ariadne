@@ -8,6 +8,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   use: {
     baseURL: E2E_BASE_URL,
     trace: 'retain-on-failure',

@@ -1,5 +1,12 @@
 import type { AgentSession, AgentSessionState } from './types';
 
+// Agent state moves in seconds, not minutes -- the dashboard's five-minute
+// sync interval would make a running session feel stalled. Shared by
+// WatchFloor (the rail) and SessionPane (the transcript and diff it polls
+// once a session is selected), so the two halves of one screen cannot drift
+// out of step with each other.
+export const AGENT_POLL_INTERVAL_MS = 5000;
+
 /**
  * The order the rail puts sessions in, and the reason for it.
  *

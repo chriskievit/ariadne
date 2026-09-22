@@ -20,13 +20,21 @@ interface Props {
   search: string;
   onSearchChange: (value: string) => void;
   onSelectItem: (item: ScoredItem) => void;
-  onSelectQuery: (query: string) => void;
+  // Undefined outside the dashboard route -- see the comment on
+  // DashboardPaletteActions in CommandPaletteProvider for why these four are
+  // optional and the rest are not.
+  onSelectQuery?: (query: string) => void;
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
-  onWrapUp: () => void;
-  onOpenScoringReference: () => void;
+  onWrapUp?: () => void;
+  onOpenScoringReference?: () => void;
   onOpenHelp: () => void;
-  onQuickAdd: () => void;
+  onQuickAdd?: () => void;
+  // Surfaced in the palette itself, not a toast: a toast auto-dismisses,
+  // leaving an empty "No results." that reads as "you have no signals"
+  // rather than "the request failed."
+  loadError: boolean;
+  onRetryLoad: () => void;
 }
 
 const QUERY_PREFIXES = ['source:', 'group:', 'state:', 'score:', 'repo:', 'sprint:', 'is:', 'stale:', 'reason:'];
@@ -46,6 +54,8 @@ export default function CommandPalette({
   onOpenScoringReference,
   onOpenHelp,
   onQuickAdd,
+  loadError,
+  onRetryLoad,
 }: Props) {
   const isQueryToken = QUERY_PREFIXES.some((p) => search.startsWith(p));
   const matchingItems =
@@ -53,6 +63,14 @@ export default function CommandPalette({
   const matchingViews = search
     ? savedViews.filter((v) => v.label.toLowerCase().includes(search.toLowerCase()))
     : savedViews;
+
+  // Local consts, not the props directly: capturing these lets TypeScript
+  // narrow them to defined inside the closures below, and gives the "filter"
+  // and "saved views" groups (which both apply a query) a single guard each.
+  const applyQuery = onSelectQuery;
+  const wrapUp = onWrapUp;
+  const openScoringReference = onOpenScoringReference;
+  const quickAdd = onQuickAdd;
 
   function select(action: () => void) {
     action();
@@ -67,6 +85,17 @@ export default function CommandPalette({
         value={search}
         onValueChange={onSearchChange}
       />
+      {loadError && (
+        // Sits outside CommandList/cmdk's filtering so it stays visible no
+        // matter what's typed in the search box -- the whole point is that
+        // it's never mistaken for a filtered-down "no results."
+        <div className="flex items-center justify-between gap-3 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>Could not load signals or saved views.</span>
+          <button type="button" onClick={onRetryLoad} className="shrink-0 font-medium underline underline-offset-2">
+            Retry
+          </button>
+        </div>
+      )}
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
         {matchingItems.length > 0 && (
@@ -78,17 +107,17 @@ export default function CommandPalette({
             ))}
           </CommandGroup>
         )}
-        {isQueryToken && parseQuery(search).errors.length === 0 && (
+        {applyQuery && isQueryToken && parseQuery(search).errors.length === 0 && (
           <CommandGroup heading="Filter">
-            <CommandItem value={search} onSelect={() => select(() => onSelectQuery(search))}>
+            <CommandItem value={search} onSelect={() => select(() => applyQuery(search))}>
               Apply <span className="font-mono">{search}</span>
             </CommandItem>
           </CommandGroup>
         )}
-        {matchingViews.length > 0 && (
+        {applyQuery && matchingViews.length > 0 && (
           <CommandGroup heading="Saved views">
             {matchingViews.map((view) => (
-              <CommandItem key={view.id} value={`view-${view.id}`} onSelect={() => select(() => onSelectQuery(view.query))}>
+              <CommandItem key={view.id} value={`view-${view.id}`} onSelect={() => select(() => applyQuery(view.query))}>
                 {view.label}
               </CommandItem>
             ))}
@@ -101,27 +130,33 @@ export default function CommandPalette({
           <CommandItem value="go-settings" onSelect={() => select(onGoToSettings)}>
             Settings
           </CommandItem>
-          <CommandItem value="go-scoring-reference" onSelect={() => select(onOpenScoringReference)}>
-            How Ariadne ranks things
-          </CommandItem>
+          {openScoringReference && (
+            <CommandItem value="go-scoring-reference" onSelect={() => select(openScoringReference)}>
+              How Ariadne ranks things
+            </CommandItem>
+          )}
           <CommandItem value="go-keyboard-shortcuts" onSelect={() => select(onOpenHelp)}>
             Keyboard shortcuts
           </CommandItem>
         </CommandGroup>
-        <CommandGroup heading="Actions">
-          <CommandItem value="add-adhoc-item" onSelect={() => select(onQuickAdd)}>
-            Add an ad-hoc item
-            <span className="ml-auto font-mono text-xs text-muted-foreground">a</span>
-          </CommandItem>
-        </CommandGroup>
-        <CommandGroup heading="Rituals">
-          <CommandItem value="wrap-up" onSelect={() => select(onWrapUp)}>
-            Wrap up the day
-          </CommandItem>
-        </CommandGroup>
+        {quickAdd && (
+          <CommandGroup heading="Actions">
+            <CommandItem value="add-adhoc-item" onSelect={() => select(quickAdd)}>
+              Add an ad-hoc item
+              <span className="ml-auto font-mono text-xs text-muted-foreground">a</span>
+            </CommandItem>
+          </CommandGroup>
+        )}
+        {wrapUp && (
+          <CommandGroup heading="Rituals">
+            <CommandItem value="wrap-up" onSelect={() => select(wrapUp)}>
+              Wrap up the day
+            </CommandItem>
+          </CommandGroup>
+        )}
       </CommandList>
       <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-        {items.length} signals searched locally, no network
+        {loadError ? 'Not loaded -- see above' : `${items.length} signals searched locally, no network`}
       </p>
     </CommandDialog>
   );

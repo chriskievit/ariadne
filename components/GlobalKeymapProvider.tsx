@@ -5,7 +5,6 @@ import { isTypingTarget } from '@/lib/keymap';
 
 interface Props {
   children: React.ReactNode;
-  onOpenPalette: () => void;
   onFocusQueryBar: () => void;
   onUndo: () => void;
   onRefresh: () => void;
@@ -20,7 +19,6 @@ interface Props {
 
 export default function GlobalKeymapProvider({
   children,
-  onOpenPalette,
   onFocusQueryBar,
   onUndo,
   onRefresh,
@@ -39,11 +37,10 @@ export default function GlobalKeymapProvider({
     function handleKeyDown(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
 
-      if (meta && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        onOpenPalette();
-        return;
-      }
+      // ⌘K/Ctrl+K itself is bound in CommandPaletteHost, not here -- that
+      // host is mounted at the layout level so the shortcut works on every
+      // route, not just the one this provider wraps. A second binding here
+      // would only ever be a stale echo of that one.
       if (meta && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         onUndo();
@@ -127,7 +124,6 @@ export default function GlobalKeymapProvider({
       if (pendingGTimeout) clearTimeout(pendingGTimeout);
     };
   }, [
-    onOpenPalette,
     onFocusQueryBar,
     onUndo,
     onRefresh,

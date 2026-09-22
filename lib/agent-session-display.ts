@@ -72,6 +72,12 @@ export function sessionExplanation(session: DisplaySession): string | null {
   if (session.endReason === 'launch_failed') {
     return 'Ariadne could not write the Warp launch files, so nothing was started.';
   }
+  if (session.endReason === 'dismissed') {
+    // Dismissal is Ariadne stepping back, not the agent stopping -- the
+    // dialog said that once, and this line is what carries the same honesty
+    // past the moment of confirming, for whoever opens the pane later.
+    return 'Ariadne stopped tracking this session. The agent may still be running in Warp.';
+  }
   if (sessionFidelity(session.agent) === 'opened_only') {
     const label = getAgentDefinition(session.agent)?.label ?? session.agent;
     return `${label} does not report back. Ariadne opened the tab and knows nothing after that.`;

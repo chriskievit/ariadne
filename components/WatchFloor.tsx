@@ -2,16 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { fetchAgentSessions } from '@/lib/api-client';
-import { sortRoster, sortEndedRoster, rosterBandCounts, ROSTER_BAND_REASON } from '@/lib/agent-roster';
-import { agentStateDisplay, sessionExplanation } from '@/lib/agent-session-display';
+import { sortRoster, sortEndedRoster, rosterBandCounts, ROSTER_BAND_REASON, AGENT_POLL_INTERVAL_MS } from '@/lib/agent-roster';
+import { agentStateDisplay } from '@/lib/agent-session-display';
 import type { SessionListEntry } from '@/lib/agent-session-list';
 import SessionRosterRail from './SessionRosterRail';
+import SessionPane from './SessionPane';
 import WorkFirstRunCard from './WorkFirstRunCard';
-
-// Agent state moves in seconds, not minutes -- the dashboard's five-minute
-// sync interval would make the rail feel broken. Cheap to poll: the endpoint
-// reads one bounded table and, for open sessions only, the tail of a file.
-const WORK_POLL_INTERVAL_MS = 5000;
 
 export default function WatchFloor({ initialSessions }: { initialSessions: SessionListEntry[] }) {
   const [sessions, setSessions] = useState<SessionListEntry[]>(initialSessions);
@@ -37,6 +33,16 @@ export default function WatchFloor({ initialSessions }: { initialSessions: Sessi
     }
   }, []);
 
+  // Dismissal ends the session's record and takes its Warp tab config with
+  // it, so its subject in the pane is now history. The row moves itself into
+  // the Ended bucket on the next refresh; the selection is cleared in the
+  // same breath so the pane does not keep showing a session that just left
+  // the list it was selected from.
+  const handleDismissed = useCallback(async () => {
+    await refresh();
+    setSelectedId(null);
+  }, [refresh]);
+
   useEffect(() => {
     // A background tab polling every five seconds is a laptop fan for no
     // reason, and the state it would collect is thrown away unseen. Catch
@@ -46,7 +52,7 @@ export default function WatchFloor({ initialSessions }: { initialSessions: Sessi
     }
     const timer = setInterval(() => {
       if (!document.hidden) void refresh();
-    }, WORK_POLL_INTERVAL_MS);
+    }, AGENT_POLL_INTERVAL_MS);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(timer);
@@ -87,29 +93,18 @@ export default function WatchFloor({ initialSessions }: { initialSessions: Sessi
         <SessionRosterRail live={live} ended={ended} selectedId={selectedId} onSelect={setSelectedId} />
 
         <section role="region" aria-label="Session">
-          {selected ? <SelectedSession session={selected} /> : <GlanceState live={live} />}
+          {selected ? (
+            // Keyed on the session id so switching the selection mounts a
+            // fresh pane rather than rehydrating one across two different
+            // subjects -- transcript, diff and in-flight dismiss/resume
+            // state all start clean for whatever is now selected.
+            <SessionPane key={selected.id} session={selected} onDismissed={handleDismissed} />
+          ) : (
+            <GlanceState live={live} />
+          )}
         </section>
       </div>
     </main>
-  );
-}
-
-/**
- * A placeholder for the session pane, which is the next phase's whole job.
- *
- * It carries the explanation sentence now rather than waiting, because the
- * one failure a person can actually act on -- an unanswered folder-trust
- * prompt in a Warp tab -- is unreadable from the word "Failed" alone.
- */
-function SelectedSession({ session }: { session: SessionListEntry }) {
-  const explanation = sessionExplanation(session);
-  return (
-    <div className="rounded-xl border border-border p-6">
-      <h2 className="text-base font-semibold">{session.tabTitle}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{agentStateDisplay(session.state).label}</p>
-      {explanation && <p className="mt-3 text-sm text-muted-foreground">{explanation}</p>}
-      <p className="mt-4 text-xs text-muted-foreground">The session pane arrives in the next phase.</p>
-    </div>
   );
 }
 
