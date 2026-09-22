@@ -17,9 +17,14 @@ import type { SessionListEntry } from '@/lib/agent-session-list';
 // importing anything but the type would drag that into the client bundle --
 // the exact trap that already bit lib/agents.ts once in phase 2.
 import type { TranscriptEntry } from '@/lib/agent-transcript';
-import type { SessionDiff } from '@/lib/agent-worktree';
+// Aliased: SessionDiff the component (imported below) and SessionDiff the
+// type share a name on purpose -- the component is named after what it
+// renders, same as SessionTranscript -- so the type needs its own local
+// name to avoid colliding with the value import.
+import type { SessionDiff as SessionDiffData } from '@/lib/agent-worktree';
 import { fetchSessionTranscript, fetchSessionDiff, dismissSession, resumeSession } from '@/lib/api-client';
 import SessionTranscript from './SessionTranscript';
+import SessionDiff from './SessionDiff';
 
 // Same six states as the rail's row, duplicated rather than imported for the
 // reason SessionRosterRow gives: the vocabulary module stays importable from
@@ -62,7 +67,7 @@ export default function SessionPane({
   onDismissed: () => void;
 }) {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-  const [diff, setDiff] = useState<SessionDiff | null>(null);
+  const [diff, setDiff] = useState<SessionDiffData | null>(null);
 
   const [dismissOpen, setDismissOpen] = useState(false);
   const [dismissing, setDismissing] = useState(false);
@@ -256,7 +261,7 @@ export default function SessionPane({
             </Badge>
           )}
         </div>
-        <DiffSummary diff={diff} />
+        <SessionDiff diff={diff} />
       </section>
 
       <section className="mt-6">
@@ -290,44 +295,5 @@ export default function SessionPane({
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-/**
- * The branch's stand-off from the default branch, summarised.
- *
- * Not Task 8's diff view -- this is the minimum the pane needs to not be
- * empty where a diff belongs, kept private to this file so a dedicated
- * component can replace it without a name collision.
- */
-function DiffSummary({ diff }: { diff: SessionDiff | null }) {
-  if (diff === null) {
-    return <p className="text-sm text-muted-foreground">Loading the diff…</p>;
-  }
-  if (!diff.available) {
-    return <p className="text-sm text-muted-foreground">{diff.reason}</p>;
-  }
-  if (diff.files.length === 0) {
-    return <p className="text-sm text-muted-foreground">No changes on this branch yet.</p>;
-  }
-
-  return (
-    <ul className="space-y-1">
-      {diff.files.map((file) => (
-        <li key={file.path} className="flex items-center justify-between gap-3 text-sm">
-          <span className="min-w-0 truncate font-mono text-xs">{file.path}</span>
-          <span className="shrink-0 font-mono text-xs tabular-nums">
-            {file.added === null && file.removed === null ? (
-              <span className="text-muted-foreground">binary</span>
-            ) : (
-              <>
-                <span className="text-success">+{file.added}</span> <span className="text-destructive">-{file.removed}</span>
-              </>
-            )}
-          </span>
-        </li>
-      ))}
-      {diff.truncated && <li className="text-xs text-muted-foreground">Showing a truncated diff.</li>}
-    </ul>
   );
 }
