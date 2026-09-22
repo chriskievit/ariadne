@@ -123,16 +123,21 @@ describe('DELETE /api/items/[id]', () => {
     const res = await del(itemId);
 
     // After: the item and its session row are gone, its Watch Floor entry
-    // with them, and the tab config -- the file that could relaunch this
-    // agent under a now-dead token -- is gone too. The settings file is a
-    // live session's, so it is deliberately left: an agent this route has
-    // no process handle on may still be reading it to fire its remaining
-    // hooks.
+    // with them, and both files with it -- the tab config that could
+    // relaunch this agent under a now-dead token, and the settings file
+    // holding that token in plaintext.
+    //
+    // The settings file goes even though the agent is very likely still
+    // running, because the row it would report into has just been deleted:
+    // every hook it fires from here arrives with a token matching nothing
+    // and the receiver drops it. Keeping the file would preserve no
+    // reporting Ariadne could record and leave a credential on disk with
+    // no row left to ever clean it up.
     expect(res.status).toBe(200);
     expect(getItemById(testDb, itemId)).toBeUndefined();
     expect(getAgentSessionsForItem(testDb, itemId)).toEqual([]);
     expect(existsSync(tabConfigPath)).toBe(false);
-    expect(existsSync(settingsPath)).toBe(true);
+    expect(existsSync(settingsPath)).toBe(false);
   });
 
   it("cleans up an already-ended agent session's tab config and hook settings when its item is deleted", async () => {

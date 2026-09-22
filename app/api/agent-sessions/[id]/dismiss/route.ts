@@ -23,10 +23,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   }
 
   // The settings file holds the launch token, and ARIADNE_AUTH_TOKEN when
-  // set, in plaintext. Safe here specifically because dismissAgentSession
-  // has already stamped endedAt above -- this session is never live by the
-  // time this runs, so there is no risk of pulling the file out from under
-  // an agent that is still reading it.
+  // set, in plaintext.
+  //
+  // Not because the agent has stopped -- it very probably has not, which is
+  // the whole point of this route's copy. Because dismissAgentSession has
+  // stamped endedAt, and applyHookEvent refuses every event once that is
+  // set, so nothing this agent reports from here on can be recorded
+  // whatever the file says. Keeping it would preserve no reporting and
+  // leave a credential on disk. The delete route removes it for the same
+  // reason, where the row is going away entirely rather than just ending.
   try {
     removeHookSettings(agentSettingsDir(), session.launchToken);
   } catch (error) {

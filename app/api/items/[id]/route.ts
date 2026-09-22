@@ -44,17 +44,21 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     }
 
     // The settings file holds the launch token, and ARIADNE_AUTH_TOKEN when
-    // set, in plaintext. Only removed for a session that had already ended
-    // before this delete -- a session still live when its item was deleted
-    // may have an agent still reading this file to fire its remaining
-    // hooks, and Ariadne has no process handle to know when that stops
-    // being true, so it is left in place for that one case.
-    if (session.endedAt !== null) {
-      try {
-        removeHookSettings(agentSettingsDir(), session.launchToken);
-      } catch (error) {
-        logWarn('items-delete', `could not remove the hook settings for session ${session.id}`, error);
-      }
+    // set, in plaintext. Removed for every session here, live or not, and
+    // the reason is that its remaining usefulness is already nil: the row
+    // is about to be deleted, so any hook the agent still fires arrives
+    // with a token matching nothing and the receiver drops it. Keeping the
+    // file would preserve no reporting Ariadne could record, and would
+    // leave a credential on disk with no row left to ever clean it up.
+    //
+    // The dismiss route removes it for the same reason -- there, the row
+    // survives but carries an endedAt, and applyHookEvent refuses every
+    // event once that is set. Both paths end the record first, which is
+    // what makes the file inert rather than merely unwatched.
+    try {
+      removeHookSettings(agentSettingsDir(), session.launchToken);
+    } catch (error) {
+      logWarn('items-delete', `could not remove the hook settings for session ${session.id}`, error);
     }
   }
 
