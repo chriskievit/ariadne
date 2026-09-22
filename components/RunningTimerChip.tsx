@@ -86,14 +86,20 @@ export default function RunningTimerChip({ runningTimer, onStop, onComplete, lon
         />
         <span className="max-w-[8rem] truncate">{runningTimer.itemTitle}</span>
         <span className="font-mono tabular-nums text-muted-foreground">{formatElapsed(elapsedMs)}</span>
-        {/* Hidden below lg (md still leaves the buttons on screen at
-            exactly 768px, where the bar is already 59px too wide with
-            them showing). At narrow widths this pair is the only
-            genuinely redundant thing in the top bar rather than merely
-            large -- Complete and Pause are duplicated on the item's own row
-            in Planning, so hiding them here loses no capability, just a
-            shortcut. The pulse, the elapsed time and the title stay
-            visible at every width; only these two go. */}
+        {/* Hidden below lg (md still leaves them on screen at exactly
+            768px, where the bar is already 59px too wide with them
+            showing). Of everything in the top bar this pair is the
+            closest to redundant rather than merely large, because the
+            same two actions sit on the item's own row.
+
+            But that row is on Planning, and this chip is in the root
+            layout: below lg on /work, /report or /settings a running
+            timer has no pause and no complete anywhere on screen, and
+            the only way to either is to navigate to Planning. That is a
+            real cost, accepted because the alternative was a
+            horizontally scrolling page on every route. See the Layout
+            section in DESIGN.md. The pulse, the elapsed time and the
+            title stay visible at every width; only these two go. */}
         <Button
           type="button"
           variant="ghost"
