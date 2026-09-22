@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db-instance';
 import { getAgentSessionById } from '@/lib/agent-sessions-repo';
-import { readTranscriptTail } from '@/lib/agent-transcript';
-
-// The rail ships five turns per session because it polls every one of them.
-// The pane is one session a person is reading, so it can afford a stretch
-// long enough to follow what happened.
-export const PANE_TAIL_LIMIT = 50;
+import { readTranscriptTail, PANE_TAIL_LIMIT } from '@/lib/agent-transcript';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: idParam } = await params;

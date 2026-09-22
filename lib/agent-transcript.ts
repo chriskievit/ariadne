@@ -12,6 +12,17 @@ export interface TranscriptEntry {
 // session pane that stays responsive and one that parses 5MB on every poll.
 export const TRANSCRIPT_TAIL_BYTES = 256 * 1024;
 
+// How many turns the session pane asks for. The rail's list endpoint ships
+// five per session because it polls every session every few seconds, and a
+// longer tail there is a cost paid for all of them at once. The pane is one
+// session a person is reading, so it can afford a stretch long enough to
+// follow what happened.
+//
+// It lives here rather than in the route that uses it because a Next.js
+// route module may only export a fixed set of names, and an extra one is a
+// build error rather than a lint warning.
+export const PANE_TAIL_LIMIT = 50;
+
 const DEFAULT_LIMIT = 50;
 
 // Paths already warned about, so a transcript that stays missing logs once

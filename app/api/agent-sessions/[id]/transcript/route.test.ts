@@ -9,7 +9,8 @@ import { createAgentSession, applyAgentSessionPatch } from '@/lib/agent-sessions
 const testDb = openDb(':memory:');
 vi.mock('@/lib/db-instance', () => ({ db: testDb }));
 
-const { GET, PANE_TAIL_LIMIT } = await import('./route');
+const { GET } = await import('./route');
+const { PANE_TAIL_LIMIT } = await import('@/lib/agent-transcript');
 
 let itemId: number;
 let dir: string;
