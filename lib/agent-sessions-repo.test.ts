@@ -231,4 +231,32 @@ describe('dismissAgentSession', () => {
     expect(() => dismissAgentSession(db, 99999, new Date())).not.toThrow();
     expect(dismissAgentSession(db, 99999, new Date())).toBeUndefined();
   });
+
+  it('does not touch a sibling session on the same item', () => {
+    // A fresh per-test db hands out id 1 to both the first item and the
+    // first session, so `id` and `item_id` are numerically indistinguishable
+    // by the time an assertion runs -- a WHERE id -> WHERE item_id mistake
+    // in applyAgentSessionPatch would be invisible here otherwise. Burning a
+    // couple of item ids first pushes this test's shared item away from the
+    // low session ids below, so the two columns can never coincidentally
+    // agree and this test is actually exercising the column it claims to.
+    createAdhocItem(db, { title: 'throwaway 1' });
+    createAdhocItem(db, { title: 'throwaway 2' });
+    const sharedItemId = createAdhocItem(db, { title: 'Shared ticket' }).id;
+
+    const a = createAgentSession(db, {
+      itemId: sharedItemId, agent: 'claude', launchToken: 'tok-sib-a', tabTitle: 'a', tabColor: 'yellow',
+    });
+    const b = createAgentSession(db, {
+      itemId: sharedItemId, agent: 'claude', launchToken: 'tok-sib-b', tabTitle: 'b', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, b.id, { state: 'working', registeredAt: new Date().toISOString() });
+
+    const dismissed = dismissAgentSession(db, a.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.endedAt).not.toBeNull();
+    const sibling = getAgentSessionById(db, b.id);
+    expect(sibling?.endedAt).toBeNull();
+    expect(sibling?.endReason).toBeNull();
+  });
 });
