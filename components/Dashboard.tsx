@@ -50,6 +50,7 @@ import {
   fetchTodaySummaryFor,
   fetchCalibration,
   fetchAgentSessions,
+  dismissSession,
 } from '@/lib/api-client';
 import { isSnoozed, SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { needsYou } from '@/lib/grouping';
@@ -316,8 +317,22 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
-  async function handlePark(id: number) {
+  // Parking always lands first: it is the action the user actually asked
+  // for, and dismissSessionId is only ever an optional extra on top of it.
+  // If dismissal then fails, the item is still parked and the session is
+  // left tracked and visible in the rail -- the safe side of the rule that
+  // a running session Ariadne knows about must never be hidden. A failed
+  // park (network error) never reaches dismiss at all, so it can't strand
+  // a dismissed session under an item that was never actually parked.
+  async function handlePark(id: number, dismissSessionId?: number) {
     await parkItem(id);
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+      } catch {
+        toast('Parked, but could not stop tracking the session.');
+      }
+    }
     await refresh();
   }
 
@@ -439,8 +454,18 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
-  async function handleSnooze(id: number, option: SnoozeOption) {
+  // Same ordering as handlePark, for the same reason: snooze lands first,
+  // dismissal is the optional extra, and a dismissal failure leaves the
+  // session tracked and visible in the rail rather than losing track of it.
+  async function handleSnooze(id: number, option: SnoozeOption, dismissSessionId?: number) {
     await snoozeItem(id, option);
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+      } catch {
+        toast('Snoozed, but could not stop tracking the session.');
+      }
+    }
     await refresh();
     const undo = async () => {
       await unsnoozeItem(id);

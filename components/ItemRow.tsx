@@ -161,12 +161,15 @@ interface Props {
   onComplete: (id: number, durationHours: number, note?: string) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
-  onPark?: (id: number) => void;
+  // dismissSessionId is only ever passed alongside a live session's own id
+  // -- see handleParkClick -- so a caller never has to guess which session
+  // "too" refers to.
+  onPark?: (id: number, dismissSessionId?: number) => void;
   onUnpark?: (id: number) => void;
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   onStar?: (id: number, starred: boolean) => void;
-  onSnooze?: (id: number, option: SnoozeOption) => void;
+  onSnooze?: (id: number, option: SnoozeOption, dismissSessionId?: number) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   onSetPriority?: (id: number, priority: Priority | null) => void;
@@ -476,6 +479,12 @@ export default function ItemRow({
   const [startCascadeOpen, setStartCascadeOpen] = useState(false);
   const [completeCascadeOpen, setCompleteCascadeOpen] = useState(false);
   const [pendingComplete, setPendingComplete] = useState<{ hours: number; note?: string } | null>(null);
+  const [parkCascadeOpen, setParkCascadeOpen] = useState(false);
+  const [snoozeCascadeOpen, setSnoozeCascadeOpen] = useState(false);
+  const [pendingSnoozeOption, setPendingSnoozeOption] = useState<SnoozeOption | null>(null);
+  // Shared by both cascades below -- only one is ever open at a time, and
+  // each open resets it to true, so nothing carries over between them.
+  const [dismissSessionToo, setDismissSessionToo] = useState(true);
   const canDelete = item.source === 'adhoc' && Boolean(onDelete);
   // Delete only ever offers itself for ad-hoc items, but an ad-hoc item can
   // still have had an agent handed to it -- the same route this dialog's
@@ -516,6 +525,51 @@ export default function ItemRow({
     } else {
       onStart?.(item.id);
     }
+  }
+
+  // A live session turns Park from a one-click action into a question --
+  // an agent still working on something you just declared you're not
+  // working on is incoherent, so this is the one path that gets a dialog.
+  // No live session means no dialog and no new request: onPark fires
+  // exactly as it did before this existed.
+  function handleParkClick() {
+    if (liveSession) {
+      setDismissSessionToo(true);
+      setParkCascadeOpen(true);
+    } else {
+      onPark?.(item.id);
+    }
+  }
+
+  function confirmParkCascade() {
+    onPark?.(item.id, dismissSessionToo ? liveSession?.id : undefined);
+    setParkCascadeOpen(false);
+  }
+
+  // Mirrors handleParkClick: only a live session turns picking a snooze
+  // option into a two-step question instead of firing straight away.
+  function handleSnoozeOptionClick(option: SnoozeOption) {
+    if (liveSession) {
+      setPendingSnoozeOption(option);
+      setDismissSessionToo(true);
+      setSnoozeDialogOpen(false);
+      setSnoozeCascadeOpen(true);
+    } else {
+      onSnooze?.(item.id, option);
+      setSnoozeDialogOpen(false);
+    }
+  }
+
+  function closeSnoozeCascade() {
+    setSnoozeCascadeOpen(false);
+    setPendingSnoozeOption(null);
+  }
+
+  function confirmSnoozeCascade() {
+    if (pendingSnoozeOption) {
+      onSnooze?.(item.id, pendingSnoozeOption, dismissSessionToo ? liveSession?.id : undefined);
+    }
+    closeSnoozeCascade();
   }
 
   function handleCompleteSubmit() {
@@ -781,10 +835,7 @@ export default function ItemRow({
               type="button"
               variant="outline"
               className="justify-start"
-              onClick={() => {
-                onSnooze?.(item.id, option);
-                setSnoozeDialogOpen(false);
-              }}
+              onClick={() => handleSnoozeOptionClick(option)}
             >
               {SNOOZE_LABEL[option]}
             </Button>
@@ -816,6 +867,69 @@ export default function ItemRow({
           </Button>
           <Button type="button" onClick={() => closeCompleteCascade(true)}>
             Complete {pendingCompleteLinks.length > 1 ? 'all' : 'it'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Ariadne has no handle on the agent -- only on its own record of it (see
+  // SessionPane's identical dismiss dialog) -- so the copy below never says
+  // stopped, killed or ended. Checked by default: an agent left working on
+  // an item you just parked is the incoherent case, and unchecking is a
+  // one-click way to say "not this time," not an error either way.
+  const agentDismissOption = (
+    <div className="flex items-start gap-2 py-2">
+      <input
+        type="checkbox"
+        id={`dismiss-session-${item.id}`}
+        checked={dismissSessionToo}
+        onChange={(e) => setDismissSessionToo(e.target.checked)}
+        className="mt-1 shrink-0 accent-[hsl(var(--primary))]"
+      />
+      <Label htmlFor={`dismiss-session-${item.id}`} className="text-sm font-normal text-muted-foreground">
+        Stop tracking this session too. The agent keeps running until you stop it in Warp.
+      </Label>
+    </div>
+  );
+
+  const parkCascadeDialog = (
+    <Dialog open={parkCascadeOpen} onOpenChange={setParkCascadeOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Park this item?</DialogTitle>
+          <DialogDescription>It drops out of Planning until you resume it.</DialogDescription>
+        </DialogHeader>
+        {agentDismissOption}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setParkCascadeOpen(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={confirmParkCascade}>
+            Park
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const snoozeCascadeDialog = (
+    <Dialog open={snoozeCascadeOpen} onOpenChange={(nextOpen) => !nextOpen && closeSnoozeCascade()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Snooze this item?</DialogTitle>
+          <DialogDescription>
+            {pendingSnoozeOption &&
+              `${SNOOZE_LABEL[pendingSnoozeOption]}. It drops out of Planning until then.`}
+          </DialogDescription>
+        </DialogHeader>
+        {agentDismissOption}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={closeSnoozeCascade}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={confirmSnoozeCascade}>
+            Snooze
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1023,7 +1137,7 @@ export default function ItemRow({
           item={item}
           onStart={item.status === 'inbox' && settled ? handleStartClick : undefined}
           onRequeue={onRequeue}
-          onPark={onPark}
+          onPark={onPark ? handleParkClick : undefined}
           onUnpark={onUnpark}
           onOpenClaude={handleOpenClaudeClick}
           onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
@@ -1044,6 +1158,8 @@ export default function ItemRow({
       {startCascadeDialog}
       {completeCascadeDialog}
       {snoozeDialog}
+      {parkCascadeDialog}
+      {snoozeCascadeDialog}
     </div>
   );
 }
