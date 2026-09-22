@@ -6,6 +6,11 @@ import type { SnoozeOption } from '@/lib/snooze';
 import type { SourceStatus } from '@/lib/sync-status';
 import type { CalibrationEntry } from '@/lib/calibration';
 import type { SessionListEntry } from './agent-session-list';
+// Type-only: both modules reach node built-ins (readTailBytes's fs calls,
+// git-cli's child_process) through value imports elsewhere in their files,
+// so importing anything but the type would pull that into the client bundle.
+import type { TranscriptEntry } from './agent-transcript';
+import type { SessionDiff } from './agent-worktree';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -232,5 +237,32 @@ export async function fetchAgentSessions(): Promise<{ sessions: SessionListEntry
   if (!res.ok) {
     throw new Error(`Could not load agent sessions (${res.status}).`);
   }
+  return res.json();
+}
+
+export async function fetchSessionTranscript(id: number): Promise<{ entries: TranscriptEntry[] }> {
+  const res = await fetch(`/api/agent-sessions/${id}/transcript`);
+  if (!res.ok) throw new Error(`Could not load the transcript (${res.status}).`);
+  return res.json();
+}
+
+export async function fetchSessionDiff(id: number): Promise<SessionDiff> {
+  const res = await fetch(`/api/agent-sessions/${id}/diff`);
+  if (!res.ok) throw new Error(`Could not load the diff (${res.status}).`);
+  return res.json();
+}
+
+export async function dismissSession(id: number) {
+  const res = await fetch(`/api/agent-sessions/${id}/dismiss`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Could not dismiss the session (${res.status}).`);
+  return res.json();
+}
+
+// No res.ok check: the resume route answers 200 on success and 400 on a
+// refusal it can explain (agent can't resume, no working directory, etc),
+// both as a JSON body the caller reads by shape (`warpUrl` vs `error`)
+// rather than by status.
+export async function resumeSession(id: number): Promise<{ warpUrl?: string; error?: string }> {
+  const res = await fetch(`/api/agent-sessions/${id}/resume`, { method: 'POST' });
   return res.json();
 }
