@@ -21,6 +21,18 @@ export interface RunGitOptions {
 }
 
 /**
+ * Decide what a caller gets to see of a command's output: everything, or the
+ * first `maxBytes` of it with `truncated` set. Pulled out on its own because
+ * the ordinary (no-error) success path needs this exact decision too, and a
+ * branch with no way to observe it independently is not a branch anyone can
+ * trust — see the call site below for why that second call exists at all.
+ */
+export function capOutput(text: string, maxBytes: number): { stdout: string; truncated: boolean } {
+  if (text.length > maxBytes) return { stdout: text.slice(0, maxBytes), truncated: true };
+  return { stdout: text, truncated: false };
+}
+
+/**
  * Run one read-only git command and hand back what it said.
  *
  * This is the only place in Ariadne that starts a process, and the shape is
@@ -53,17 +65,29 @@ export function runGit(cwd: string, args: string[], options: RunGitOptions = {})
           // other error is a real failure, and the partial output is not
           // trustworthy enough to hand back.
           const overflowed = (error as NodeJS.ErrnoException).code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
-          if (overflowed) return resolve({ ok: true, stdout: text.slice(0, maxBytes), truncated: true });
+          if (overflowed) {
+            // This branch already knows truncation happened -- that is what
+            // the error means -- even though Node hands back `text` cut to
+            // (about) maxBytes, so capOutput's own length check can no
+            // longer tell "the output was exactly this long" from "the
+            // output was cut to this length". Only the slicing is shared;
+            // `truncated: true` here comes from the error, not from capOutput.
+            return resolve({ ok: true, stdout: capOutput(text, maxBytes).stdout, truncated: true });
+          }
 
           logWarn('git', `git ${args[0]} failed in ${cwd}`, error);
           return resolve({ ok: false, stdout: '', truncated: false });
         }
 
         // maxBuffer is not always enforced before the callback on every
-        // platform, so the cut is applied here too rather than trusted.
-        if (text.length > maxBytes) return resolve({ ok: true, stdout: text.slice(0, maxBytes), truncated: true });
-
-        resolve({ ok: true, stdout: text, truncated: false });
+        // platform, so the same cap is applied here rather than trusted to
+        // have already happened. This exact call is not something an
+        // integration test can force to fire -- execFile's own maxBuffer is
+        // set to this same maxBytes, so Node's kill wins the race on a
+        // platform where it works at all -- but it shares capOutput with the
+        // branch above, and capOutput's own tests verify the slicing and
+        // truncation logic directly, so a break here is still caught.
+        resolve({ ok: true, ...capOutput(text, maxBytes) });
       }
     );
   });

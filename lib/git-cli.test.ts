@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { runGit } from './git-cli';
+import { runGit, capOutput } from './git-cli';
 
 let repo: string;
 
@@ -68,10 +68,35 @@ describe('runGit', () => {
     const result = await runGit(repo, ['log', '--format=%H'], { maxBytes: 8 });
     expect(result.stdout.length).toBeLessThanOrEqual(8);
     expect(result.truncated).toBe(true);
+    // Truncation is a truncated *success*, not a failure -- the command ran
+    // and said something true, it just said more of it than fits.
+    expect(result.ok).toBe(true);
   });
 
   it('does not mark ordinary output as truncated', async () => {
     const result = await runGit(repo, ['rev-parse', 'HEAD']);
     expect(result.truncated).toBe(false);
+  });
+});
+
+describe('capOutput', () => {
+  it('passes text through untouched when it is under the cap', () => {
+    const result = capOutput('short', 100);
+    expect(result).toEqual({ stdout: 'short', truncated: false });
+  });
+
+  it('does not truncate text that lands exactly at the cap', () => {
+    const result = capOutput('12345', 5);
+    expect(result).toEqual({ stdout: '12345', truncated: false });
+  });
+
+  it('truncates text one byte over the cap', () => {
+    const result = capOutput('123456', 5);
+    expect(result).toEqual({ stdout: '12345', truncated: true });
+  });
+
+  it('truncates to empty output under a zero cap', () => {
+    const result = capOutput('anything', 0);
+    expect(result).toEqual({ stdout: '', truncated: true });
   });
 });
