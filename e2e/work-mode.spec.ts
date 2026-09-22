@@ -64,3 +64,25 @@ test('Report belongs to neither mode', async ({ page }) => {
   await expect(modes.getByRole('radio', { name: 'Planning' })).toHaveAttribute('aria-checked', 'false');
   await expect(modes.getByRole('radio', { name: 'Work' })).toHaveAttribute('aria-checked', 'false');
 });
+
+test('⌘K opens the command palette on /work, without the dashboard-only commands', async ({ page }) => {
+  await page.goto('/work');
+
+  await page.keyboard.press('Control+k');
+
+  const palette = page.getByRole('dialog');
+  await expect(palette.getByPlaceholder('Search signals, jump to a view, or type a filter…')).toBeVisible();
+
+  // "Go to" commands have no dashboard dependency, so they work everywhere.
+  await expect(palette.getByText('Dashboard', { exact: true })).toBeVisible();
+
+  // Wrap-up and the scoring reference live in Dashboard's own state, which
+  // isn't mounted on /work -- CommandPaletteHost leaves them off the palette
+  // here rather than offering a command with nothing behind it.
+  await expect(palette.getByText('Wrap up the day')).toHaveCount(0);
+  await expect(palette.getByText('How Ariadne ranks things')).toHaveCount(0);
+  await expect(palette.getByText('Add an ad-hoc item')).toHaveCount(0);
+
+  await page.keyboard.press('Escape');
+  await expect(palette).toBeHidden();
+});

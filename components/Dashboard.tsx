@@ -19,7 +19,6 @@ import ShutdownDialog from './ShutdownDialog';
 import PlanDayDialog from './PlanDayDialog';
 import SwitchTimerDialog from './SwitchTimerDialog';
 import GlobalKeymapProvider from './GlobalKeymapProvider';
-import CommandPalette from './CommandPalette';
 import ScoringReferenceDialog from './ScoringReferenceDialog';
 import FirstRunCard from './FirstRunCard';
 import {
@@ -121,10 +120,28 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const preSearchAccordionRef = useRef<{ inProgress: string[] } | null>(null);
   const lastUndoRef = useRef<(() => void) | null>(null);
 
-  const { query, setQuery } = useSearch();
-  const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
+  // Dashboard only reads the global search query (to filter what it renders);
+  // CommandPaletteHost owns writing it now that the palette's search field
+  // lives there.
+  const { query } = useSearch();
+  const { setOpen: setPaletteOpen, registerDashboardActions } = useCommandPalette();
   const { setOpen: setHelpOpen } = useKeymapHelp();
   const router = useRouter();
+
+  // The command palette lives at the layout level so it works on every
+  // route, but wrap-up, the scoring reference dialog and the signals filter
+  // are Dashboard's own state -- registering them here (and clearing them on
+  // unmount) is what lets the palette offer those commands on / without
+  // CommandPaletteHost needing to know Dashboard exists.
+  useEffect(() => {
+    registerDashboardActions({
+      onSelectQuery: setSignalsQuery,
+      onWrapUp: () => setReviewDayOpen(true),
+      onOpenScoringReference: () => setScoringReferenceOpen(true),
+      onQuickAdd: () => setQuickAddOpen(true),
+    });
+    return () => registerDashboardActions(null);
+  }, [registerDashboardActions]);
 
   useEffect(() => {
     fetchSavedViews().then(setSavedViews);
@@ -631,27 +648,6 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
         onSwitch={handleSwitchTimer}
       />
       <ScoringReferenceDialog open={scoringReferenceOpen} onOpenChange={setScoringReferenceOpen} />
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={(next) => {
-          setPaletteOpen(next);
-          if (!next) setQuery('');
-        }}
-        items={data.signals}
-        savedViews={savedViews}
-        search={query}
-        onSearchChange={setQuery}
-        onSelectItem={(item) => {
-          if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
-        }}
-        onSelectQuery={setSignalsQuery}
-        onGoToDashboard={() => router.push('/')}
-        onGoToSettings={() => router.push('/settings')}
-        onWrapUp={() => setReviewDayOpen(true)}
-        onOpenScoringReference={() => setScoringReferenceOpen(true)}
-        onOpenHelp={() => setHelpOpen(true)}
-        onQuickAdd={() => setQuickAddOpen(true)}
-      />
     </main>
     </GlobalKeymapProvider>
   );
