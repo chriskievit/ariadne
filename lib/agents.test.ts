@@ -32,3 +32,20 @@ describe('buildCommand', () => {
     expect(codex.buildCommand({ settingsPath: '/tmp/s.json' })).toBe('codex');
   });
 });
+
+describe('buildResumeCommand', () => {
+  it('is implemented by exactly one definition -- resuming is a Claude Code-only capability', () => {
+    expect(AGENT_DEFINITIONS.filter((a) => a.buildResumeCommand).map((a) => a.kind)).toEqual(['claude']);
+  });
+
+  it('includes the agent session id so Claude Code picks the right conversation back up', () => {
+    const claude = getAgentDefinition('claude')!;
+    const command = claude.buildResumeCommand!({ settingsPath: '/tmp/s.json' }, 'sess-123');
+    expect(command).toBe('claude --resume "sess-123" --settings "/tmp/s.json"');
+  });
+
+  it('omits the settings flag when there is none', () => {
+    const claude = getAgentDefinition('claude')!;
+    expect(claude.buildResumeCommand!({ settingsPath: null }, 'sess-123')).toBe('claude --resume "sess-123"');
+  });
+});

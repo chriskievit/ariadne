@@ -22,6 +22,10 @@ export interface AgentDefinition {
   // because a state Ariadne cannot see is worse than one it admits to.
   supportsHooks: boolean;
   buildCommand(options: BuildCommandOptions): string;
+  // Only where the agent can pick a previous conversation back up by id.
+  // Absent means the session can be revealed but not resumed, and the pane
+  // hides the action rather than offering one that would start fresh.
+  buildResumeCommand?(options: BuildCommandOptions, agentSessionId: string): string;
 }
 
 export const DEFAULT_AGENT: AgentKind = 'claude';
@@ -37,6 +41,10 @@ export const AGENT_DEFINITIONS: AgentDefinition[] = [
     binary: 'claude',
     supportsHooks: true,
     buildCommand: ({ settingsPath }) => (settingsPath ? `claude --settings "${settingsPath}"` : 'claude'),
+    buildResumeCommand: ({ settingsPath }, agentSessionId) =>
+      settingsPath
+        ? `claude --resume "${agentSessionId}" --settings "${settingsPath}"`
+        : `claude --resume "${agentSessionId}"`,
   },
   { kind: 'codex', label: 'Codex', binary: 'codex', supportsHooks: false, buildCommand: plainCommand('codex') },
   {
