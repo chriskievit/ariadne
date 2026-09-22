@@ -88,8 +88,15 @@ export default function TopBar() {
           322px floor there turns a cramped bar into a horizontally
           scrolling page, which is worse than a compressed logo. The
           resulting narrow-width compression is inherited pre-existing
-          behaviour, not something this layout endorses. sm is the only
-          breakpoint this bar uses; do not add another tier. */}
+          behaviour, not something this layout endorses.
+
+          sm is the only breakpoint this grid uses, and the only one it
+          should. The bar as a whole now also uses lg, but for content
+          rather than for tracks: RunningTimerChip hides its Complete and
+          Pause buttons below it, because with a timer running the bar
+          cannot fit five things that each want 150-200px. That is the one
+          sanctioned exception and it was argued out at length -- see the
+          Layout section in DESIGN.md before adding a third. */}
       <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,20rem)_minmax(0,1fr)] items-center gap-4 px-6 sm:grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)]">
         <Link
           href="/"
