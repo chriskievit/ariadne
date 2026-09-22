@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/sonner';
 import { agentStateDisplay, sessionExplanation, type AgentGlyph } from '@/lib/agent-session-display';
 import { getAgentDefinition } from '@/lib/agents';
 import { AGENT_POLL_INTERVAL_MS } from '@/lib/agent-roster';
+import { isWarpColor, type WarpColor } from '@/lib/warp-colors';
 import type { SessionListEntry } from '@/lib/agent-session-list';
 // Type-only: both modules reach node built-ins by value elsewhere in their
 // files (agent-transcript's fs reads, agent-worktree's git-cli spawns), so
@@ -39,11 +40,10 @@ const TONE_CLASS = {
   neutral: 'text-muted-foreground',
 } as const;
 
-// Ariadne never picks the Warp tab colour itself -- see AGENT_TAB_COLOR in
-// lib/agent-launch.ts, which is server-only (it touches node:fs) and so
-// cannot be imported here. This is the same eight-name Warp palette, kept in
-// sync by hand because it changes only if Warp's own palette does.
-const WARP_SWATCH: Record<string, string> = {
+// Keyed as Record<WarpColor, string> rather than Record<string, string>: a
+// ninth colour Warp ships is then a compile error right here, not a swatch
+// that silently renders blank because the lookup missed.
+const WARP_SWATCH: Record<WarpColor, string> = {
   black: '#000000',
   red: '#e5484d',
   green: '#30a46c',
@@ -63,7 +63,6 @@ export default function SessionPane({
 }) {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [diff, setDiff] = useState<SessionDiff | null>(null);
-  const [staleSince, setStaleSince] = useState<number | null>(null);
 
   const [dismissOpen, setDismissOpen] = useState(false);
   const [dismissing, setDismissing] = useState(false);
@@ -72,8 +71,16 @@ export default function SessionPane({
   const display = agentStateDisplay(session.state);
   const Glyph = GLYPHS[display.glyph];
   const explanation = sessionExplanation(session);
+  // A dismissed session may still have a live agent behind it -- dismissal is
+  // Ariadne stepping back, not the agent stopping, and its tab config is
+  // already gone (see Dismiss below). Offering Resume here would draw a
+  // button whose route (correctly) refuses it; the server is the real guard,
+  // this just keeps the pane from offering what it will refuse.
+  const wasDismissed = session.endedAt !== null && session.endReason === 'dismissed';
   const canResume =
-    getAgentDefinition(session.agent)?.buildResumeCommand !== undefined && session.agentSessionId !== null;
+    !wasDismissed &&
+    getAgentDefinition(session.agent)?.buildResumeCommand !== undefined &&
+    session.agentSessionId !== null;
 
   // The transcript and diff are per-session network calls, unlike the rest of
   // the pane which reads straight off the `session` prop the rail already
@@ -93,13 +100,14 @@ export default function SessionPane({
         if (cancelled) return;
         setEntries(transcript.entries);
         setDiff(diffResult);
-        setStaleSince(null);
       } catch {
         // Keep whatever was last shown -- a session pane that blanks itself
         // out because one poll failed is worse than one showing output that
-        // is a few seconds behind. Matches WatchFloor's own failed-poll
-        // handling: stay silent beyond the marker, keep trying.
-        if (!cancelled) setStaleSince((since) => since ?? Date.now());
+        // is a few seconds behind. No marker of its own: WatchFloor already
+        // owns the page-level "this isn't updating" notice, and a second
+        // copy of the same sentence here would both duplicate it visually
+        // and, since both are role="status", have a screen reader read it
+        // twice for one outage.
       }
     }
 
@@ -174,39 +182,38 @@ export default function SessionPane({
           />
           {display.label}
         </span>
-        {/* Only the diff response ever supplies a branch -- git_branch on the
-            row is always null (see lib/agent-worktree.ts) because the hook
-            payload never carries one. Rendering session.gitBranch here would
-            silently show nothing forever. */}
-        {diff !== null && diff.available && diff.branch && (
-          <Badge variant="outline" className="font-mono text-xs font-normal">
-            {diff.branch}
-          </Badge>
-        )}
       </header>
 
       {/* Fixed position: always the second thing on the pane, directly under
-          a header that only ever grows once (the branch badge, when the
-          first diff response lands). Everything below here -- the
-          explanation sentence, the needs-you question -- can appear or
+          a header whose height never changes (title and state label are the
+          only things in it, and neither reflows). Everything below here --
+          the explanation sentence, the needs-you question -- can appear or
           disappear as a hook event lands mid-visit, and none of it may sit
-          above this row: that is exactly the layout shift that turns a
-          click aimed at Dismiss into a click on a button that appeared a
-          moment before. */}
+          above this row: that is exactly the layout shift that turns a click
+          aimed at Dismiss into a click on a button that appeared a moment
+          before. The branch badge lives in the Diff section below for the
+          same reason: it depends on the diff poll (available flips both
+          ways across polls), so it cannot sit in or above this row either. */}
       <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
         {canResume && (
           <Button type="button" size="sm" onClick={handleResume} disabled={resuming}>
             {resuming ? 'Resuming…' : 'Resume in a new tab'}
           </Button>
         )}
-        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        {/* min-w-0 + flex-1 on the row's one shrinkable item, truncate on its
+            single text node: this is what actually lets it give way at
+            narrow widths. Two sibling spans (title, then the sentence) would
+            each keep their own content-width floor as flex items and the row
+            would overflow regardless of the wrapper's own min-w-0. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs text-muted-foreground">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full"
-            style={{ backgroundColor: WARP_SWATCH[session.tabColor] ?? undefined }}
+            style={{ backgroundColor: isWarpColor(session.tabColor) ? WARP_SWATCH[session.tabColor] : undefined }}
             aria-hidden="true"
           />
-          <span className="truncate">{session.tabTitle}</span>
-          <span>· switch to Warp by hand to see it</span>
+          <span className="min-w-0 truncate" title={`${session.tabTitle} · switch to Warp by hand to see it`}>
+            {session.tabTitle} · switch to Warp by hand to see it
+          </span>
         </div>
         {/* ml-auto, not row order, is what pins this to the row's trailing
             edge: the Resume button before it can appear or vanish and this
@@ -233,14 +240,22 @@ export default function SessionPane({
         </div>
       )}
 
-      {staleSince !== null && (
-        <p role="status" className="mt-4 text-xs text-warning">
-          This isn&apos;t updating right now. Ariadne will catch up on its own once it can reach the server again.
-        </p>
-      )}
-
       <section className="mt-6">
-        <h3 className="mb-1.5 text-sm font-semibold text-muted-foreground">Diff</h3>
+        <div className="mb-1.5 flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">Diff</h3>
+          {/* Only the diff response ever supplies a branch -- git_branch on
+              the row is always null (see lib/agent-worktree.ts) because the
+              hook payload never carries one. Rendering session.gitBranch
+              here would silently show nothing forever. Placed next to this
+              heading, not the pane header, because `available` can flip
+              across polls and the action row above must never move when it
+              does. */}
+          {diff !== null && diff.available && diff.branch && (
+            <Badge variant="outline" className="font-mono text-xs font-normal">
+              {diff.branch}
+            </Badge>
+          )}
+        </div>
         <DiffSummary diff={diff} />
       </section>
 

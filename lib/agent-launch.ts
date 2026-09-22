@@ -1,11 +1,8 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { agentTabConfigDir } from './agent-paths';
+import { WARP_COLORS, isWarpColor } from './warp-colors';
 import type { Item } from './types';
-
-// Warp rejects any colour outside this set with a TOML parse error that takes
-// the whole tab config down, so the value is validated rather than trusted.
-const WARP_COLORS = new Set(['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']);
 
 // Yellow is the closest Warp offers to Threadline Gold, which is the colour
 // DESIGN.md reserves for "your thread, live right now". An agent session is
@@ -76,8 +73,8 @@ export interface SessionTabConfigInput {
 export function writeSessionTabConfig(input: SessionTabConfigInput, tabConfigDir: string = agentTabConfigDir()): void {
   assertShellSafe(input.directory, 'Working directory');
   assertTomlSafe(input.title, 'Tab title');
-  if (!WARP_COLORS.has(input.color)) {
-    throw new Error(`Invalid tab colour: must be one of ${[...WARP_COLORS].join(', ')}.`);
+  if (!isWarpColor(input.color)) {
+    throw new Error(`Invalid tab colour: must be one of ${WARP_COLORS.join(', ')}.`);
   }
   // The command legitimately contains quotes (a --settings path), so it is
   // escaped for TOML rather than rejected. Newlines are still fatal.

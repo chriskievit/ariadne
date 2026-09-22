@@ -27,6 +27,22 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const session = getAgentSessionById(db, Number(idParam));
   if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 });
 
+  // Dismissal is Ariadne stepping back, not the agent stopping -- the row's
+  // tab config is deleted on dismiss (see the dismiss route) precisely so it
+  // cannot be reopened into a second process while the first may still be
+  // running. `stopped` is the opposite case: the agent itself reported
+  // SessionEnd, so the process is genuinely gone and resuming it is the safe
+  // path this route exists for. endedAt alone cannot tell the two apart --
+  // both set it -- so the check is on endReason.
+  if (session.endReason === 'dismissed') {
+    return NextResponse.json(
+      {
+        error: 'This session was dismissed, not ended by the agent. It may still be running -- check Warp before starting another.',
+      },
+      { status: 400 }
+    );
+  }
+
   if (!session.agentSessionId) {
     return NextResponse.json(
       { error: 'This session has not reported an agent session id yet, so there is nothing to resume.' },

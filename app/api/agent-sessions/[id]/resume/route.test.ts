@@ -103,6 +103,18 @@ describe('POST /api/agent-sessions/[id]/resume', () => {
     expect(listAgentSessions(testDb)).toHaveLength(1);
   });
 
+  it('400s for a dismissed session, which may still have a live agent behind it', async () => {
+    const dismissed = createEndedSession({ endReason: 'dismissed' });
+
+    const res = await post(dismissed.id);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(typeof body.error).toBe('string');
+    // No second row: refused before the ended branch ever creates one.
+    expect(listAgentSessions(testDb)).toHaveLength(1);
+  });
+
   it('400s for an agent that cannot resume', async () => {
     const session = createAgentSession(testDb, {
       itemId,
