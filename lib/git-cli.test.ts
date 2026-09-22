@@ -77,6 +77,17 @@ describe('runGit', () => {
     const result = await runGit(repo, ['rev-parse', 'HEAD']);
     expect(result.truncated).toBe(false);
   });
+
+  it('trims output that is over the cap but within the buffer, without Node killing the child', async () => {
+    // A commit hash plus its trailing newline is 41 bytes. With maxBytes: 30,
+    // that's over the cap (30) but under execFile's own buffer (60), so this
+    // lands in the middle band: git finishes normally and runGit's own trim
+    // -- not Node's kill -- is what makes this truncated.
+    const result = await runGit(repo, ['log', '--format=%H'], { maxBytes: 30 });
+    expect(result.ok).toBe(true);
+    expect(result.truncated).toBe(true);
+    expect(result.stdout.length).toBe(30);
+  });
 });
 
 describe('capOutput', () => {

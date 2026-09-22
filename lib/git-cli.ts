@@ -51,11 +51,20 @@ export function capOutput(text: string, maxBytes: number): { stdout: string; tru
 export function runGit(cwd: string, args: string[], options: RunGitOptions = {}): Promise<GitResult> {
   const maxBytes = options.maxBytes ?? GIT_MAX_BUFFER;
 
+  // execFile's own maxBuffer is deliberately larger than the cap callers
+  // reason about. If it were equal to maxBytes, Node would kill the child
+  // the instant output crossed the cap and our own trim below could never
+  // run -- git would always be the one deciding truncation, not us. Giving
+  // it headroom means output that's over the cap but not wildly so finishes
+  // normally and gets trimmed cleanly here; Node's kill stays as the
+  // backstop for output so large it isn't worth buffering at all.
+  const execMaxBuffer = maxBytes * 2;
+
   return new Promise<GitResult>((resolve) => {
     execFile(
       'git',
       ['-C', cwd, ...args],
-      { timeout: GIT_TIMEOUT_MS, maxBuffer: maxBytes, encoding: 'utf8', windowsHide: true },
+      { timeout: GIT_TIMEOUT_MS, maxBuffer: execMaxBuffer, encoding: 'utf8', windowsHide: true },
       (error, stdout) => {
         const text = typeof stdout === 'string' ? stdout : '';
 
@@ -67,11 +76,9 @@ export function runGit(cwd: string, args: string[], options: RunGitOptions = {})
           const overflowed = (error as NodeJS.ErrnoException).code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
           if (overflowed) {
             // This branch already knows truncation happened -- that is what
-            // the error means -- even though Node hands back `text` cut to
-            // (about) maxBytes, so capOutput's own length check can no
-            // longer tell "the output was exactly this long" from "the
-            // output was cut to this length". Only the slicing is shared;
-            // `truncated: true` here comes from the error, not from capOutput.
+            // the error means -- so truncated is asserted directly rather
+            // than inferred from capOutput's length check. Only the slicing
+            // is shared; the flag comes from the error, not from capOutput.
             return resolve({ ok: true, stdout: capOutput(text, maxBytes).stdout, truncated: true });
           }
 
@@ -79,14 +86,11 @@ export function runGit(cwd: string, args: string[], options: RunGitOptions = {})
           return resolve({ ok: false, stdout: '', truncated: false });
         }
 
-        // maxBuffer is not always enforced before the callback on every
-        // platform, so the same cap is applied here rather than trusted to
-        // have already happened. This exact call is not something an
-        // integration test can force to fire -- execFile's own maxBuffer is
-        // set to this same maxBytes, so Node's kill wins the race on a
-        // platform where it works at all -- but it shares capOutput with the
-        // branch above, and capOutput's own tests verify the slicing and
-        // truncation logic directly, so a break here is still caught.
+        // execFile's own maxBuffer is deliberately larger than maxBytes (see
+        // execMaxBuffer above), so output that lands between the two -- over
+        // the cap but within the buffer -- reaches here intact rather than
+        // getting the child killed mid-write. This is where that band gets
+        // trimmed to what the caller actually asked for.
         resolve({ ok: true, ...capOutput(text, maxBytes) });
       }
     );
