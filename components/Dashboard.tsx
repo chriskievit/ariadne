@@ -49,6 +49,7 @@ import {
   setEstimate,
   fetchTodaySummaryFor,
   fetchCalibration,
+  fetchAgentSessions,
 } from '@/lib/api-client';
 import { isSnoozed, SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { needsYou } from '@/lib/grouping';
@@ -61,8 +62,16 @@ import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
 import type { SourceStatus } from '@/lib/sync-status';
 import type { Item, Plan, PlanItem, Priority } from '@/lib/types';
+import { liveSessionsByItem } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+// Ambient, not read: on Planning a live session is "three agents are going",
+// not the thing on screen, so this polls at a third of the rail's rate
+// (AGENT_POLL_INTERVAL_MS in lib/agent-roster.ts) rather than sharing it --
+// a rail-rate poll here would buy freshness nobody on this surface is
+// looking at.
+const SESSION_POLL_INTERVAL_MS = 15_000;
 
 interface DashboardData {
   today: ScoredItem[];
@@ -112,6 +121,10 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [calibration, setCalibration] = useState<CalibrationEntry[]>([]);
   const [scoringReferenceOpen, setScoringReferenceOpen] = useState(false);
+  // Empty until the first poll lands -- every row simply has no session
+  // awareness for that first tick, the same "just don't know yet" this map
+  // means for any item it has no entry for.
+  const [liveSessions, setLiveSessions] = useState<Map<number, SessionListEntry>>(new Map());
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -156,6 +169,40 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     fetchCalibration(today, today).then(setCalibration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const refreshLiveSessions = useCallback(async () => {
+    try {
+      const { sessions } = await fetchAgentSessions();
+      setLiveSessions(liveSessionsByItem(sessions));
+    } catch {
+      // Same house rule as WatchFloor's own poll of this endpoint: keep
+      // whatever was last good and let the next tick recover on its own.
+      // No staleness marker -- WatchFloor already owns that language and has
+      // a pane to put it in, and Planning has neither, so saying nothing
+      // here is the only way to avoid a second dialect of the same message.
+    }
+  }, []);
+
+  useEffect(() => {
+    // Unlike WatchFloor, Dashboard has no server-rendered session list to
+    // start from, so an immediate fetch is what makes a session visible on
+    // first paint instead of leaving every row blind for a full interval.
+    void refreshLiveSessions();
+    // A background tab polling every 15s for information nobody is looking
+    // at is wasted work; catch up on the way back instead. Same pattern as
+    // WatchFloor, at a third of its rate -- see SESSION_POLL_INTERVAL_MS.
+    function onVisible() {
+      if (!document.hidden) void refreshLiveSessions();
+    }
+    const timer = setInterval(() => {
+      if (!document.hidden) void refreshLiveSessions();
+    }, SESSION_POLL_INTERVAL_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshLiveSessions]);
 
   // The running timer can be stopped from outside this component's own
   // handlers (e.g. completing the item straight from the header's ticker),
@@ -553,6 +600,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onReorder={handleReorderToday}
             failingSources={failingSources}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
+            liveSessions={liveSessions}
           />
           <Card>
             <CardContent className="pt-6">
@@ -572,6 +620,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
                   onSetPriority={handleSetPriority}
                   failingSources={failingSources}
                   onOpenScoringReference={() => setScoringReferenceOpen(true)}
+                  liveSessions={liveSessions}
                 />
               </Accordion>
             </CardContent>
@@ -595,6 +644,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             savedViews={savedViews}
             onSavedViewsChange={setSavedViews}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
+            liveSessions={liveSessions}
           />
         </>
       )}

@@ -7,6 +7,8 @@ import SortableRows from './SortableRows';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { Item, Priority } from '@/lib/types';
 import { formatMinutes } from '@/lib/format-duration';
+import { liveSessionFor } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 interface Props {
   items: ScoredItem[];
@@ -26,6 +28,10 @@ interface Props {
   onReorder: (orderedItemIds: number[]) => void | Promise<void>;
   failingSources?: Set<Item['source']>;
   onOpenScoringReference: () => void;
+  // Dashboard's one shared poll of live agent sessions. Omitted entirely
+  // (rather than an empty Map) on any caller that has not wired it up, same
+  // as the optionality this passes straight through to ItemRow's own prop.
+  liveSessions?: Map<number, SessionListEntry>;
 }
 
 export default function TodaySection({
@@ -46,6 +52,7 @@ export default function TodaySection({
   onReorder,
   failingSources,
   onOpenScoringReference,
+  liveSessions,
 }: Props) {
   return (
     <Card className="border-l-2 border-l-[hsl(var(--brand-gold))]">
@@ -101,6 +108,7 @@ export default function TodaySection({
                     onUnpinToday={onUnpinToday}
                     sourceIsStale={failingSources?.has(item.source)}
                     onOpenScoringReference={onOpenScoringReference}
+                    liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
                     fullDetailWhenParked
                   />
                 </div>

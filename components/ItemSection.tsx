@@ -5,6 +5,8 @@ import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/
 import ItemRow from './ItemRow';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { Source, Priority } from '@/lib/types';
+import { liveSessionFor } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 interface Props {
   value: string;
@@ -24,6 +26,8 @@ interface Props {
   onUnpinToday?: (id: number) => void;
   failingSources?: Set<Source>;
   onOpenScoringReference: () => void;
+  // See TodaySection's Props -- same shared map, same optionality.
+  liveSessions?: Map<number, SessionListEntry>;
 }
 
 export default function ItemSection({
@@ -44,6 +48,7 @@ export default function ItemSection({
   onUnpinToday,
   failingSources,
   onOpenScoringReference,
+  liveSessions,
 }: Props) {
   const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
   const [parkedOpen, setParkedOpen] = useState(false);
@@ -78,6 +83,7 @@ export default function ItemSection({
                 onUnpinToday={onUnpinToday}
                 sourceIsStale={failingSources?.has(item.source)}
                 onOpenScoringReference={onOpenScoringReference}
+                liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
               />
             ))}
             {parkedItems && parkedItems.length > 0 && (
@@ -104,6 +110,7 @@ export default function ItemSection({
                         onRequeue={onRequeue}
                         onUnpark={onUnpark}
                         onOpenScoringReference={onOpenScoringReference}
+                        liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
                       />
                     ))}
                   </div>

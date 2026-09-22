@@ -23,8 +23,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
-import { fetchLocalRepos, fetchAgentSessions } from '@/lib/api-client';
+import { fetchLocalRepos } from '@/lib/api-client';
 import type { LocalRepo } from '@/lib/warp';
+import type { LiveSessionSummary } from '@/lib/agent-session-links';
 import {
   Dialog,
   DialogContent,
@@ -169,6 +170,11 @@ interface Props {
   onSetPriority?: (id: number, priority: Priority | null) => void;
   sourceIsStale?: boolean;
   onOpenScoringReference: () => void;
+  // Undefined on any surface that hasn't wired up Dashboard's shared session
+  // map (or has no such map at all) -- the row just has no session awareness
+  // rather than breaking. Where it is supplied, its presence alone means
+  // "live"; see liveSessionsByItem for why that is never a state check.
+  liveSession?: LiveSessionSummary;
   // Today shows a parked item at full detail (score chip, Complete button,
   // overflow menu) instead of the stripped-down title-plus-Resume treatment
   // In-progress's Paused sub-list uses -- it's the one place you're actively
@@ -447,6 +453,7 @@ export default function ItemRow({
   onSetPriority,
   sourceIsStale,
   onOpenScoringReference,
+  liveSession,
   fullDetailWhenParked = false,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
@@ -461,12 +468,6 @@ export default function ItemRow({
   const [hours, setHours] = useState('');
   const [note, setNote] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
-  // Fetched fresh each time the delete dialog opens rather than kept live:
-  // this row has no other reason to poll agent sessions, and the dialog is
-  // the one moment this fact actually matters. Starts false so the dialog
-  // never claims a live agent that a slow fetch just hasn't confirmed yet;
-  // the honest addendum only appears once it is.
-  const [deleteHasLiveAgentSession, setDeleteHasLiveAgentSession] = useState(false);
   const [claudeDialogOpen, setClaudeDialogOpen] = useState(false);
   const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
   const [selectedRepoPath, setSelectedRepoPath] = useState('');
@@ -474,6 +475,13 @@ export default function ItemRow({
   const [completeCascadeOpen, setCompleteCascadeOpen] = useState(false);
   const [pendingComplete, setPendingComplete] = useState<{ hours: number; note?: string } | null>(null);
   const canDelete = item.source === 'adhoc' && Boolean(onDelete);
+  // Delete only ever offers itself for ad-hoc items, but an ad-hoc item can
+  // still have had an agent handed to it -- the same route this dialog's
+  // Delete button calls stops tracking that session, not the process Warp is
+  // running. Reading straight off the prop rather than fetching on open (the
+  // dialog's old behaviour) means there is no frame where a reopened dialog
+  // shows the previous item's answer while a fetch catches up.
+  const deleteHasLiveAgentSession = liveSession !== undefined;
 
   // The source system has closed this item but Ariadne, being read-only, has
   // not. A settled row keeps its place and its full-strength text -- the chip
@@ -543,22 +551,6 @@ export default function ItemRow({
     setLocalRepos(repos);
     setSelectedRepoPath(repos[0]?.path ?? '');
     setClaudeDialogOpen(true);
-  }
-
-  // Delete only ever offers itself for ad-hoc items (canDelete), but an
-  // ad-hoc item can still have had an agent handed to it -- the same route
-  // this dialog's Delete button calls stops tracking that session, not the
-  // process Warp is running. The dialog says nothing about that until this
-  // resolves, deliberately: claiming a live agent before this fetch confirms
-  // one would be worse than the base dialog's silence on it.
-  async function handleDeleteClick() {
-    setDeleteOpen(true);
-    try {
-      const { sessions } = await fetchAgentSessions();
-      setDeleteHasLiveAgentSession(sessions.some((s) => s.itemId === item.id && s.endedAt === null));
-    } catch {
-      setDeleteHasLiveAgentSession(false);
-    }
   }
 
   function handleClaudeDialogSubmit() {
@@ -1010,7 +1002,7 @@ export default function ItemRow({
           onPark={onPark}
           onUnpark={onUnpark}
           onOpenClaude={handleOpenClaudeClick}
-          onDelete={canDelete ? () => void handleDeleteClick() : undefined}
+          onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
           onPinToday={onPinToday}
           onUnpinToday={onUnpinToday}
           onStar={onStar}

@@ -21,6 +21,8 @@ import { createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
 import type { Priority, Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
+import { liveSessionFor } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 const STATUS_KEY: { label: string; description: string }[] = [
   { label: 'Blocked', description: 'Needs a nudge, not work.' },
@@ -81,6 +83,8 @@ interface Props {
   onSavedViewsChange: (views: SavedView[]) => void;
   failingSources?: Set<Source>;
   onOpenScoringReference: () => void;
+  // See TodaySection's Props -- same shared map, same optionality.
+  liveSessions?: Map<number, SessionListEntry>;
 }
 
 export default function SignalsBoard({
@@ -102,6 +106,7 @@ export default function SignalsBoard({
   onSavedViewsChange,
   failingSources,
   onOpenScoringReference,
+  liveSessions,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -176,6 +181,7 @@ export default function SignalsBoard({
       onSetPriority={onSetPriority}
       sourceIsStale={failingSources?.has(item.source)}
       onOpenScoringReference={onOpenScoringReference}
+      liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
     />
   );
 
