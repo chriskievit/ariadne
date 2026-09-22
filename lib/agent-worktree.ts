@@ -1,6 +1,6 @@
-import { runGit, type GitResult } from './git-cli';
+import { runGit, type GitResult, type RunGitOptions } from './git-cli';
 
-type GitRunner = (cwd: string, args: string[]) => Promise<GitResult>;
+type GitRunner = (cwd: string, args: string[], options?: RunGitOptions) => Promise<GitResult>;
 
 // Tried in order when the remote does not publish its own HEAD. Two names,
 // because guessing further would mean diffing against something arbitrary
@@ -59,12 +59,21 @@ async function resolveBase(cwd: string, git: GitRunner): Promise<string | null> 
   // are a fallback for a remote that never published a HEAD, and they are
   // tried after it rather than instead of it -- deduplicated, so a repo whose
   // origin/HEAD already points at origin/main is not probed for it twice.
-  const published = await git(cwd, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD']);
+  //
+  // Both probes below pass quiet: true. `--quiet` on symbolic-ref and a
+  // missing merge-base are misses this function expects and handles, not
+  // faults -- runGit's default logging would otherwise warn on every one of
+  // them, at this pane's five-second poll, for any repo with no `origin`.
+  const published = await git(
+    cwd,
+    ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'],
+    { quiet: true }
+  );
   const head = published.ok ? published.stdout.trim() : '';
   const refs = [...new Set([head, ...DEFAULT_BRANCH_CANDIDATES].filter(Boolean))];
 
   for (const ref of refs) {
-    const base = await git(cwd, ['merge-base', 'HEAD', ref]);
+    const base = await git(cwd, ['merge-base', 'HEAD', ref], { quiet: true });
     if (base.ok && base.stdout.trim()) return base.stdout.trim();
   }
   return null;

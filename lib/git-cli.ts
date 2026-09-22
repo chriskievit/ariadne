@@ -18,6 +18,16 @@ export interface GitResult {
 
 export interface RunGitOptions {
   maxBytes?: number;
+  /**
+   * True when a non-zero exit here is an expected answer, not a fault --
+   * e.g. probing for a ref that may not exist. Suppresses the warning log
+   * for that call; a genuine failure elsewhere still logs. Without this, a
+   * caller that runs expected-miss probes on the pane's five-second poll
+   * (resolveBase in lib/agent-worktree.ts) buries the logError calls the
+   * hook receiver's whole debuggability rests on, in noise from probes that
+   * were never failures to begin with.
+   */
+  quiet?: boolean;
 }
 
 /**
@@ -82,7 +92,12 @@ export function runGit(cwd: string, args: string[], options: RunGitOptions = {})
             return resolve({ ok: true, stdout: capOutput(text, maxBytes).stdout, truncated: true });
           }
 
-          logWarn('git', `git ${args[0]} failed in ${cwd}`, error);
+          // A quiet call already told us a miss here is an expected answer,
+          // not a fault -- see RunGitOptions.quiet -- so there is nothing to
+          // warn about.
+          if (!options.quiet) {
+            logWarn('git', `git ${args[0]} failed in ${cwd}`, error);
+          }
           return resolve({ ok: false, stdout: '', truncated: false });
         }
 

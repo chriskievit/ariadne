@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi, type MockInstance } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,11 +6,13 @@ import { execFileSync } from 'node:child_process';
 import { runGit, capOutput } from './git-cli';
 
 let repo: string;
+let warnSpy: MockInstance;
 
 beforeAll(() => {
   // The failure-path cases below deliberately hit runGit's logWarn call.
-  // Spying keeps that expected noise out of the test run's stderr.
-  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // Spying keeps that expected noise out of the test run's stderr, and the
+  // reference is kept so the quiet-mode tests can assert on it directly.
+  warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   repo = mkdtempSync(join(tmpdir(), 'ariadne-git-'));
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { stdio: 'pipe' });
   git('init', '-q', '-b', 'main');
@@ -37,6 +39,20 @@ describe('runGit', () => {
     const result = await runGit(repo, ['rev-parse', 'refs/heads/does-not-exist']);
     expect(result.ok).toBe(false);
     expect(result.stdout).toBe('');
+  });
+
+  it('warns on a real failure by default', async () => {
+    warnSpy.mockClear();
+    const result = await runGit(repo, ['rev-parse', 'refs/heads/does-not-exist']);
+    expect(result.ok).toBe(false);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('says nothing for a quiet probe that misses, because a miss is the expected answer', async () => {
+    warnSpy.mockClear();
+    const result = await runGit(repo, ['rev-parse', 'refs/heads/does-not-exist'], { quiet: true });
+    expect(result.ok).toBe(false);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it('reports failure for a directory that is not a repository', async () => {
