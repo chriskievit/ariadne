@@ -68,6 +68,9 @@ export default function SessionPane({
 }) {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [diff, setDiff] = useState<SessionDiffData | null>(null);
+  // Guards the transcript/diff poll below against overlapping requests --
+  // see the comment on load() itself for why that is reachable here.
+  const isLoadingRef = useRef(false);
 
   const [dismissOpen, setDismissOpen] = useState(false);
   const [dismissing, setDismissing] = useState(false);
@@ -95,8 +98,27 @@ export default function SessionPane({
   // would just be load with no new information behind it.
   useEffect(() => {
     let cancelled = false;
+    // Reset for this effect instance, not just carried over from whatever
+    // the guard below last left it as. React's StrictMode dev double-invoke
+    // (setup, cleanup, setup again) would otherwise leave this true from a
+    // setup that got torn down before its request finished, and the mount
+    // that actually stays live would find the guard already held and skip
+    // its own first load -- silently, until the next timer tick papers over
+    // it. A real overlapping tick from *this* effect instance still finds
+    // the guard doing its job, because nothing between here and the next
+    // tick's call resets it again.
+    isLoadingRef.current = false;
 
     async function load() {
+      // readSessionDiff alone can issue up to six git calls, each bounded by
+      // GIT_TIMEOUT_MS but sequential inside resolveBase's probes -- the
+      // worst case is well past this poll's own 5s cadence. Without this
+      // guard a slow tick's request is still in flight when the next timer
+      // fires, and requests stack rather than the pane just running one tick
+      // behind. Skipping a tick, not queuing it, is the fix: the next timer
+      // tries again on its own schedule.
+      if (isLoadingRef.current) return;
+      isLoadingRef.current = true;
       try {
         const [transcript, diffResult] = await Promise.all([
           fetchSessionTranscript(session.id),
@@ -113,6 +135,8 @@ export default function SessionPane({
         // copy of the same sentence here would both duplicate it visually
         // and, since both are role="status", have a screen reader read it
         // twice for one outage.
+      } finally {
+        isLoadingRef.current = false;
       }
     }
 
@@ -182,7 +206,14 @@ export default function SessionPane({
         <h2 className="text-base font-semibold">{session.tabTitle}</h2>
         <span className={cn('flex items-center gap-1.5 text-sm', TONE_CLASS[display.tone])}>
           <Glyph
-            className={cn('h-4 w-4', session.state === 'working' && 'motion-safe:animate-spin')}
+            className={cn(
+              'h-4 w-4',
+              // Same live check as the rail's row (SessionRosterRow): a
+              // dismissed session keeps whatever state it last reported --
+              // see dismissAgentSession -- and a dismissed 'working' one
+              // must not spin here either.
+              session.state === 'working' && session.endedAt === null && 'motion-safe:animate-spin'
+            )}
             aria-hidden="true"
           />
           {display.label}

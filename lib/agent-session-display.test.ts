@@ -82,4 +82,19 @@ describe('sessionExplanation', () => {
     const text = sessionExplanation(session({ agent: 'codex', state: 'failed', endReason: 'launch_failed' }));
     expect(text).toMatch(/Ariadne/);
   });
+
+  it('says the same thing the dismiss dialog said, past the moment of confirming', () => {
+    const text = sessionExplanation(session({ state: 'working', endReason: 'dismissed' }));
+    expect(text).toMatch(/stopped tracking/i);
+    expect(text).toMatch(/Warp/);
+  });
+
+  it('still shows the folder-trust explanation for a never-registered session, dismissed or not', () => {
+    // dismissAgentSession leaves endReason alone when one already explains
+    // the row, so a dismissed never_registered session is never passed here
+    // with endReason: 'dismissed' -- this pins that the explanation this
+    // function shows for it is unaffected by dismissal ever happening.
+    const text = sessionExplanation(session({ state: 'failed', endReason: 'never_registered' }));
+    expect(text).toMatch(/trust/i);
+  });
 });

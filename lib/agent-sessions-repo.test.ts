@@ -180,10 +180,11 @@ describe('dismissAgentSession', () => {
     expect(dismissed?.endReason).toBe('dismissed');
   });
 
-  it('ends a never-registered session, which is the case with no other way out', () => {
+  it('ends a never-registered session without erasing its folder-trust explanation', () => {
     // The reconciler marks this failed but leaves ended_at null on purpose,
     // so a late SessionStart can still revive it. Dismissing is the only
-    // other way this row ever leaves the rail.
+    // other way this row ever leaves the rail -- and the one actionable
+    // fact about it, why it never registered, must survive that.
     const session = createAgentSession(db, {
       itemId, agent: 'claude', launchToken: 'tok-never', tabTitle: 't', tabColor: 'yellow',
     });
@@ -194,7 +195,9 @@ describe('dismissAgentSession', () => {
 
     expect(dismissed?.state).toBe('failed');
     expect(dismissed?.endedAt).toBe('2026-09-22T12:00:00.000Z');
-    expect(dismissed?.endReason).toBe('dismissed');
+    // Not overwritten to 'dismissed' -- this row already explained itself,
+    // and that explanation is more useful than the fact it was dismissed.
+    expect(dismissed?.endReason).toBe('never_registered');
   });
 
   it('ends a hookless agent still sitting in launching', () => {

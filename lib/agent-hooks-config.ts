@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HookEventName } from './agent-session-state';
 
@@ -66,8 +66,11 @@ export function writeHookSettings(
   // above), so both the directory and the file get an explicit, restrictive
   // mode rather than whatever the process umask happens to leave: without
   // this, the default is 0644 and the operator's token sits world-readable.
-  // Cleanup of old files on disk is deliberately out of scope for this phase;
-  // the mode is what keeps a stale one from being a problem in the meantime.
+  // Dismissing a session or deleting its item now calls removeHookSettings
+  // for it (see those routes), but a session that simply stops on its own --
+  // SessionEnd, with nobody dismissing or deleting it after -- is never
+  // cleaned up; the mode is what keeps that one harmless rather than leaving
+  // it world-readable.
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
 
   const path = hookSettingsPath(dir, token);
@@ -77,4 +80,17 @@ export function writeHookSettings(
   // command line closes that too, but is deferred past phase 1.
   writeFileSync(path, `${JSON.stringify(settings, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   return path;
+}
+
+/**
+ * Remove a session's hook settings file from disk.
+ *
+ * Callers must only reach for this once a session has ended -- a live one
+ * may still have Claude Code reading the file to fire its remaining hooks,
+ * and Ariadne has no process handle to know when that stops being true.
+ * force: true makes this idempotent for a file already gone, matching
+ * removeSessionTabConfig's own best-effort shape.
+ */
+export function removeHookSettings(dir: string, token: string): void {
+  rmSync(hookSettingsPath(dir, token), { force: true });
 }

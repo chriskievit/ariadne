@@ -6,6 +6,7 @@ import { openDb } from '@/lib/db';
 import { createAdhocItem } from '@/lib/items-repo';
 import { createAgentSession, applyAgentSessionPatch, getAgentSessionById } from '@/lib/agent-sessions-repo';
 import { writeSessionTabConfig, sessionTabConfigName } from '@/lib/agent-launch';
+import { writeHookSettings } from '@/lib/agent-hooks-config';
 
 const testDb = openDb(':memory:');
 vi.mock('@/lib/db-instance', () => ({ db: testDb }));
@@ -93,6 +94,18 @@ describe('POST /api/agent-sessions/[id]/dismiss', () => {
     await post(session.id);
 
     expect(existsSync(tabConfigPath(session.id))).toBe(false);
+  });
+
+  it("removes the session's hook settings file so its token does not sit on disk", async () => {
+    const session = createAgentSession(testDb, {
+      itemId, agent: 'claude', launchToken: 'tok-settings-abcdefgh', tabTitle: 't', tabColor: 'yellow',
+    });
+    const settingsPath = writeHookSettings(tabDir, session.launchToken, 'http://127.0.0.1:3000', null);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    await post(session.id);
+
+    expect(existsSync(settingsPath)).toBe(false);
   });
 
   it('dismisses successfully and warns, rather than failing, when the tab config cannot be removed', async () => {
