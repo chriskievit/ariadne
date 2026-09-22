@@ -6,7 +6,6 @@ import { useSearch } from './SearchProvider';
 import { useCommandPalette } from './CommandPaletteProvider';
 import { useKeymapHelp } from './KeymapHelpProvider';
 import CommandPalette from './CommandPalette';
-import { toast } from '@/components/ui/sonner';
 import { fetchDashboardData, fetchSavedViews } from '@/lib/api-client';
 import type { ScoredItem } from '@/lib/dashboard';
 import type { SavedView } from '@/lib/saved-views';
@@ -24,37 +23,41 @@ export default function CommandPaletteHost() {
 
   const [items, setItems] = useState<ScoredItem[]>([]);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
-  // Tracks whether a fetch has been kicked off, independent of whether it
-  // succeeded -- a failed fetch clears it so the next open retries instead
-  // of leaving the palette permanently empty.
-  const hasFetchedRef = useRef(false);
+  const [loadError, setLoadError] = useState(false);
+  // Guards against two opens in the same instant (e.g. the keydown handler
+  // and a click landing together) firing overlapping requests -- it is not
+  // a "fetched once" flag. The dashboard's own signals and saved views can
+  // change while the palette is closed (completing an item, saving a view),
+  // so every open re-fetches rather than reusing a stale snapshot.
+  const isLoadingRef = useRef(false);
 
   const loadPaletteData = useCallback(async () => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
+    setLoadError(false);
     try {
       const [dashboardData, views] = await Promise.all([fetchDashboardData(), fetchSavedViews()]);
       setItems(dashboardData.signals);
       setSavedViews(views);
     } catch {
-      hasFetchedRef.current = false;
-      toast('Could not load the command palette. Try again.');
+      setLoadError(true);
+    } finally {
+      isLoadingRef.current = false;
     }
   }, []);
 
   // Fires on every path that can open the palette -- the top bar's button
   // sets `open` on the shared context directly, without going through
   // onOpenChange below -- so fetching here, keyed on `open` itself, is the
-  // one place guaranteed to run regardless of how it was opened. The ref
-  // guard in loadPaletteData keeps this to a single request per session.
+  // one place guaranteed to run regardless of how it was opened.
   useEffect(() => {
     if (open) void loadPaletteData();
   }, [open, loadPaletteData]);
 
-  // ⌘K/Ctrl+K, mirroring GlobalKeymapProvider's binding -- that provider only
-  // wraps Dashboard, so this is what makes the shortcut work on /work,
-  // /report and /settings. The two listeners overlap harmlessly on / itself,
-  // both just setting the same open flag to true.
+  // ⌘K/Ctrl+K. This is the only binding for it: GlobalKeymapProvider (which
+  // only wraps Dashboard) deliberately leaves it to this host so /work,
+  // /report and /settings get the shortcut too, and / doesn't end up with
+  // two listeners racing each other.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -89,6 +92,8 @@ export default function CommandPaletteHost() {
       onOpenScoringReference={dashboardActions?.onOpenScoringReference}
       onOpenHelp={() => setHelpOpen(true)}
       onQuickAdd={dashboardActions?.onQuickAdd}
+      loadError={loadError}
+      onRetryLoad={() => void loadPaletteData()}
     />
   );
 }

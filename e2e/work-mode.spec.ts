@@ -86,3 +86,16 @@ test('⌘K opens the command palette on /work, without the dashboard-only comman
   await page.keyboard.press('Escape');
   await expect(palette).toBeHidden();
 });
+
+test('⌘K on / offers the dashboard-only wrap-up command', async ({ page }) => {
+  // The negative case above pins that dashboard-only commands are absent
+  // where Dashboard isn't mounted; this pins the other half -- that they are
+  // genuinely present, not just "correctly missing everywhere" by accident
+  // (e.g. a registration that silently never fires).
+  await page.goto('/');
+
+  await page.keyboard.press('Control+k');
+
+  const palette = page.getByRole('dialog');
+  await expect(palette.getByText('Wrap up the day')).toBeVisible();
+});

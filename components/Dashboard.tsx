@@ -124,7 +124,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   // CommandPaletteHost owns writing it now that the palette's search field
   // lives there.
   const { query } = useSearch();
-  const { setOpen: setPaletteOpen, registerDashboardActions } = useCommandPalette();
+  const { registerDashboardActions } = useCommandPalette();
   const { setOpen: setHelpOpen } = useKeymapHelp();
   const router = useRouter();
 
@@ -508,7 +508,6 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
 
   return (
     <GlobalKeymapProvider
-      onOpenPalette={() => setPaletteOpen(true)}
       onFocusQueryBar={() => document.getElementById('query-bar-input')?.focus()}
       onUndo={() => lastUndoRef.current?.()}
       onRefresh={handleRefresh}

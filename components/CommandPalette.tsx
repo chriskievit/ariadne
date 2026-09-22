@@ -30,6 +30,11 @@ interface Props {
   onOpenScoringReference?: () => void;
   onOpenHelp: () => void;
   onQuickAdd?: () => void;
+  // Surfaced in the palette itself, not a toast: a toast auto-dismisses,
+  // leaving an empty "No results." that reads as "you have no signals"
+  // rather than "the request failed."
+  loadError: boolean;
+  onRetryLoad: () => void;
 }
 
 const QUERY_PREFIXES = ['source:', 'group:', 'state:', 'score:', 'repo:', 'sprint:', 'is:', 'stale:', 'reason:'];
@@ -49,6 +54,8 @@ export default function CommandPalette({
   onOpenScoringReference,
   onOpenHelp,
   onQuickAdd,
+  loadError,
+  onRetryLoad,
 }: Props) {
   const isQueryToken = QUERY_PREFIXES.some((p) => search.startsWith(p));
   const matchingItems =
@@ -78,6 +85,17 @@ export default function CommandPalette({
         value={search}
         onValueChange={onSearchChange}
       />
+      {loadError && (
+        // Sits outside CommandList/cmdk's filtering so it stays visible no
+        // matter what's typed in the search box -- the whole point is that
+        // it's never mistaken for a filtered-down "no results."
+        <div className="flex items-center justify-between gap-3 border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>Could not load signals or saved views.</span>
+          <button type="button" onClick={onRetryLoad} className="shrink-0 font-medium underline underline-offset-2">
+            Retry
+          </button>
+        </div>
+      )}
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
         {matchingItems.length > 0 && (
@@ -138,7 +156,7 @@ export default function CommandPalette({
         )}
       </CommandList>
       <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-        {items.length} signals searched locally, no network
+        {loadError ? 'Not loaded -- see above' : `${items.length} signals searched locally, no network`}
       </p>
     </CommandDialog>
   );

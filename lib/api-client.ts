@@ -14,6 +14,12 @@ import type { SessionDiff } from './agent-worktree';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
+  // Without this, a non-2xx response (e.g. a dev-server compile error page)
+  // still parses as -- or throws past -- JSON, and callers end up with
+  // `signals: undefined` instead of a caught failure. CommandPaletteHost is
+  // a caller that now reaches this from three routes that never exercised
+  // it before, so the gap is reachable in a way it wasn't previously.
+  if (!itemsRes.ok || !sprintRes.ok) throw new Error('Failed to load dashboard data');
   const items = await itemsRes.json();
   const sprint = await sprintRes.json();
   return { ...items, sprint };
