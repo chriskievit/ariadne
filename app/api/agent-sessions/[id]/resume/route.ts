@@ -110,7 +110,11 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // Still live: rewrite this row's own tab config in place, reusing its
     // launch token and settings file. Hook events keep attributing to the
     // same row, so resuming does not fork Ariadne's record of one
-    // conversation into two.
+    // conversation into two. Reusing the record is not the same thing as
+    // reusing the process, though: Ariadne has no handle on whatever Warp
+    // tab first ran this session, so if that agent is still alive, this
+    // opens a second one against the same conversation rather than taking
+    // over the first.
     try {
       // ensureHookSettingsFile reuses the file already on disk from the
       // original launch and only recreates it if something removed it --
