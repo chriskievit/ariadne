@@ -118,14 +118,25 @@ export default function TopBar() {
           />
         </div>
 
+        {/* min-w-0 here and on the label below undo the flex/grid default of
+            "auto", which floors an item's shrink at its own min-content size.
+            Without both, the button (and the text inside it) refuses to
+            shrink past the unbroken width of "Search or jump to", wrapping
+            the label instead -- which grows the row's height and, with it,
+            the bar's width, in the very 640-860px band this track is
+            supposed to be able to give up. overflow-hidden keeps the icon
+            and the ⌘K hint (both shrink-0, so they never truncate
+            themselves) clipped inside the button's own box once the track
+            shrinks past their combined width, instead of bleeding into the
+            action icons' column to its right. */}
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="col-start-4 flex items-center gap-2 justify-self-stretch rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="col-start-4 flex min-w-0 items-center gap-2 overflow-hidden justify-self-stretch rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <Search className="h-4 w-4" aria-hidden="true" />
-          Search or jump to
-          <kbd className="ml-auto font-mono text-xs">⌘K</kbd>
+          <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-left">Search or jump to</span>
+          <kbd className="shrink-0 font-mono text-xs">⌘K</kbd>
         </button>
 
         <div className="col-start-5 flex items-center justify-end gap-1">
