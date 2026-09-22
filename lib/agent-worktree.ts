@@ -109,12 +109,22 @@ export async function readSessionDiff(cwd: string, git: GitRunner = runGit): Pro
     git(cwd, ['diff', '--patch', base]),
   ]);
 
+  // These are two invocations of the same diff against the same base, so the
+  // ways they can fail are essentially identical -- one failing while the
+  // other succeeds is close to impossible in practice. That is exactly why
+  // it is not worth papering over: a fallback here would render a file list
+  // that contradicts the patch beneath it. When the improbable happens,
+  // saying so is worth more than showing something incoherent.
+  if (!numstat.ok || !patch.ok) {
+    return { available: false, reason: 'Ariadne could not read the diff for this branch.' };
+  }
+
   return {
     available: true,
     branch: facts.branch,
     base,
-    files: numstat.ok ? parseNumstat(numstat.stdout) : [],
-    patch: patch.ok ? patch.stdout : '',
+    files: parseNumstat(numstat.stdout),
+    patch: patch.stdout,
     truncated: patch.truncated || numstat.truncated,
   };
 }

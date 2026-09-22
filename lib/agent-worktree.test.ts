@@ -109,6 +109,32 @@ describe('readSessionDiff', () => {
     expect(result.reason).toMatch(/default branch/i);
   });
 
+  it('says the diff could not be read when numstat fails but patch succeeds', async () => {
+    const { git } = scripted({
+      ...facts,
+      'symbolic-ref': ok('origin/main\n'),
+      'merge-base': ok('abc123\n'),
+      'diff --patch': ok('diff --git a/a b/a\n'),
+    });
+    const result = await readSessionDiff('/repos/app', git);
+    expect(result.available).toBe(false);
+    assertUnavailable(result);
+    expect(result.reason).toMatch(/could not read the diff/i);
+  });
+
+  it('says the diff could not be read when patch fails but numstat succeeds', async () => {
+    const { git } = scripted({
+      ...facts,
+      'symbolic-ref': ok('origin/main\n'),
+      'merge-base': ok('abc123\n'),
+      'diff --numstat': ok('1\t0\ta\n'),
+    });
+    const result = await readSessionDiff('/repos/app', git);
+    expect(result.available).toBe(false);
+    assertUnavailable(result);
+    expect(result.reason).toMatch(/could not read the diff/i);
+  });
+
   it('treats an empty numstat as a real answer, not a failure', async () => {
     const { git } = scripted({
       ...facts,
