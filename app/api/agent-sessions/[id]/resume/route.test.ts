@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,13 +12,17 @@ import {
   getAgentSessionById,
 } from '@/lib/agent-sessions-repo';
 import { sessionWarpUrl, sessionTabConfigName } from '@/lib/agent-launch';
-import { hookSettingsPath } from '@/lib/agent-hooks-config';
+import { hookSettingsPath, writeHookSettings } from '@/lib/agent-hooks-config';
 
 const testDb = openDb(':memory:');
 vi.mock('@/lib/db-instance', () => ({ db: testDb }));
 
 let tabDir: string;
 let settingsDir: string;
+// A real directory, distinct from tabDir/settingsDir, standing in for the
+// repo checkout the agent actually ran in -- the new working-directory
+// existence check means a session's cwd must resolve to something real.
+let workDir: string;
 
 vi.mock('@/lib/agent-paths', () => ({
   agentTabConfigDir: () => tabDir,
@@ -44,7 +49,10 @@ function createLiveSession(overrides: Partial<Parameters<typeof applyAgentSessio
   const session = createAgentSession(testDb, {
     itemId,
     agent: 'claude',
-    launchToken: `tok-${Math.random().toString(36).slice(2)}`,
+    // Must satisfy writeHookSettings' own token pattern (16-64 url-safe
+    // characters), the same shape newLaunchToken produces in production, so
+    // the regenerate-on-missing tests below exercise the real validation.
+    launchToken: randomBytes(24).toString('base64url'),
     tabTitle: 'pipeline',
     tabColor: 'yellow',
   });
@@ -52,7 +60,7 @@ function createLiveSession(overrides: Partial<Parameters<typeof applyAgentSessio
     state: 'working',
     registeredAt: new Date().toISOString(),
     agentSessionId: 'claude-sess-abc123',
-    cwd: '/repo/checkout',
+    cwd: workDir,
     ...overrides,
   });
   return getAgentSessionById(testDb, session.id)!;
@@ -71,11 +79,12 @@ beforeEach(() => {
   testDb.exec('DELETE FROM agent_sessions; DELETE FROM items;');
   tabDir = mkdtempSync(join(tmpdir(), 'ariadne-tabs-'));
   settingsDir = mkdtempSync(join(tmpdir(), 'ariadne-settings-'));
+  workDir = mkdtempSync(join(tmpdir(), 'ariadne-repo-'));
   itemId = createAdhocItem(testDb, { title: 'Fix the pipeline' }).id;
 });
 
 afterEach(() => {
-  for (const dir of [tabDir, settingsDir]) rmSync(dir, { recursive: true, force: true });
+  for (const dir of [tabDir, settingsDir, workDir]) rmSync(dir, { recursive: true, force: true });
 });
 
 describe('POST /api/agent-sessions/[id]/resume', () => {
@@ -102,7 +111,7 @@ describe('POST /api/agent-sessions/[id]/resume', () => {
       tabTitle: 'pipeline',
       tabColor: 'yellow',
     });
-    applyAgentSessionPatch(testDb, session.id, { agentSessionId: 'codex-sess-1', cwd: '/repo/checkout' });
+    applyAgentSessionPatch(testDb, session.id, { agentSessionId: 'codex-sess-1', cwd: workDir });
 
     const res = await post(session.id);
     expect(res.status).toBe(400);
@@ -116,6 +125,25 @@ describe('POST /api/agent-sessions/[id]/resume', () => {
 
   it('400s when the session never reported a working directory', async () => {
     const session = createLiveSession({ cwd: null });
+    const res = await post(session.id);
+    expect(res.status).toBe(400);
+  });
+
+  it('400s when the working directory no longer exists on disk', async () => {
+    const session = createLiveSession({ cwd: join(workDir, 'gone') });
+    const res = await post(session.id);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(typeof body.error).toBe('string');
+    expect(listAgentSessions(testDb)).toHaveLength(1);
+  });
+
+  it('400s when the working directory is a file rather than a directory', async () => {
+    const filePath = join(workDir, 'not-a-dir');
+    writeFileSync(filePath, '');
+    const session = createLiveSession({ cwd: filePath });
+
     const res = await post(session.id);
     expect(res.status).toBe(400);
   });
@@ -134,7 +162,37 @@ describe('POST /api/agent-sessions/[id]/resume', () => {
     const toml = readFileSync(tabConfigPath(session.id), 'utf8');
     expect(toml).toContain('claude --resume \\"claude-sess-abc123\\"');
     expect(toml).toContain(hookSettingsPath(settingsDir, session.launchToken));
-    expect(toml).toContain('/repo/checkout');
+    expect(toml).toContain(workDir);
+  });
+
+  it("regenerates the live session's hook settings file when it has gone missing, reusing the same token", async () => {
+    const session = createLiveSession();
+    const settingsPath = hookSettingsPath(settingsDir, session.launchToken);
+    // Simulate the file having existed once (the original launch would have
+    // written it) and then having been tidied away or lost.
+    writeHookSettings(settingsDir, session.launchToken, 'http://127.0.0.1:3000', null);
+    rmSync(settingsPath);
+    expect(existsSync(settingsPath)).toBe(false);
+
+    const res = await post(session.id);
+    expect(res.status).toBe(200);
+
+    expect(existsSync(settingsPath)).toBe(true);
+    // Same token, not a new one: the URL the hook posts back to is baked
+    // into the file and carries the token in its path.
+    expect(readFileSync(settingsPath, 'utf8')).toContain(`/api/agent-hooks/${session.launchToken}`);
+  });
+
+  it("leaves the live session's hook settings file alone when it is already there", async () => {
+    const session = createLiveSession();
+    const settingsPath = hookSettingsPath(settingsDir, session.launchToken);
+    writeHookSettings(settingsDir, session.launchToken, 'http://127.0.0.1:3000', null);
+    const originalContent = readFileSync(settingsPath, 'utf8');
+
+    const res = await post(session.id);
+    expect(res.status).toBe(200);
+
+    expect(readFileSync(settingsPath, 'utf8')).toBe(originalContent);
   });
 
   it('creates a new session row once the old one has ended, leaving the old row untouched', async () => {

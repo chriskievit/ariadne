@@ -1,3 +1,4 @@
+import { statSync } from 'node:fs';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db-instance';
 import { getItemById } from '@/lib/items-repo';
@@ -9,9 +10,8 @@ import {
 } from '@/lib/agent-sessions-repo';
 import { getAgentDefinition } from '@/lib/agents';
 import { sessionTabTitle, sessionWarpUrl, writeSessionTabConfig, AGENT_TAB_COLOR } from '@/lib/agent-launch';
-import { hookSettingsPath } from '@/lib/agent-hooks-config';
-import { agentSettingsDir, agentTabConfigDir } from '@/lib/agent-paths';
-import { newLaunchToken, commitAgentSessionLaunch } from '@/lib/agent-session-launch';
+import { agentTabConfigDir } from '@/lib/agent-paths';
+import { newLaunchToken, commitAgentSessionLaunch, ensureHookSettingsFile } from '@/lib/agent-session-launch';
 import { logError } from '@/lib/log';
 
 // agentSessionId arrives in the agent's own hook payload -- an HTTP POST this
@@ -66,6 +66,27 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     );
   }
   const workingDir = session.cwd;
+
+  // Deliberately not the launch route's allowlist (workingDir must match a
+  // configured local repo). Worktrees are observed here, not managed: an
+  // agent legitimately working out of a worktree would never match a
+  // configured repo path, and an allowlist would break exactly the case this
+  // feature exists to support. The only property that matters for resume is
+  // that the directory is real, so a bad hook-reported value surfaces as a
+  // clean 400 instead of a 500 from Warp trying to `cd` into nothing.
+  let cwdIsDirectory = false;
+  try {
+    cwdIsDirectory = statSync(workingDir).isDirectory();
+  } catch {
+    cwdIsDirectory = false;
+  }
+  if (!cwdIsDirectory) {
+    return NextResponse.json(
+      { error: "This session's working directory no longer exists on disk." },
+      { status: 400 }
+    );
+  }
+
   const agentSessionId = session.agentSessionId;
   const resumeCommand = agent.buildResumeCommand;
 
@@ -74,8 +95,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     // launch token and settings file. Hook events keep attributing to the
     // same row, so resuming does not fork Ariadne's record of one
     // conversation into two.
-    const settingsPath = agent.supportsHooks ? hookSettingsPath(agentSettingsDir(), session.launchToken) : null;
     try {
+      // ensureHookSettingsFile reuses the file already on disk from the
+      // original launch and only recreates it if something removed it --
+      // nothing does today, but the path is deterministic from the token, so
+      // regenerating is strictly better than resuming into a
+      // `--settings <gone>` that fails inside Warp while this route still
+      // answered 200. Inside the same try as the tab config write: a failure
+      // here is exactly as much "Ariadne failed before Warp ever ran" as one
+      // there, and must answer the same way.
+      const settingsPath = agent.supportsHooks ? ensureHookSettingsFile(db, session.launchToken) : null;
       writeSessionTabConfig(
         {
           sessionId: session.id,

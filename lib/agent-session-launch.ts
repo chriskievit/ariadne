@@ -1,8 +1,9 @@
+import { existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { getSetting } from './settings-repo';
 import { SETTINGS_KEYS, DEFAULT_AGENT_HOOK_BASE_URL } from './config';
-import { writeHookSettings } from './agent-hooks-config';
+import { writeHookSettings, hookSettingsPath } from './agent-hooks-config';
 import { agentSettingsDir, agentTabConfigDir } from './agent-paths';
 import { writeSessionTabConfig } from './agent-launch';
 import { applyAgentSessionPatch } from './agent-sessions-repo';
@@ -12,6 +13,32 @@ import type { AgentSession } from './types';
 
 export function newLaunchToken(): string {
   return randomBytes(24).toString('base64url');
+}
+
+// The middleware rejects every request when ARIADNE_AUTH_TOKEN is set, so the
+// hook has to carry it. This writes the token into a file on disk, the same
+// trust model as the PATs in the settings table.
+function writeSessionHookSettings(db: Database.Database, launchToken: string): string {
+  const baseUrl = getSetting(db, SETTINGS_KEYS.agentHookBaseUrl) ?? DEFAULT_AGENT_HOOK_BASE_URL;
+  return writeHookSettings(agentSettingsDir(), launchToken, baseUrl, process.env.ARIADNE_AUTH_TOKEN ?? null);
+}
+
+/**
+ * The settings path for a token that is already live, writing the file only
+ * if it is not there.
+ *
+ * Nothing in this codebase deletes a live session's settings file today, so
+ * in the ordinary case this is just `hookSettingsPath` with an existence
+ * check attached. But the path is deterministic from the directory and the
+ * token, so if the file were ever tidied away or lost, regenerating it here
+ * is strictly better than resuming into a `--settings <gone>` that fails
+ * inside Warp while this route still answered 200: the next resume self-heals
+ * instead of requiring someone to notice and re-launch from scratch.
+ */
+export function ensureHookSettingsFile(db: Database.Database, launchToken: string): string {
+  const path = hookSettingsPath(agentSettingsDir(), launchToken);
+  if (existsSync(path)) return path;
+  return writeSessionHookSettings(db, launchToken);
 }
 
 /**
@@ -34,19 +61,7 @@ export function commitAgentSessionLaunch(
   buildCommand: (options: BuildCommandOptions) => string
 ): void {
   try {
-    let settingsPath: string | null = null;
-    if (agent.supportsHooks) {
-      const baseUrl = getSetting(db, SETTINGS_KEYS.agentHookBaseUrl) ?? DEFAULT_AGENT_HOOK_BASE_URL;
-      // The middleware rejects every request when ARIADNE_AUTH_TOKEN is set,
-      // so the hook has to carry it. This writes the token into a file on
-      // disk, the same trust model as the PATs in the settings table.
-      settingsPath = writeHookSettings(
-        agentSettingsDir(),
-        session.launchToken,
-        baseUrl,
-        process.env.ARIADNE_AUTH_TOKEN ?? null
-      );
-    }
+    const settingsPath = agent.supportsHooks ? writeSessionHookSettings(db, session.launchToken) : null;
 
     writeSessionTabConfig(
       {
