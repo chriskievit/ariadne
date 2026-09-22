@@ -70,6 +70,66 @@ test('the needs-you question shows only when it is your move, and never drags th
   }
 });
 
+test('the action row does not move when the diff resolves and the branch badge appears', async ({ page }) => {
+  const { diffTitle, diffBranch, workingTitle } = seedAgentSessions('pane-badge-row');
+
+  await page.goto('/work');
+  const rail = page.getByRole('navigation', { name: 'Agent sessions' });
+  const region = page.getByRole('region', { name: 'Session' });
+  const actionRow = region.getByRole('button', { name: 'Dismiss' });
+
+  // The needs-you/working comparison above proves nothing about this
+  // regression: neither of those sessions has a `cwd`, so their diff never
+  // resolves to `available`, the branch badge never renders for either one,
+  // and a badge placed above the action row would never have moved
+  // anything in that test. Only a session that actually resolves a diff --
+  // diffTitle, seeded with a real fixture repo -- can catch a badge
+  // rendered in the wrong place. The diff request is held open so the
+  // "before" measurement is taken from a genuinely unresolved pane, not
+  // from whatever the network happened to return before the test looked.
+  let releaseDiff = () => {};
+  const diffHeld = new Promise<void>((resolve) => {
+    releaseDiff = resolve;
+  });
+  await page.route('**/api/agent-sessions/*/diff', async (route) => {
+    await diffHeld;
+    await route.continue();
+  });
+
+  await rail.getByText(diffTitle).click();
+  await expect(region.getByText('Loading the diff…')).toBeVisible();
+  const beforeDiffTop = await documentTop(actionRow);
+
+  releaseDiff();
+  // Synchronise on the framing sentence, not the badge itself: the badge has
+  // no role or test id of its own, and a mutation that renders it in two
+  // places at once (the bug this test replays against) would make a
+  // text-exact badge locator ambiguous and fail for the wrong reason. The
+  // framing sentence is unique on the page (proven in the test below) and
+  // only ever renders once the diff has actually resolved to `available`,
+  // which is the one thing this test needs to know has happened.
+  const resolved = region.getByText(new RegExp(`^On ${escapeRegExp(diffBranch)}, compared with [0-9a-f]{7,}$`));
+  await expect(resolved).toBeVisible();
+  const afterDiffTop = await documentTop(actionRow);
+
+  // Catches: the branch badge rendering above the action row instead of
+  // inside the Diff section below it. A badge that appears out of nowhere
+  // the instant the diff resolves and shoves the row down mid-visit is
+  // exactly the "appeared a moment before" hazard SessionPane's own comment
+  // warns about -- a click aimed at Dismiss landing on whatever the badge
+  // pushed into its place instead.
+  expect(afterDiffTop).toBe(beforeDiffTop);
+
+  // Cheap to also compare against a session whose diff never resolves at
+  // all: the row must land in the same place regardless of which of the
+  // two ends the "diff never available" vs "diff fully resolved" -- range
+  // it is showing.
+  await rail.getByText(workingTitle).click();
+  await expect(actionRow).toBeVisible();
+  const workingTop = await documentTop(actionRow);
+  expect(workingTop).toBe(afterDiffTop);
+});
+
 test('the transcript reads oldest first, and the diff is framed as the branch, never as the session\'s own work', async ({
   page,
 }) => {

@@ -21,6 +21,15 @@ import { E2E_DB_PATH } from './db-path';
 const DIFF_FIXTURE_BRANCH = 'work/e2e-diff-fixture';
 const DIFF_FIXTURE_FILE = 'e2e-diff-fixture.txt';
 
+// Shared with global-teardown.ts, which is the only thing that ever removes
+// what these prefixes name. Unlike E2E_DB_PATH, which global-setup wipes
+// before every run, nothing else in this suite revisits os.tmpdir() -- these
+// prefixes are what lets teardown find every fixture repo and transcript
+// file this module writes, from a separate process, after the run that
+// created them has already finished.
+export const DIFF_FIXTURE_DIR_PREFIX = 'ariadne-e2e-diff-';
+export const TRANSCRIPT_FIXTURE_PREFIX = 'ariadne-e2e-transcript-';
+
 function git(dir: string, args: string[]): void {
   execFileSync('git', ['-C', dir, ...args], { stdio: 'pipe' });
 }
@@ -40,7 +49,7 @@ function git(dir: string, args: string[]): void {
  * branch yet -- is reachable too, from an equally deterministic fixture.
  */
 function createDiffFixtureRepo(withChanges: boolean): { dir: string; branch: string } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ariadne-e2e-diff-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), DIFF_FIXTURE_DIR_PREFIX));
   git(dir, ['init', '-q', '-b', 'main']);
   git(dir, ['config', 'user.email', 'e2e@example.test']);
   git(dir, ['config', 'user.name', 'Ariadne E2E']);
@@ -154,7 +163,7 @@ export function seedAgentSessions(suffix: string): {
     // test.
     const transcriptOldest = `E2E oldest turn ${base}`;
     const transcriptNewest = `E2E newest turn ${base}`;
-    const transcriptPath = path.join(os.tmpdir(), `ariadne-e2e-transcript-${base}.jsonl`);
+    const transcriptPath = path.join(os.tmpdir(), `${TRANSCRIPT_FIXTURE_PREFIX}${base}.jsonl`);
     const transcriptLines = [
       { type: 'user', timestamp: '2026-09-22T09:00:00.000Z', message: { role: 'user', content: transcriptOldest } },
       {
