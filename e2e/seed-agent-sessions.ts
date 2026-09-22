@@ -7,18 +7,64 @@ import { createAdhocItem } from '../lib/items-repo';
 import { createAgentSession, applyAgentSessionPatch } from '../lib/agent-sessions-repo';
 import { E2E_DB_PATH } from './db-path';
 
-// The repo this file lives in, used as `cwd` for the diff-bearing session.
-// It is a real git repository with a real branch and a real diff against
-// origin/main, which is what lib/agent-worktree.ts actually shells out to --
-// a mock diff would only prove the component can render fixture data, not
-// that it can survive what git really says.
-const REPO_ROOT = path.resolve(__dirname, '..');
+// Deliberately not this repository. Pointing the diff-bearing session at
+// Ariadne's own checkout was tried first and rejected: the assertion it
+// produced was anchored to the files-present variant of the framing, and
+// once this branch merges, `origin/main` catches up to HEAD, the diff goes
+// empty, and the anchored regex fails on main for everyone. A throwaway
+// fixture repo is still real git -- real merge-base, real --numstat, real
+// --patch -- but the branch name and the diff it carries are fixed at seed
+// time instead of being whatever this checkout happens to be sitting on.
+// Same construction lib/git-cli.test.ts already uses: mkdtempSync, a real
+// `git init`, a user.email/name so commit does not fail on a machine with
+// no global git config.
+const DIFF_FIXTURE_BRANCH = 'work/e2e-diff-fixture';
+const DIFF_FIXTURE_FILE = 'e2e-diff-fixture.txt';
 
-// Read straight from git rather than hardcoded, so the spec keeps asserting
-// against whatever this checkout's branch actually is instead of a string
-// that goes stale the next time this branch is renamed or merged.
-function currentBranch(): string {
-  return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: REPO_ROOT }).toString().trim();
+function git(dir: string, args: string[]): void {
+  execFileSync('git', ['-C', dir, ...args], { stdio: 'pipe' });
+}
+
+/**
+ * A throwaway repo with a known default branch and, optionally, a feature
+ * branch carrying a known change on top of it.
+ *
+ * `refs/remotes/origin/main` is written directly with `update-ref` rather
+ * than through an actual remote -- lib/agent-worktree.ts's resolveBase only
+ * ever reads that ref (`symbolic-ref` for the remote's default, then
+ * `merge-base` against it), it never fetches, so a real remote would add
+ * ceremony without testing anything this component actually does.
+ *
+ * `withChanges: false` leaves HEAD sitting on the default branch itself, so
+ * the diff route's other real variant -- available, but nothing on this
+ * branch yet -- is reachable too, from an equally deterministic fixture.
+ */
+function createDiffFixtureRepo(withChanges: boolean): { dir: string; branch: string } {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ariadne-e2e-diff-'));
+  git(dir, ['init', '-q', '-b', 'main']);
+  git(dir, ['config', 'user.email', 'e2e@example.test']);
+  git(dir, ['config', 'user.name', 'Ariadne E2E']);
+  fs.writeFileSync(path.join(dir, 'README.md'), 'fixture repo for the session-pane e2e spec\n');
+  git(dir, ['add', '.']);
+  git(dir, ['commit', '-qm', 'initial']);
+  git(dir, ['update-ref', 'refs/remotes/origin/main', 'main']);
+  // A real `git clone` sets this too; without it, resolveBase's first probe
+  // (the remote's own published default) fails and falls through to the
+  // origin/main guess, which still works but logs a warning on every call --
+  // noise this fixture can avoid just by looking like an ordinary clone.
+  git(dir, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main']);
+
+  if (!withChanges) {
+    return { dir, branch: 'main' };
+  }
+
+  git(dir, ['checkout', '-qb', DIFF_FIXTURE_BRANCH]);
+  // Three added lines, so --numstat has a non-zero, assertable count and
+  // the patch has real content to check for beyond a file name.
+  fs.writeFileSync(path.join(dir, DIFF_FIXTURE_FILE), 'one\ntwo\nthree\n');
+  git(dir, ['add', '.']);
+  git(dir, ['commit', '-qm', 'add the fixture file']);
+  return { dir, branch: DIFF_FIXTURE_BRANCH };
 }
 
 // Agent sessions cannot be produced through the UI under test: launching one
@@ -35,6 +81,9 @@ export function seedAgentSessions(suffix: string): {
   transcriptNewest: string;
   diffTitle: string;
   diffBranch: string;
+  diffFixtureFile: string;
+  diffEmptyTitle: string;
+  diffEmptyBranch: string;
   dismissableTitle: string;
   dismissedTitle: string;
 } {
@@ -48,6 +97,7 @@ export function seedAgentSessions(suffix: string): {
       endedTitle: `Agent ended ${base}`,
       transcriptTitle: `Agent with transcript ${base}`,
       diffTitle: `Agent with diff ${base}`,
+      diffEmptyTitle: `Agent with no diff yet ${base}`,
       dismissableTitle: `Agent to dismiss ${base}`,
       dismissedTitle: `Agent already dismissed ${base}`,
     };
@@ -124,15 +174,27 @@ export function seedAgentSessions(suffix: string): {
       transcriptPath,
     });
 
-    // Points the diff route at this actual checkout. Whatever branch and
-    // diff-against-origin/main exist here at test time are what the pane
-    // must show -- see readSessionDiff in lib/agent-worktree.ts.
+    // Two fixture repos: one carrying a real, known change on a feature
+    // branch, one sitting exactly on the default branch with nothing ahead
+    // of it -- the diff route's two "available" variants, files-present and
+    // "No changes yet.", both real git, neither depending on this
+    // checkout's own branch or history.
+    const diffFixture = createDiffFixtureRepo(true);
     const diff = launch(titles.diffTitle);
     applyAgentSessionPatch(db, diff.id, {
       state: 'working',
       registeredAt: new Date().toISOString(),
       lastEventAt: new Date().toISOString(),
-      cwd: REPO_ROOT,
+      cwd: diffFixture.dir,
+    });
+
+    const diffEmptyFixture = createDiffFixtureRepo(false);
+    const diffEmpty = launch(titles.diffEmptyTitle);
+    applyAgentSessionPatch(db, diffEmpty.id, {
+      state: 'working',
+      registeredAt: new Date().toISOString(),
+      lastEventAt: new Date().toISOString(),
+      cwd: diffEmptyFixture.dir,
     });
 
     // Left live, for a spec to dismiss through the UI itself.
@@ -155,7 +217,15 @@ export function seedAgentSessions(suffix: string): {
       endReason: 'dismissed',
     });
 
-    return { ...titles, needsYouMessage, transcriptOldest, transcriptNewest, diffBranch: currentBranch() };
+    return {
+      ...titles,
+      needsYouMessage,
+      transcriptOldest,
+      transcriptNewest,
+      diffBranch: diffFixture.branch,
+      diffFixtureFile: DIFF_FIXTURE_FILE,
+      diffEmptyBranch: diffEmptyFixture.branch,
+    };
   } finally {
     db.close();
   }

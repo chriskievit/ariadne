@@ -73,8 +73,16 @@ test('the needs-you question shows only when it is your move, and never drags th
 test('the transcript reads oldest first, and the diff is framed as the branch, never as the session\'s own work', async ({
   page,
 }) => {
-  const { transcriptTitle, transcriptOldest, transcriptNewest, diffTitle, diffBranch } =
-    seedAgentSessions('pane-transcript-diff');
+  const {
+    transcriptTitle,
+    transcriptOldest,
+    transcriptNewest,
+    diffTitle,
+    diffBranch,
+    diffFixtureFile,
+    diffEmptyTitle,
+    diffEmptyBranch,
+  } = seedAgentSessions('pane-transcript-diff');
 
   await page.goto('/work');
   const rail = page.getByRole('navigation', { name: 'Agent sessions' });
@@ -105,6 +113,14 @@ test('the transcript reads oldest first, and the diff is framed as the branch, n
   const framing = region.getByText(new RegExp(`^On ${escapeRegExp(diffBranch)}, compared with [0-9a-f]{7,}$`));
   await expect(framing).toBeVisible();
 
+  // The fixture's branch carries one real, known change -- a deterministic
+  // diff lets this assert the actual file and counts, not just that some
+  // diff rendered. Catches --numstat parsing silently landing on the wrong
+  // file or the wrong add/remove counts.
+  await expect(region.getByText(diffFixtureFile)).toBeVisible();
+  await expect(region.getByText('+3')).toBeVisible();
+  await expect(region.getByText('-0')).toBeVisible();
+
   const patchToggle = region.getByRole('button', { name: /^Patch/ });
   const patch = region.locator('#session-diff-patch');
   await expect(patchToggle).toHaveAttribute('aria-expanded', 'false');
@@ -115,12 +131,27 @@ test('the transcript reads oldest first, and the diff is framed as the branch, n
   // start) -- half of "toggles both ways" is opening on demand.
   await expect(patchToggle).toHaveAttribute('aria-expanded', 'true');
   await expect(patch).toBeVisible();
+  // The patch itself is real diff output, not a stand-in -- one of the
+  // fixture's own added lines must actually be in it.
+  await expect(patch).toContainText('three');
 
   await patchToggle.click();
   // Catches: the other half -- a disclosure that opens but never closes
   // again would leave a multi-hundred-line patch permanently in the page.
   await expect(patchToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(patch).toHaveCount(0);
+
+  await rail.getByText(diffEmptyTitle).click();
+  // The diff route's other "available" variant: a branch that resolved a
+  // base fine but has nothing on it yet. Catches this state being rendered
+  // as unavailable (hiding a real, if empty, answer behind an error-shaped
+  // message) or dropping "No changes yet." so it reads the same as the
+  // populated case with an empty file list.
+  const emptyFraming = region.getByText(
+    new RegExp(`^On ${escapeRegExp(diffEmptyBranch)}, compared with [0-9a-f]{7,}\\. No changes yet\\.$`)
+  );
+  await expect(emptyFraming).toBeVisible();
+  await expect(region.getByRole('button', { name: /^Patch/ })).toHaveCount(0);
 });
 
 test('dismissing a session drops it from the live rail and never claims the agent stopped', async ({ page }) => {
