@@ -3,6 +3,7 @@ import { openDb } from './db';
 import { createAdhocItem } from './items-repo';
 import {
   createAgentSession,
+  dismissAgentSession,
   getActiveAgentSessionForItem,
   getAgentSessionByToken,
   getAgentSessionById,
@@ -162,5 +163,72 @@ describe('getActiveAgentSessionForItem', () => {
     });
 
     expect(getActiveAgentSessionForItem(db, itemId)).toBeUndefined();
+  });
+});
+
+describe('dismissAgentSession', () => {
+  it('ends a live session so it leaves the rail', () => {
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-live', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'working', registeredAt: new Date().toISOString() });
+
+    const now = new Date('2026-09-22T12:00:00.000Z');
+    const dismissed = dismissAgentSession(db, session.id, now);
+
+    expect(dismissed?.endedAt).toBe(now.toISOString());
+    expect(dismissed?.endReason).toBe('dismissed');
+  });
+
+  it('ends a never-registered session, which is the case with no other way out', () => {
+    // The reconciler marks this failed but leaves ended_at null on purpose,
+    // so a late SessionStart can still revive it. Dismissing is the only
+    // other way this row ever leaves the rail.
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-never', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, { state: 'failed', endReason: 'never_registered' });
+    expect(getAgentSessionById(db, session.id)?.endedAt).toBeNull();
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.state).toBe('failed');
+    expect(dismissed?.endedAt).toBe('2026-09-22T12:00:00.000Z');
+    expect(dismissed?.endReason).toBe('dismissed');
+  });
+
+  it('ends a hookless agent still sitting in launching', () => {
+    // codex has no hook support, so it can never fire SessionEnd and would
+    // otherwise sit in 'launching' for ever.
+    const session = createAgentSession(db, {
+      itemId, agent: 'codex', launchToken: 'tok-codex', tabTitle: 't', tabColor: 'yellow',
+    });
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.state).toBe('launching');
+    expect(dismissed?.endedAt).toBe('2026-09-22T12:00:00.000Z');
+    expect(dismissed?.endReason).toBe('dismissed');
+  });
+
+  it('leaves an already-ended session exactly as it was', () => {
+    const session = createAgentSession(db, {
+      itemId, agent: 'claude', launchToken: 'tok-ended', tabTitle: 't', tabColor: 'yellow',
+    });
+    applyAgentSessionPatch(db, session.id, {
+      state: 'stopped',
+      endedAt: '2026-09-20T09:00:00.000Z',
+      endReason: 'closed',
+    });
+
+    const dismissed = dismissAgentSession(db, session.id, new Date('2026-09-22T12:00:00.000Z'));
+
+    expect(dismissed?.endedAt).toBe('2026-09-20T09:00:00.000Z');
+    expect(dismissed?.endReason).toBe('closed');
+  });
+
+  it('returns undefined for a session that does not exist', () => {
+    expect(() => dismissAgentSession(db, 99999, new Date())).not.toThrow();
+    expect(dismissAgentSession(db, 99999, new Date())).toBeUndefined();
   });
 });

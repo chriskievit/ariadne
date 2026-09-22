@@ -145,6 +145,31 @@ export function getActiveAgentSessionForItem(db: Database.Database, itemId: numb
   return row ? rowToSession(row) : undefined;
 }
 
+/**
+ * Stop tracking a session, whatever state it is stuck in.
+ *
+ * The escape hatch the rail has never had. A never-registered session keeps
+ * a null ended_at on purpose so a late SessionStart can revive it, an agent
+ * without hook support can never report that it finished, and a process that
+ * died without a SessionEnd leaves a row claiming to be working for ever.
+ * None of those can leave the live list on their own.
+ *
+ * This ends Ariadne's record and nothing else. Ariadne has no handle on the
+ * process -- Warp owns it -- so a dismissed agent keeps running until it is
+ * stopped in Warp, and every label on this action says so.
+ *
+ * Already-ended sessions are left alone rather than restamped, so dismissing
+ * twice cannot rewrite the moment something actually finished.
+ */
+export function dismissAgentSession(db: Database.Database, id: number, now: Date): AgentSession | undefined {
+  const session = getAgentSessionById(db, id);
+  if (!session) return undefined;
+  if (session.endedAt !== null) return session;
+
+  applyAgentSessionPatch(db, id, { endedAt: now.toISOString(), endReason: 'dismissed' });
+  return getAgentSessionById(db, id);
+}
+
 // The shape of an AgentSession an API response may return. Named fields
 // rather than a spread-and-omit of AgentSession, so a column added to the
 // session later is excluded by default instead of leaking until someone
