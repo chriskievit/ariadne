@@ -1,32 +1,14 @@
 'use client';
 
-import { AlertTriangle, CircleDashed, CircleSlash, FileDiff, Hand, Loader, RadioTower } from 'lucide-react';
+import { RadioTower } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { agentStateDisplay, sessionFidelity, type AgentGlyph } from '@/lib/agent-session-display';
+import { agentStateDisplay, sessionFidelity } from '@/lib/agent-session-display';
+import { AGENT_STATE_GLYPHS, AGENT_TONE_CLASS } from '@/components/AgentStateGlyph';
 import type { SessionListEntry } from '@/lib/agent-session-list';
 
-// The glyph table lives here rather than in lib/ so the vocabulary module
-// stays importable from a node-environment test. Every state has its own
-// glyph, which is what makes the rail legible with the colour taken away.
-const GLYPHS: Record<AgentGlyph, typeof Hand> = {
-  hand: Hand,
-  'alert-triangle': AlertTriangle,
-  'file-diff': FileDiff,
-  loader: Loader,
-  'circle-dashed': CircleDashed,
-  'circle-slash': CircleSlash,
-};
-
-// Only the two states that demand something of you are filled. The other
-// four take the neutral treatment, exactly as the urgency bands do -- see
-// the Two-Band Rule in DESIGN.md. Nothing here is Threadline Gold: a
-// delegated session is not the thread you are holding, which is the same
-// line Ariadne draws when it refuses to start a timer for an agent.
-const TONE_CLASS = {
-  warning: 'text-warning',
-  destructive: 'text-destructive',
-  neutral: 'text-muted-foreground',
-} as const;
+// Nothing here is Threadline Gold: a delegated session is not the thread you
+// are holding, which is the same line Ariadne draws when it refuses to start
+// a timer for an agent.
 
 export default function SessionRosterRow({
   session,
@@ -38,7 +20,7 @@ export default function SessionRosterRow({
   onSelect: (id: number) => void;
 }) {
   const display = agentStateDisplay(session.state);
-  const Glyph = GLYPHS[display.glyph];
+  const Glyph = AGENT_STATE_GLYPHS[display.glyph];
   const openOnly = sessionFidelity(session.agent) === 'opened_only';
 
   return (
@@ -56,7 +38,7 @@ export default function SessionRosterRow({
       <Glyph
         className={cn(
           'mt-0.5 h-4 w-4 shrink-0',
-          TONE_CLASS[display.tone],
+          AGENT_TONE_CLASS[display.tone],
           // The only motion in the rail, and only for a session that is both
           // reporting 'working' and still live. Dismissal deliberately
           // leaves state alone -- see dismissAgentSession -- so a dismissed

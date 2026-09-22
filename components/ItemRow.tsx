@@ -26,6 +26,8 @@ import { toast } from '@/components/ui/sonner';
 import { fetchLocalRepos } from '@/lib/api-client';
 import type { LocalRepo } from '@/lib/warp';
 import type { LiveSessionSummary } from '@/lib/agent-session-links';
+import { agentStateDisplay } from '@/lib/agent-session-display';
+import { AGENT_STATE_GLYPHS, AGENT_TONE_CLASS } from '@/components/AgentStateGlyph';
 import {
   Dialog,
   DialogContent,
@@ -482,6 +484,14 @@ export default function ItemRow({
   // dialog's old behaviour) means there is no frame where a reopened dialog
   // shows the previous item's answer while a fetch catches up.
   const deleteHasLiveAgentSession = liveSession !== undefined;
+
+  // Same vocabulary as the rail (agentStateDisplay, AgentStateGlyph), so a
+  // session never reads "Needs you" in one mode and something else in the
+  // other. Undefined liveSession means no marker at all, not a "no session"
+  // state -- rows with nothing to say about an agent look exactly as they
+  // did before this existed.
+  const sessionDisplay = liveSession ? agentStateDisplay(liveSession.state) : null;
+  const SessionGlyph = sessionDisplay ? AGENT_STATE_GLYPHS[sessionDisplay.glyph] : null;
 
   // The source system has closed this item but Ariadne, being read-only, has
   // not. A settled row keeps its place and its full-strength text -- the chip
@@ -947,6 +957,20 @@ export default function ItemRow({
               <Badge variant={inlineBadge.variant} title={inlineBadge.label} className="max-w-[9rem] shrink-0">
                 <span className="min-w-0 truncate">{inlineBadge.label}</span>
               </Badge>
+            )}
+            {sessionDisplay && SessionGlyph && (
+              <span
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground"
+                title={sessionDisplay.label}
+              >
+                {/* No animate-spin, unlike the rail's working glyph. The rail
+                    spins it because you are watching one session there; a
+                    Planning row is ambient, and a spinner on every agent row
+                    would pull the eye off the scores, which is what this
+                    surface is for. Deliberate, not an oversight. */}
+                <SessionGlyph className={cn('h-3 w-3 shrink-0', AGENT_TONE_CLASS[sessionDisplay.tone])} aria-hidden="true" />
+                <span>{sessionDisplay.label}</span>
+              </span>
             )}
           </div>
           {(item.repo || item.wokeEarly || sourceIsStale) && density === 'comfortable' && (
