@@ -86,17 +86,32 @@ export default function RunningTimerChip({ runningTimer, onStop, onComplete, lon
         />
         <span className="max-w-[8rem] truncate">{runningTimer.itemTitle}</span>
         <span className="font-mono tabular-nums text-muted-foreground">{formatElapsed(elapsedMs)}</span>
+        {/* Hidden below lg (md still leaves the buttons on screen at
+            exactly 768px, where the bar is already 59px too wide with
+            them showing). At narrow widths this pair is the only
+            genuinely redundant thing in the top bar rather than merely
+            large -- Complete and Pause are duplicated on the item's own row
+            in Planning, so hiding them here loses no capability, just a
+            shortcut. The pulse, the elapsed time and the title stay
+            visible at every width; only these two go. */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-6 w-6"
+          className="hidden h-6 w-6 lg:inline-flex"
           aria-label="Complete item"
           onClick={handleOpenComplete}
         >
           <Check className="h-3.5 w-3.5" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" aria-label="Pause timer" onClick={onStop}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="hidden h-6 w-6 lg:inline-flex"
+          aria-label="Pause timer"
+          onClick={onStop}
+        >
           <Pause className="h-3.5 w-3.5" />
         </Button>
       </div>
