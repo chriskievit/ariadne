@@ -93,6 +93,44 @@ describe('readSessionDiff', () => {
     expect(calls.some((c) => c.join(' ').includes('symbolic-ref'))).toBe(true);
   });
 
+  it('never probes merge-base with an empty ref when origin/HEAD resolves but says nothing', async () => {
+    const { git, calls } = scripted({
+      ...facts,
+      'symbolic-ref': ok(''), // succeeds, but an empty ref is not a usable one
+      'merge-base HEAD origin/main': ok('base1\n'),
+      'diff --numstat': ok(''),
+      'diff --patch': ok(''),
+    });
+
+    const result = await readSessionDiff('/repos/app', git);
+
+    expect(result.available).toBe(true);
+    const emptyRefProbe = calls.find((c) => c[0] === 'merge-base' && c[2] === '');
+    expect(emptyRefProbe).toBeUndefined();
+  });
+
+  it('probes merge-base with origin/main exactly once when origin/HEAD resolves to the same name', async () => {
+    const { git, calls } = scripted({
+      ...facts,
+      // Same value as the first hardcoded candidate -- this is the case
+      // deduplication exists for.
+      'symbolic-ref': ok('origin/main\n'),
+      // origin/main deliberately fails so the loop must move past it rather
+      // than returning on the first probe, which would hide a duplicate.
+      'merge-base HEAD origin/master': ok('base2\n'),
+      'diff --numstat': ok(''),
+      'diff --patch': ok(''),
+    });
+
+    const result = await readSessionDiff('/repos/app', git);
+
+    expect(result.available).toBe(true);
+    assertAvailable(result);
+    expect(result.base).toBe('base2');
+    const originMainProbes = calls.filter((c) => c[0] === 'merge-base' && c[2] === 'origin/main');
+    expect(originMainProbes.length).toBe(1);
+  });
+
   it('says why there is no diff rather than showing an empty one', async () => {
     const { git } = scripted({});
     const result = await readSessionDiff('/tmp/nope', git);
