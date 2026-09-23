@@ -8,6 +8,8 @@ import {
 } from './agent-sessions-repo';
 import { isNeverRegistered } from './agent-session-state';
 import { readTranscriptTail, type TranscriptEntry } from './agent-transcript';
+import { getPlanItems } from './plans-repo';
+import { localDateString } from './date';
 
 // How many transcript turns ride along with the list. Enough to show what a
 // session is doing without turning the list endpoint into a log shipper.
@@ -20,6 +22,13 @@ export const RECENT_ENDED_LIMIT = 10;
 
 export interface SessionListEntry extends PublicAgentSession {
   lastLines: TranscriptEntry[];
+  // Whether this session's item sits in today's plan_items, not whether
+  // items.today_date happens to match -- the two can disagree (a plan
+  // built through add_plan_item never touches today_date), and plan_items
+  // is what Planning's Today concept actually tracks now. See
+  // setStatus in lib/items-repo.ts for why today_date is legacy but still
+  // present.
+  onTodayPlan: boolean;
 }
 
 /**
@@ -58,6 +67,13 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
     .sort((a, b) => (b.endedAt as string).localeCompare(a.endedAt as string))
     .slice(0, RECENT_ENDED_LIMIT);
 
+  // One query for the whole day's plan, not one per session: plan_items for
+  // a single date is a handful of rows at most, so this is a flat cost per
+  // poll (both the rail's and Planning's) regardless of how many sessions
+  // are on screen. A per-session lookup here would turn a bounded read into
+  // an N+1 on every 5-second poll.
+  const todayItemIds = new Set(getPlanItems(db, localDateString(now)).map((planItem) => planItem.itemId));
+
   return [...open, ...recentlyEnded].map((session) => ({
     ...toPublicAgentSession(session),
     // A stopped or failed session's transcript is not going to change, and
@@ -68,5 +84,6 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
       session.transcriptPath && session.state !== 'stopped' && session.state !== 'failed'
         ? readTranscriptTail(session.transcriptPath, TAIL_LIMIT)
         : [],
+    onTodayPlan: todayItemIds.has(session.itemId),
   }));
 }

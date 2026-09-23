@@ -1,6 +1,6 @@
 'use client';
 
-import { RadioTower } from 'lucide-react';
+import { Pin, RadioTower } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { agentStateDisplay, sessionFidelity } from '@/lib/agent-session-display';
 import { AGENT_STATE_GLYPHS, AGENT_TONE_CLASS } from '@/components/AgentStateGlyph';
@@ -54,6 +54,21 @@ export default function SessionRosterRow({
           {/* The word, always. Colour is the third channel here, never the
               only one. */}
           <span>{display.label}</span>
+          {session.onTodayPlan && (
+            <>
+              <span aria-hidden="true">·</span>
+              {/* Same glyph Planning's pin/unpin-from-today control uses
+                  (ItemRow.tsx), so this borrows Today's existing word and
+                  icon rather than inventing a second signal. Left at the
+                  row's own muted tone on purpose: Threadline Gold marks the
+                  thread you are holding, and a delegated session -- however
+                  live -- never is one (see the file header, DESIGN.md's
+                  One Thread Rule). The mark says the *item* is on today's
+                  plan, not that this session gets gold. */}
+              <Pin className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span>Today</span>
+            </>
+          )}
           {openOnly && (
             <>
               <span aria-hidden="true">·</span>
