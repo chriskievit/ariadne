@@ -32,7 +32,7 @@ import {
   unparkItem,
   createAdhocItemRequest,
   deleteAdhocItem,
-  openInClaude,
+  launchAgentSession,
   pinToday,
   unpinToday,
   starItem,
@@ -426,13 +426,33 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
+  // "Open in Claude" is the label the user knows, but the action behind it
+  // is the tracked launch route -- the untracked one it used to call wrote a
+  // Warp tab config and nothing else, so Work mode never learned a session
+  // existed. Three response shapes, read by key rather than by status,
+  // matching launchAgentSession's own contract:
   async function handleOpenClaude(id: number, workingDir?: string) {
-    const result = await openInClaude(id, workingDir);
-    if (result.warpUrl) {
-      window.location.href = result.warpUrl;
-    } else {
-      toast(result.error ?? 'Could not open Claude session.');
+    const result = await launchAgentSession(id, workingDir);
+    if ('error' in result) {
+      toast(result.error);
+      return;
     }
+    if ('existing' in result) {
+      // One session per ticket: the route deliberately withholds a warpUrl
+      // here, because reopening the tab config would start a second agent
+      // process reporting under the same launch token. Nothing here claims
+      // Ariadne can focus or reopen that tab -- it can only say where to
+      // find it.
+      toast('This item already has an agent session. Find it in its Warp tab, or on the Work page.');
+      return;
+    }
+    // Navigate first, exactly as the untracked route did. refresh() and
+    // refreshLiveSessions() run after: the item's status just changed to in
+    // progress, and the row's agent marker should not have to wait for the
+    // rail's own 15s poll to catch up.
+    window.location.href = result.warpUrl;
+    await refresh();
+    await refreshLiveSessions();
   }
 
   // Completing lands first, same ordering as handlePark and handleSnooze:
