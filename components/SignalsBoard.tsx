@@ -67,12 +67,15 @@ function StatusKeyPopover() {
 interface Props {
   items: ScoredItem[];
   onStart: (id: number, alsoStartIds?: number[]) => void;
-  onComplete: (id: number, durationHours: number, note?: string) => void;
+  // dismissSessionId and the Promise<boolean> return: see TodaySection's
+  // Props for why both are typed here rather than left implicit.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => Promise<boolean>;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete: (id: number) => void;
   onPinToday?: (id: number) => void;
   onStar?: (id: number, starred: boolean) => void;
-  onSnooze?: (id: number, option: SnoozeOption) => void;
+  // dismissSessionId, see onComplete above -- same reason to type it here.
+  onSnooze?: (id: number, option: SnoozeOption, dismissSessionId?: number) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   onSetPriority?: (id: number, priority: Priority | null) => void;
@@ -85,6 +88,8 @@ interface Props {
   onOpenScoringReference: () => void;
   // See TodaySection's Props -- same shared map, same optionality.
   liveSessions?: Map<number, SessionListEntry>;
+  // See ItemRow's own prop of the same name.
+  onRefreshLiveSessions?: () => void;
 }
 
 export default function SignalsBoard({
@@ -107,6 +112,7 @@ export default function SignalsBoard({
   failingSources,
   onOpenScoringReference,
   liveSessions,
+  onRefreshLiveSessions,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -182,6 +188,7 @@ export default function SignalsBoard({
       sourceIsStale={failingSources?.has(item.source)}
       onOpenScoringReference={onOpenScoringReference}
       liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+      onRefreshLiveSessions={onRefreshLiveSessions}
     />
   );
 
@@ -346,6 +353,7 @@ export default function SignalsBoard({
                   onSetPriority={onSetPriority}
                   sourceIsStale={failingSources?.has(item.source)}
                   onOpenScoringReference={onOpenScoringReference}
+                  onRefreshLiveSessions={onRefreshLiveSessions}
                 />
               ))}
             </div>

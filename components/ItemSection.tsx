@@ -15,12 +15,14 @@ interface Props {
   parkedItems?: ScoredItem[];
   emptyMessage: string;
   onStart?: (id: number, alsoStartIds?: number[]) => void;
-  onComplete: (id: number, durationHours: number, note?: string) => void;
+  // dismissSessionId and the Promise<boolean> return: see TodaySection's
+  // Props for why both are typed here rather than left implicit.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => Promise<boolean>;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   onSetPriority?: (id: number, priority: Priority | null) => void;
   onRequeue?: (id: number) => void;
-  onPark?: (id: number) => void;
+  onPark?: (id: number, dismissSessionId?: number) => void;
   onUnpark?: (id: number) => void;
   onPinToday?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
@@ -28,6 +30,8 @@ interface Props {
   onOpenScoringReference: () => void;
   // See TodaySection's Props -- same shared map, same optionality.
   liveSessions?: Map<number, SessionListEntry>;
+  // See ItemRow's own prop of the same name.
+  onRefreshLiveSessions?: () => void;
 }
 
 export default function ItemSection({
@@ -49,6 +53,7 @@ export default function ItemSection({
   failingSources,
   onOpenScoringReference,
   liveSessions,
+  onRefreshLiveSessions,
 }: Props) {
   const isEmpty = items.length === 0 && (!parkedItems || parkedItems.length === 0);
   const [parkedOpen, setParkedOpen] = useState(false);
@@ -84,6 +89,7 @@ export default function ItemSection({
                 sourceIsStale={failingSources?.has(item.source)}
                 onOpenScoringReference={onOpenScoringReference}
                 liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+                onRefreshLiveSessions={onRefreshLiveSessions}
               />
             ))}
             {parkedItems && parkedItems.length > 0 && (
@@ -111,6 +117,7 @@ export default function ItemSection({
                         onUnpark={onUnpark}
                         onOpenScoringReference={onOpenScoringReference}
                         liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+                        onRefreshLiveSessions={onRefreshLiveSessions}
                       />
                     ))}
                   </div>

@@ -16,11 +16,17 @@ interface Props {
   loggedMinutes: number;
   capacityMinutes: number;
   onStart?: (id: number, alsoStartIds?: number[]) => void;
-  onComplete: (id: number, durationHours: number, note?: string) => void;
+  // dismissSessionId flows straight through to ItemRow's own onComplete --
+  // typed here too so a wrapper lambda dropping it would be a type error,
+  // not a silent no-op. The Promise<boolean> return is ItemRow's own
+  // linked-item-cascade gate: it resolves to whether the main item's
+  // complete call landed.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => Promise<boolean>;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   onSetPriority?: (id: number, priority: Priority | null) => void;
-  onPark?: (id: number) => void;
+  // dismissSessionId, see onComplete above -- same reason to type it here.
+  onPark?: (id: number, dismissSessionId?: number) => void;
   onUnpark?: (id: number) => void;
   onUnpinToday?: (id: number) => void;
   onPlanDay: () => void;
@@ -32,6 +38,9 @@ interface Props {
   // (rather than an empty Map) on any caller that has not wired it up, same
   // as the optionality this passes straight through to ItemRow's own prop.
   liveSessions?: Map<number, SessionListEntry>;
+  // See ItemRow's own prop of the same name -- passed straight through so
+  // the park/complete dialogs here refresh liveSessions on open too.
+  onRefreshLiveSessions?: () => void;
 }
 
 export default function TodaySection({
@@ -53,6 +62,7 @@ export default function TodaySection({
   failingSources,
   onOpenScoringReference,
   liveSessions,
+  onRefreshLiveSessions,
 }: Props) {
   return (
     <Card className="border-l-2 border-l-[hsl(var(--brand-gold))]">
@@ -109,6 +119,7 @@ export default function TodaySection({
                     sourceIsStale={failingSources?.has(item.source)}
                     onOpenScoringReference={onOpenScoringReference}
                     liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+                    onRefreshLiveSessions={onRefreshLiveSessions}
                     fullDetailWhenParked
                   />
                 </div>
