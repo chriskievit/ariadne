@@ -16,6 +16,20 @@ export function addDays(dateStr: string, days: number): string {
   return localDateString(date);
 }
 
+// The one predicate for "is this item on Today", used by Planning's Today
+// section (getGroupedItems in lib/dashboard.ts). The rail's mirror of it
+// (listSessionsForDisplay in lib/agent-session-list.ts) states the same fact
+// as SQL instead -- listItemIdsPinnedToday in lib/items-repo.ts, `WHERE
+// today_date = ?` -- because it reads every pinned item in one query rather
+// than filtering rows in JavaScript. Two statements of one rule is how the
+// surfaces drift apart, so if this changes, change that query with it. Deliberately not
+// plan_items membership: an item can sit in a day's plan_items (capacity,
+// logged-hours bookkeeping) without today_date naming that day, and Planning
+// does not show it in Today when that happens.
+export function isPinnedToday(todayDate: string | null, todayStr: string): boolean {
+  return todayDate === todayStr;
+}
+
 // Coarse, human relative age for a timestamp the user set themselves. It
 // deliberately loses precision as it goes back -- the point is never "how
 // long exactly", it is "is this assertion still fresh?", and "3 weeks ago"

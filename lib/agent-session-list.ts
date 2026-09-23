@@ -8,6 +8,8 @@ import {
 } from './agent-sessions-repo';
 import { isNeverRegistered } from './agent-session-state';
 import { readTranscriptTail, type TranscriptEntry } from './agent-transcript';
+import { listItemIdsPinnedToday } from './items-repo';
+import { localDateString } from './date';
 
 // How many transcript turns ride along with the list. Enough to show what a
 // session is doing without turning the list endpoint into a log shipper.
@@ -20,6 +22,15 @@ export const RECENT_ENDED_LIMIT = 10;
 
 export interface SessionListEntry extends PublicAgentSession {
   lastLines: TranscriptEntry[];
+  // Whether this session's item is pinned to today in Planning's own sense
+  // (items.today_date, the same field getGroupedItems filters its Today
+  // bucket by in lib/dashboard.ts) -- not whether the item happens to sit in
+  // today's plan_items, which is a separate, capacity-and-logged-hours fact
+  // that can disagree with today_date (see dashboard.ts:60-64). Reading
+  // plan_items here would mark a row Planning does not show in Today. Named
+  // `onToday`, not `onTodayPlan`, so it can't be misread as tracking the
+  // plan.
+  onToday: boolean;
 }
 
 /**
@@ -58,6 +69,13 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
     .sort((a, b) => (b.endedAt as string).localeCompare(a.endedAt as string))
     .slice(0, RECENT_ENDED_LIMIT);
 
+  // One query for every item pinned to today, not one per session: it is
+  // bounded by how many items a person has actually pinned to one day (a
+  // handful at most), so this is a flat cost per poll (both the rail's and
+  // Planning's) regardless of how many sessions are on screen. A per-session
+  // lookup here would turn a bounded read into an N+1 on every 5-second poll.
+  const todayItemIds = new Set(listItemIdsPinnedToday(db, localDateString(now)));
+
   return [...open, ...recentlyEnded].map((session) => ({
     ...toPublicAgentSession(session),
     // A stopped or failed session's transcript is not going to change, and
@@ -68,5 +86,6 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
       session.transcriptPath && session.state !== 'stopped' && session.state !== 'failed'
         ? readTranscriptTail(session.transcriptPath, TAIL_LIMIT)
         : [],
+    onToday: todayItemIds.has(session.itemId),
   }));
 }

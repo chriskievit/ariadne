@@ -38,7 +38,13 @@ export async function startItem(id: number, options?: { withTimer?: boolean }) {
 }
 
 export async function completeItem(id: number, body: { durationHours: number; note?: string }) {
+  // Same reasoning as parkItem/snoozeItem: completing an item with a live
+  // session now dismisses it unconditionally once the complete has landed,
+  // so a silent non-2xx here (the fetch itself never rejects on one) would
+  // otherwise read as success and dismiss a session whose item was never
+  // actually completed.
   const res = await fetch(`/api/items/${id}/complete`, { method: 'POST', body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`Could not complete the item (${res.status}).`);
   return res.json();
 }
 
@@ -51,7 +57,13 @@ export async function requeueItem(id: number) {
 }
 
 export async function parkItem(id: number) {
-  await fetch(`/api/items/${id}/park`, { method: 'POST' });
+  // Checked, unlike most of this file's fire-and-forget calls: Dashboard's
+  // handlePark only dismisses a live session once park has actually landed,
+  // so a silent non-2xx here (the fetch itself never rejects on one) would
+  // otherwise read as success and dismiss a session for an item that was
+  // never parked.
+  const res = await fetch(`/api/items/${id}/park`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Could not park the item (${res.status}).`);
 }
 
 export async function unparkItem(id: number) {
@@ -95,7 +107,10 @@ export async function setItemPriority(id: number, priority: Priority | null) {
 }
 
 export async function snoozeItem(id: number, option: SnoozeOption) {
-  await fetch(`/api/items/${id}/snooze`, { method: 'POST', body: JSON.stringify({ option }) });
+  // Same reasoning as parkItem: handleSnooze's dismiss is conditional on
+  // this having actually succeeded.
+  const res = await fetch(`/api/items/${id}/snooze`, { method: 'POST', body: JSON.stringify({ option }) });
+  if (!res.ok) throw new Error(`Could not snooze the item (${res.status}).`);
 }
 
 export async function unsnoozeItem(id: number) {

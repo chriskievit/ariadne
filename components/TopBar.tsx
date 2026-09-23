@@ -40,7 +40,25 @@ export default function TopBar() {
   }
 
   async function handleCompleteTimer(itemId: number, durationHours: number, note?: string) {
-    await completeItem(itemId, { durationHours, note });
+    // completeItem now throws on a non-2xx (see lib/api-client.ts); without
+    // this catch a failure here would be an unhandled rejection, since
+    // RunningTimerChip calls onComplete without awaiting or catching it.
+    //
+    // Deliberately no session dismissal here, unlike ItemRow's own complete
+    // dialog. This chip has no liveSession data to act on (it never fetches
+    // Dashboard's session map), and guessing at one from just an itemId would
+    // risk dismissing a session nobody here was ever told about. Same safe
+    // side as the cascade in ItemRow: a session this path can't ask about
+    // stays tracked and visible in the /work rail rather than silently
+    // ending. Completing an item through the MCP `complete_item` tool has the
+    // same asymmetry, for the same reason -- it only ever posts the
+    // completion, never a dismissal.
+    try {
+      await completeItem(itemId, { durationHours, note });
+    } catch {
+      toast('Could not complete the item.');
+      return;
+    }
     await refreshRunningTimer();
     toast('Completed.', {
       duration: 5000,
@@ -93,7 +111,7 @@ export default function TopBar() {
           sm is the only breakpoint this grid uses, and the only one it
           should. The bar as a whole now also uses lg, but for content
           rather than for tracks: RunningTimerChip hides its Complete and
-          Pause buttons below it, because with a timer running the bar
+          Stop buttons below it, because with a timer running the bar
           cannot fit five things that each want 150-200px. That is the one
           sanctioned exception and it was argued out at length -- see the
           Layout section in DESIGN.md before adding a third. */}

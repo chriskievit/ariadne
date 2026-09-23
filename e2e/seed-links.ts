@@ -1,5 +1,5 @@
 import { openDb } from '../lib/db';
-import { upsertSyncedItem } from '../lib/items-repo';
+import { upsertSyncedItem, setStatus } from '../lib/items-repo';
 import { E2E_DB_PATH } from './db-path';
 
 // Linked items (a GitHub PR <-> an ADO work item) only ever come from a real
@@ -38,6 +38,28 @@ export function seedLinkedPair(suffix: string): { prItemId: number; adoItemId: n
     });
 
     return { prItemId: prItem.id, adoItemId: adoItem.id, prTitle, adoTitle };
+  } finally {
+    db.close();
+  }
+}
+
+// Task 4's own fixture: an in-progress linked pair, so the PR item's
+// "Complete" button is available (actionableLinks/canComplete both require
+// in_progress or a settled inbox row) and the cascade dialog has a linked
+// item to offer -- e2e/lifecycle-wiring.spec.ts routes the PR item's own
+// /complete call to a 500 and asserts the ADO item never completes with it.
+export function seedLinkedPairInProgress(suffix: string): {
+  prItemId: number;
+  adoItemId: number;
+  prTitle: string;
+  adoTitle: string;
+} {
+  const fixture = seedLinkedPair(suffix);
+  const db = openDb(E2E_DB_PATH);
+  try {
+    setStatus(db, fixture.prItemId, 'in_progress');
+    setStatus(db, fixture.adoItemId, 'in_progress');
+    return fixture;
   } finally {
     db.close();
   }

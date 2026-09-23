@@ -68,7 +68,7 @@ test('suggests a day, then pins only what the user keeps', async ({ page, reques
   await expect(roughInputs.first()).not.toHaveValue('');
 });
 
-test('dismissing a suggestion leaves the day exactly as it was', async ({ page, request }) => {
+test('closing the suggest panel leaves the day exactly as it was', async ({ page, request }) => {
   await seedPool(request, Date.now());
 
   await page.goto('/');
@@ -78,7 +78,9 @@ test('dismissing a suggestion leaves the day exactly as it was', async ({ page, 
   await page.keyboard.press('i');
   const dialog = page.getByRole('dialog');
   await expect(pinButton(page)).toBeEnabled();
-  await dialog.getByRole('button', { name: 'Dismiss' }).click();
+  // The panel's own decline control, found by its exact name. It is not
+  // called "Close" because the dialog's corner close already is.
+  await dialog.getByRole('button', { name: 'Not now', exact: true }).click();
 
   await expect(dialog).toBeHidden();
   await expect(grips).toHaveCount(before);

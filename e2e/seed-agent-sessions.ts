@@ -3,8 +3,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openDb } from '../lib/db';
-import { createAdhocItem } from '../lib/items-repo';
+import { createAdhocItem, setStatus, setParked, setTodayDate } from '../lib/items-repo';
 import { createAgentSession, applyAgentSessionPatch } from '../lib/agent-sessions-repo';
+import { addPlanItem } from '../lib/plans-repo';
+import { localDateString } from '../lib/date';
 import { E2E_DB_PATH } from './db-path';
 
 // Deliberately not this repository. Pointing the diff-bearing session at
@@ -112,15 +114,22 @@ export function seedAgentSessions(suffix: string): {
     };
     const needsYouMessage = `Which migration should run first, ${base}?`;
 
-    function launch(title: string) {
-      const item = createAdhocItem(db, { title });
+    // launchToken is keyed on title (via `base`), same as every other
+    // fixture here -- titles are unique per seed call, so this stays unique
+    // too without threading a separate counter through.
+    function launchOnItem(itemId: number, title: string) {
       return createAgentSession(db, {
-        itemId: item.id,
+        itemId,
         agent: 'claude',
         launchToken: `${base}-${title}`,
         tabTitle: title,
         tabColor: 'yellow',
       });
+    }
+
+    function launch(title: string) {
+      const item = createAdhocItem(db, { title });
+      return launchOnItem(item.id, title);
     }
 
     const working = launch(titles.workingTitle);
@@ -234,6 +243,195 @@ export function seedAgentSessions(suffix: string): {
       diffBranch: diffFixture.branch,
       diffFixtureFile: DIFF_FIXTURE_FILE,
       diffEmptyBranch: diffEmptyFixture.branch,
+    };
+  } finally {
+    db.close();
+  }
+}
+
+// Task 8's own fixtures, kept out of seedAgentSessions above on purpose:
+// that function is called by several other spec files (session-pane.spec.ts,
+// work-mode.spec.ts), each with its own suffix, and every one of those calls
+// would otherwise also create these ten extra items as an unrequested side
+// effect -- discovered the hard way, as a full-suite run that left a Today
+// row and an In-progress row behind per seedAgentSessions call across the
+// whole suite, breaking today-reorder.spec.ts's exact row-count assertions
+// two files later. A second exported function, same file (per the brief:
+// extend this file rather than write a parallel seed), called only from
+// lifecycle-wiring.spec.ts.
+export function seedLifecycleFixtures(suffix: string): {
+  // Task 8, assertions 1-2: a Today row whose item has a working session --
+  // the state's word, and the absence of Threadline Gold on it.
+  todayWorkingTitle: string;
+  todayWorkingItemId: number;
+  // Three separate in-progress items, one per park outcome, so the decline,
+  // accept and server-failure specs never contend over the same row.
+  parkDeclineTitle: string;
+  parkDeclineItemId: number;
+  parkAcceptTitle: string;
+  parkAcceptItemId: number;
+  parkFailTitle: string;
+  parkFailItemId: number;
+  // registeredAt is stamped in the past (see launchParkable below), so the
+  // complete dialog's agent-elapsed reference has real minutes to render.
+  completeElapsedTitle: string;
+  completeElapsedItemId: number;
+  // The rail's Today mark and the case it must not fire on: pinned via
+  // today_date vs. merely sitting in today's plan_items.
+  railTodayMarkedTitle: string;
+  railTodayMarkedItemId: number;
+  railTodayUnmarkedTitle: string;
+  railTodayUnmarkedItemId: number;
+  // A parked item with no session attached -- this fixture is only for the
+  // "Unpark" and "Parked · N" vocabulary, not for session wiring.
+  vocabParkedTitle: string;
+  vocabParkedItemId: number;
+  // Task 3: parked with a live session still attached -- the case a park
+  // with the dismiss box unchecked produces, and the one the early-return
+  // collapsed row used to drop the marker for entirely.
+  parkedWithSessionTitle: string;
+  parkedWithSessionItemId: number;
+  // Task 2: an ordinary in-progress row with no onSnooze wired to it at all
+  // (ItemSection never passes one) -- ItemRow must not let 'e' open a picker
+  // that leads nowhere on a row like this.
+  noSnoozeTitle: string;
+  noSnoozeItemId: number;
+} {
+  const db = openDb(E2E_DB_PATH);
+  try {
+    const base = `${Date.now()}${suffix}`;
+    const todayStr = localDateString(new Date());
+    const titles = {
+      todayWorkingTitle: `Agent today working ${base}`,
+      parkDeclineTitle: `Agent park decline ${base}`,
+      parkAcceptTitle: `Agent park accept ${base}`,
+      parkFailTitle: `Agent park fail ${base}`,
+      completeElapsedTitle: `Agent complete elapsed ${base}`,
+      railTodayMarkedTitle: `Agent rail pin marked ${base}`,
+      railTodayUnmarkedTitle: `Agent rail pin unmarked ${base}`,
+      vocabParkedTitle: `Agent vocab parked ${base}`,
+      parkedWithSessionTitle: `Agent parked with session ${base}`,
+      noSnoozeTitle: `Agent no snooze ${base}`,
+    };
+
+    function launchOnItem(itemId: number, title: string) {
+      return createAgentSession(db, {
+        itemId,
+        agent: 'claude',
+        launchToken: `${base}-${title}`,
+        tabTitle: title,
+        tabColor: 'yellow',
+      });
+    }
+
+    // Assertions 1-2: a Today row whose item has a working session must
+    // show the state's word, and the marker carrying that word must never
+    // render in Threadline Gold -- gold marks the thread you are holding
+    // (ItemRow's isTracking pulse, the running timer), and a delegated
+    // session is precisely the one you are not (see the header comments on
+    // lib/agent-session-display.ts and SessionRosterRow.tsx). Left at
+    // status 'inbox' deliberately: today_date alone puts it in Today and
+    // nowhere else. Pairing today_date with status 'in_progress' would also
+    // land it in the In-progress list (getGroupedItems does not make Today
+    // and In-progress exclusive), rendering the row twice and making every
+    // locator ambiguous.
+    const todayWorkingItem = createAdhocItem(db, { title: titles.todayWorkingTitle });
+    setTodayDate(db, todayWorkingItem.id, todayStr);
+    const todayWorking = launchOnItem(todayWorkingItem.id, titles.todayWorkingTitle);
+    applyAgentSessionPatch(db, todayWorking.id, {
+      state: 'working',
+      registeredAt: new Date().toISOString(),
+      lastEventAt: new Date().toISOString(),
+    });
+
+    // Assertions 3-7: an in-progress item with a live session, parking's
+    // precondition for offering the dismiss-too question at all. Never
+    // pinned to today, for the same single-row reason as above.
+    // registeredAt is a parameter (not always "now") so the same helper can
+    // also seed the complete-elapsed fixture below with a real, non-zero
+    // elapsed time.
+    function launchParkable(title: string, registeredAt = new Date().toISOString()): number {
+      const item = createAdhocItem(db, { title });
+      setStatus(db, item.id, 'in_progress');
+      const session = launchOnItem(item.id, title);
+      applyAgentSessionPatch(db, session.id, {
+        state: 'working',
+        registeredAt,
+        lastEventAt: new Date().toISOString(),
+      });
+      return item.id;
+    }
+
+    const parkDeclineItemId = launchParkable(titles.parkDeclineTitle);
+    const parkAcceptItemId = launchParkable(titles.parkAcceptTitle);
+    const parkFailItemId = launchParkable(titles.parkFailTitle);
+    // Five minutes in the past so formatElapsed has minutes to render
+    // ("5:00", not "0:00") -- a dialog that fed the wrong field into the
+    // reference would still show *something* at 0:00, so a zero elapsed
+    // time would let that regression through.
+    const completeElapsedItemId = launchParkable(
+      titles.completeElapsedTitle,
+      new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    );
+
+    // Assertion 8: the rail's Today mark must mirror today_date -- the same
+    // field Planning's own Today section filters on (getGroupedItems,
+    // lib/dashboard.ts) -- not plan_items membership, which is a separate,
+    // capacity-and-logged-hours fact that can disagree with it (see
+    // lib/agent-session-list.ts's onToday comment, and the unit coverage in
+    // lib/agent-session-list.test.ts this mirrors at the UI layer). One
+    // session pinned via today_date, one merely sitting in today's
+    // plan_items with today_date left null -- the divergent case an earlier
+    // implementation got backwards.
+    const railMarkedItem = createAdhocItem(db, { title: titles.railTodayMarkedTitle });
+    setTodayDate(db, railMarkedItem.id, todayStr);
+    launchOnItem(railMarkedItem.id, titles.railTodayMarkedTitle);
+
+    const railUnmarkedItem = createAdhocItem(db, { title: titles.railTodayUnmarkedTitle });
+    addPlanItem(db, todayStr, railUnmarkedItem.id);
+    launchOnItem(railUnmarkedItem.id, titles.railTodayUnmarkedTitle);
+
+    // Assertion 9 (vocabulary): parked, with no session attached -- this
+    // fixture only ever backs the "Unpark" / "Parked · N" wording checks,
+    // not session wiring. setStatus resets `parked` to 0 as a side effect
+    // (see items-repo.ts), so it must run before setParked, not after.
+    const vocabParkedItem = createAdhocItem(db, { title: titles.vocabParkedTitle });
+    setStatus(db, vocabParkedItem.id, 'in_progress');
+    setParked(db, vocabParkedItem.id, true);
+
+    // Task 3: the same parked-with-a-session shape as vocabParkedItem above,
+    // but with a live session attached -- setStatus before setParked for the
+    // same reason as vocabParkedItem (setStatus resets `parked` as a side
+    // effect), and the session launched only after both, so it is never
+    // reset by either.
+    const parkedWithSessionItem = createAdhocItem(db, { title: titles.parkedWithSessionTitle });
+    setStatus(db, parkedWithSessionItem.id, 'in_progress');
+    setParked(db, parkedWithSessionItem.id, true);
+    const parkedWithSession = launchOnItem(parkedWithSessionItem.id, titles.parkedWithSessionTitle);
+    applyAgentSessionPatch(db, parkedWithSession.id, {
+      state: 'working',
+      registeredAt: new Date().toISOString(),
+      lastEventAt: new Date().toISOString(),
+    });
+
+    // Task 2: a plain in-progress item, no session -- the bug this fixture
+    // backs (a dead-end snooze picker on Today/In-progress rows) has nothing
+    // to do with agent sessions, so this one carries none.
+    const noSnoozeItem = createAdhocItem(db, { title: titles.noSnoozeTitle });
+    setStatus(db, noSnoozeItem.id, 'in_progress');
+
+    return {
+      ...titles,
+      todayWorkingItemId: todayWorkingItem.id,
+      parkDeclineItemId,
+      parkAcceptItemId,
+      parkFailItemId,
+      completeElapsedItemId,
+      railTodayMarkedItemId: railMarkedItem.id,
+      railTodayUnmarkedItemId: railUnmarkedItem.id,
+      vocabParkedItemId: vocabParkedItem.id,
+      parkedWithSessionItemId: parkedWithSessionItem.id,
+      noSnoozeItemId: noSnoozeItem.id,
     };
   } finally {
     db.close();

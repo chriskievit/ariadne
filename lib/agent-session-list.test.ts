@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type Database from 'better-sqlite3';
 import { openDb } from './db';
-import { createAdhocItem } from './items-repo';
+import { createAdhocItem, setTodayDate } from './items-repo';
 import { createAgentSession, applyAgentSessionPatch } from './agent-sessions-repo';
+import { addPlanItem } from './plans-repo';
+import { localDateString, addDays } from './date';
 import { listSessionsForDisplay, RECENT_ENDED_LIMIT } from './agent-session-list';
 
 let db: Database.Database;
@@ -77,5 +79,51 @@ describe('listSessionsForDisplay', () => {
     launch('no-transcript');
     const [entry] = listSessionsForDisplay(db, new Date());
     expect(entry.lastLines).toEqual([]);
+  });
+
+  describe('onToday', () => {
+    it('marks a session whose item is pinned to today (today_date)', () => {
+      const now = new Date();
+      setTodayDate(db, itemId, localDateString(now));
+      launch('pinned-today');
+      const [entry] = listSessionsForDisplay(db, now);
+      expect(entry.onToday).toBe(true);
+    });
+
+    it('leaves a session unmarked when its item is pinned to yesterday, not today', () => {
+      const now = new Date();
+      setTodayDate(db, itemId, addDays(localDateString(now), -1));
+      launch('pinned-yesterday');
+      const [entry] = listSessionsForDisplay(db, now);
+      expect(entry.onToday).toBe(false);
+    });
+
+    // This is Planning's own rule (getGroupedItems, lib/dashboard.ts:56):
+    // Today is today_date, independent of plan_items membership. An item
+    // pinned via /api/items/[id]/today without ever being added to a plan
+    // (or added and then removed from one) still shows in Planning's Today
+    // section, so the rail must mark it too, or the two modes disagree.
+    it('marks a session whose item is pinned to today even though it is not in today\'s plan_items', () => {
+      const now = new Date();
+      setTodayDate(db, itemId, localDateString(now));
+      launch('pinned-not-planned');
+      const [entry] = listSessionsForDisplay(db, now);
+      expect(entry.onToday).toBe(true);
+    });
+
+    // The other divergent case, and the one the join must not get backwards:
+    // plan_items is capacity-and-logged-hours bookkeeping for the day
+    // (dashboard.ts:60-64), not what Planning's Today section shows. An item
+    // in today's plan_items whose today_date has been cleared -- removed
+    // from Today while its estimate and logged time keep counting toward
+    // the day's totals -- is not in Planning's Today section, so the rail
+    // must not mark it either.
+    it('leaves a session unmarked when its item is in today\'s plan_items but today_date is not today', () => {
+      const now = new Date();
+      addPlanItem(db, localDateString(now), itemId);
+      launch('planned-not-pinned');
+      const [entry] = listSessionsForDisplay(db, now);
+      expect(entry.onToday).toBe(false);
+    });
   });
 });

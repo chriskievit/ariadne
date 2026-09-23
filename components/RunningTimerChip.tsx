@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Pause } from 'lucide-react';
+import { Check, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
-import { elapsedHoursForInput } from '@/lib/elapsed';
+import { elapsedHoursForInput, formatElapsed } from '@/lib/elapsed';
 import type { RunningTimer } from '@/lib/time-logs-repo';
 
 interface Props {
@@ -21,15 +21,6 @@ interface Props {
   onStop: () => void;
   onComplete: (itemId: number, durationHours: number, note?: string) => void;
   longRunNudgeHours: number;
-}
-
-function formatElapsed(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 export default function RunningTimerChip({ runningTimer, onStop, onComplete, longRunNudgeHours }: Props) {
@@ -94,7 +85,7 @@ export default function RunningTimerChip({ runningTimer, onStop, onComplete, lon
 
             But that row is on Planning, and this chip is in the root
             layout: below lg on /work, /report or /settings a running
-            timer has no pause and no complete anywhere on screen, and
+            timer has no stop and no complete anywhere on screen, and
             the only way to either is to navigate to Planning. That is a
             real cost, accepted because the alternative was a
             horizontally scrolling page on every route. See the Layout
@@ -115,10 +106,10 @@ export default function RunningTimerChip({ runningTimer, onStop, onComplete, lon
           variant="ghost"
           size="icon"
           className="hidden h-6 w-6 lg:inline-flex"
-          aria-label="Pause timer"
+          aria-label="Stop timer"
           onClick={onStop}
         >
-          <Pause className="h-3.5 w-3.5" />
+          <Square className="h-3.5 w-3.5" />
         </Button>
       </div>
 

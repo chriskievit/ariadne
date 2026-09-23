@@ -43,6 +43,6 @@ test('captures the README screenshots', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Signals' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
   // Client-fetched, so wait for it rather than racing the running-timer chip.
-  await expect(page.getByLabel('Pause timer')).toBeVisible();
+  await expect(page.getByLabel('Stop timer')).toBeVisible();
   await captureContent(page, 'screenshot-dashboard.png');
 });

@@ -21,6 +21,8 @@ import { createSavedView, deleteSavedView } from '@/lib/api-client';
 import type { SavedView } from '@/lib/saved-views';
 import type { Priority, Source } from '@/lib/types';
 import type { ScoredItem } from '@/lib/dashboard';
+import { liveSessionFor } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 const STATUS_KEY: { label: string; description: string }[] = [
   { label: 'Blocked', description: 'Needs a nudge, not work.' },
@@ -65,12 +67,15 @@ function StatusKeyPopover() {
 interface Props {
   items: ScoredItem[];
   onStart: (id: number, alsoStartIds?: number[]) => void;
-  onComplete: (id: number, durationHours: number, note?: string) => void;
+  // dismissSessionId and the Promise<boolean> return: see TodaySection's
+  // Props for why both are typed here rather than left implicit.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => Promise<boolean>;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete: (id: number) => void;
   onPinToday?: (id: number) => void;
   onStar?: (id: number, starred: boolean) => void;
-  onSnooze?: (id: number, option: SnoozeOption) => void;
+  // dismissSessionId, see onComplete above -- same reason to type it here.
+  onSnooze?: (id: number, option: SnoozeOption, dismissSessionId?: number) => void;
   onUnsnooze?: (id: number) => void;
   onDone?: (id: number, done: boolean) => void;
   onSetPriority?: (id: number, priority: Priority | null) => void;
@@ -81,6 +86,10 @@ interface Props {
   onSavedViewsChange: (views: SavedView[]) => void;
   failingSources?: Set<Source>;
   onOpenScoringReference: () => void;
+  // See TodaySection's Props -- same shared map, same optionality.
+  liveSessions?: Map<number, SessionListEntry>;
+  // See ItemRow's own prop of the same name.
+  onRefreshLiveSessions?: () => void;
 }
 
 export default function SignalsBoard({
@@ -102,6 +111,8 @@ export default function SignalsBoard({
   onSavedViewsChange,
   failingSources,
   onOpenScoringReference,
+  liveSessions,
+  onRefreshLiveSessions,
 }: Props) {
   const [expanded, setExpanded] = useState<Record<ObligationGroup, boolean>>({
     waiting_on_you: false,
@@ -130,7 +141,7 @@ export default function SignalsBoard({
   const filtered = applyQuery(withoutHiddenTriage, activeParsed, context);
 
   // Snoozed items get their own always-visible sub-list (same pattern as
-  // Paused in ItemSection) instead of only being reachable by typing
+  // Parked in ItemSection) instead of only being reachable by typing
   // `is:snoozed` -- otherwise a snoozed item just disappears with no
   // indication it still exists.
   const snoozedItems = items.filter(
@@ -176,6 +187,8 @@ export default function SignalsBoard({
       onSetPriority={onSetPriority}
       sourceIsStale={failingSources?.has(item.source)}
       onOpenScoringReference={onOpenScoringReference}
+      liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+      onRefreshLiveSessions={onRefreshLiveSessions}
     />
   );
 
@@ -288,7 +301,7 @@ export default function SignalsBoard({
             <div>{visible.map(renderRow)}</div>
             {hiddenCount > 0 && (
               <>
-                {/* Same disclosure grammar as Snoozed and Paused: a bare
+                {/* Same disclosure grammar as Snoozed and Parked: a bare
                     button at label weight, the count in the instrument
                     register, and a toggle that goes both ways. "Lower
                     scoring" rather than "Show more" because it is a claim
@@ -340,6 +353,12 @@ export default function SignalsBoard({
                   onSetPriority={onSetPriority}
                   sourceIsStale={failingSources?.has(item.source)}
                   onOpenScoringReference={onOpenScoringReference}
+                  // Snoozing can now keep an agent's session tracked -- the
+                  // dismiss offer is declinable -- so a snoozed row is one of
+                  // the places a live session sits. Without this it would be
+                  // the only Planning surface where one goes unmarked.
+                  liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
+                  onRefreshLiveSessions={onRefreshLiveSessions}
                 />
               ))}
             </div>

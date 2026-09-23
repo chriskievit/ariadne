@@ -3,7 +3,7 @@ import { listItems } from './items-repo';
 import { getSetting } from './settings-repo';
 import { sortByUrgency, type ScoreBreakdownEntry } from './scoring';
 import { getLinksForItems, type LinkedRef } from './links-repo';
-import { localDateString } from './date';
+import { localDateString, isPinnedToday } from './date';
 import { sumHoursLoggedOn, sumHoursLoggedOnByItem } from './time-logs-repo';
 import { getPlan, getPlanItems } from './plans-repo';
 import { SETTINGS_KEYS } from './config';
@@ -45,7 +45,7 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
   }));
 
   // Today tracks plan membership (today_date), not status -- a planned item
-  // stays visible here through Start/Pause/Complete instead of disappearing
+  // stays visible here through Start/Park/Complete instead of disappearing
   // into In-progress with no trace, so it can now legitimately appear in
   // both Today and In-progress at once. Signals stays exclusive of Today:
   // an item pinned to today's plan is a move out of Signals, not a copy.
@@ -53,7 +53,7 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
   // hand-ordered list once chosen, not a re-derivation of the ranking that
   // put it there.
   const today = scored
-    .filter((i) => i.todayDate === todayStr)
+    .filter((i) => isPinnedToday(i.todayDate, todayStr))
     .sort((a, b) => (sortOrderByItemId.get(a.id) ?? Infinity) - (sortOrderByItemId.get(b.id) ?? Infinity));
   const todayIds = new Set(today.map((i) => i.id));
 
@@ -91,7 +91,7 @@ export interface TodaySummary {
 // `date` is used today -- the two must never disagree about what day it is.
 export function getTodaySummary(db: Database.Database, date: string, now: Date): TodaySummary {
   const items = listItems(db);
-  const planned = items.filter((i) => i.todayDate === date && i.status !== 'done');
+  const planned = items.filter((i) => isPinnedToday(i.todayDate, date) && i.status !== 'done');
   const doneToday = items.filter(
     (i) => i.status === 'done' && i.completedAt !== null && localDateString(new Date(i.completedAt)) === date
   );

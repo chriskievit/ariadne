@@ -145,7 +145,59 @@ work with opaque, ML-driven priority.
   Resuming a dismissed session is refused for the same reason: the
   original process may still be alive, and resuming would start a second
   one on the same conversation rather than reattaching to the first
-  (`app/api/agent-sessions/[id]/resume/route.ts`).
+  (`app/api/agent-sessions/[id]/resume/route.ts`). Only some of the paths
+  that park, snooze, or complete an item are wired to a live session at
+  all, and it is those, not the actions in the abstract, that carry the
+  identical honesty. On a row in Planning (`ItemRow.tsx`), Park and Snooze
+  offer a checkbox, checked by default, that stops tracking the session
+  alongside the item action (`agentDismissOption`, wired through an
+  optional `dismissSessionId` on `handlePark`/`handleSnooze` in
+  `Dashboard.tsx`); Complete does the same without asking, because
+  declaring the work finished makes a session still tracked against it
+  stale by definition, not a choice. All three call the same dismiss route
+  Dismiss itself calls (`app/api/agent-sessions/[id]/dismiss/route.ts`),
+  so none of them can say more than Dismiss is allowed to say: they end
+  Ariadne's own record of the session, never the agent. Every other path
+  that reaches the same three actions has no live-session data to ask the
+  question with, and each of them errs on the safe side by leaving the
+  session tracked and visible in the `/work` rail rather than guessing:
+  wrap-up's snooze (`ShutdownDialog.tsx`), Plan the day's snooze
+  (`PlanDayDialog.tsx`), the running-timer chip's Complete
+  (`RunningTimerChip.tsx`/`TopBar.tsx`), the MCP `complete_item` tool, and
+  the linked-item cascade's own completion of the items linked to the one
+  actually completed (`ItemRow.tsx`'s `closeCompleteCascade`, which also
+  never fires that cascade at all once the main item's own complete call
+  fails). Completing an item with a live session
+  shows the agent's elapsed time beside the hours field as a
+  `~`-prefixed reference labelled the agent's time (`ItemRow.tsx`); it is
+  never written into the field itself, because an agent's wall clock is
+  not the hours Chris logs for his own work. An agent session never
+  consumes capacity either: handing off does not add the item to today's
+  plan (above), and an agent's elapsed time never reaches `plan_items`, an
+  estimate, or a logged-hours total — only Chris's own timer and his own
+  hand-set estimates do that.
+- **Settled vocabulary for the lifecycle actions, no two words for one
+  meaning.** **Park** / **Unpark** / **Parked** name one concept: an
+  in-progress item set aside and pulled back (`onPark`/`onUnpark` in
+  `ItemRow.tsx`; the disclosure control reads `Parked · N` in
+  `ItemSection.tsx`). **Stop timer** (`RunningTimerChip.tsx`, a `Square`
+  icon) is the running-timer control, and it permanently stops the timer —
+  there is no pause to come back to. **Dismiss** (`SessionPane.tsx`, and
+  the same underlying action offered as a checkbox on `ItemRow.tsx`'s
+  park/snooze cascades and triggered automatically by Complete) ends
+  Ariadne's record of an agent session, and only that; see Delegation
+  above for why it never stops the agent. **Resume** (labelled
+  "Resume in a new tab", `SessionPane.tsx`) resumes an agent's conversation
+  in a new Warp tab, and only that — it is refused outright for a
+  dismissed session (`app/api/agent-sessions/[id]/resume/route.ts`)
+  because the original process may still be alive. **Not now**
+  (`SuggestPanel.tsx`) declines the Suggest-a-day panel; it is deliberately
+  not "Dismiss", which already means something else in this app, and it
+  sits beside the dialog's own corner close so a screen reader is never
+  handed two controls with the same accessible name. **Back to queue**
+  (`ItemRow.tsx`, the requeue action) moves an in-progress item back to
+  Signals (`setStatus(db, id, 'inbox')`,
+  `app/api/items/[id]/requeue/route.ts`).
 - **Deliberately small surface.** Two faces (the ranked dashboard and the
   Work mode watch floor at `/work`), a time report, and Settings. New
   features are scoped tightly; real tradeoffs (like plaintext token
@@ -156,14 +208,43 @@ work with opaque, ML-driven priority.
   command palette work and should inform new UI beyond that specific
   roadmap.
 - **Today and In-progress are independent axes, not one bucket each.**
-  Today reflects a day's plan (`today_date`/`plan_items`, unaffected by
-  status changes); In-progress reflects live work status. An item pinned to
-  today's plan stays visible in Today through Start/Pause/Complete and can
-  legitimately appear in both Today and In-progress at once. Signals stays
-  mutually exclusive of Today: an item exists in exactly one of Today /
-  Signals at a time (pinning to today is a move out of Signals, not a
-  copy). Preserve the Today/Signals exclusivity when touching item-state
-  logic; do not reintroduce it between Today and In-progress.
+  Today reflects a day's plan; In-progress reflects live work status.
+  Today is built from `items.today_date` (`isPinnedToday()` in
+  `lib/date.ts`, filtered by `getGroupedItems()` in `lib/dashboard.ts`),
+  not from `plan_items`. The two usually agree, but `plan_items` states a
+  different fact: it is the day's plan for capacity and logged-hours
+  bookkeeping (`todayPlannedMinutes`/`todayLoggedMinutes`, also
+  `lib/dashboard.ts`), and an item removed from the Today bucket
+  (`today_date` cleared) keeps counting toward those totals through its
+  `plan_items` row. The Watch Floor rail mirrors Planning's Today section
+  the same way — `listItemIdsPinnedToday()` in `lib/items-repo.ts`, not
+  `plan_items` — so the two surfaces cannot disagree about what Today
+  means. An item pinned to today's plan stays visible in Today through
+  Start/Park/Complete and can legitimately appear in both Today and
+  In-progress at once. Signals stays mutually exclusive of Today: an item
+  exists in exactly one of Today / Signals at a time (pinning to today is a
+  move out of Signals, not a copy). Preserve the Today/Signals exclusivity
+  when touching item-state logic; do not reintroduce it between Today and
+  In-progress.
+- **Four independent axes, not one bucket each.** Status (`items.status`),
+  parked (`items.parked`), Today (`items.today_date`), and an agent
+  session's state (`agent_sessions.state`, a separate table keyed by
+  `item_id`, `lib/db.ts`) are four separate facts about an item, and a
+  session's state never implies one of the other three, nor do they imply
+  it. An item can be `in_progress` with no session at all (started by
+  hand), `in_progress` with a live session in any of its six states,
+  parked with a session still `working`, or pinned to Today with a session
+  that has since gone `stopped`. Dismissing a session
+  (`dismissAgentSession()`, `lib/agent-sessions-repo.ts`) only stamps
+  `endedAt`/`endReason` and leaves `state` untouched, and none of
+  `setParked()`, `setTodayDate()`, or `setStatus()` (`lib/items-repo.ts`)
+  ever writes to the `agent_sessions` table. Launching a session is the one
+  place a session action reaches into status — it sets the item
+  `in_progress` once, as part of handing the work over (see Delegation
+  above) — but that is a one-time side effect of the handoff, not an
+  ongoing coupling between the two axes afterward. This is the same lesson
+  the Today/In-progress axis above already taught once: a session state
+  never implies a status, and a status never implies a session state.
 
 ## Brand Commitments
 

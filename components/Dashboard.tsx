@@ -49,6 +49,8 @@ import {
   setEstimate,
   fetchTodaySummaryFor,
   fetchCalibration,
+  fetchAgentSessions,
+  dismissSession,
 } from '@/lib/api-client';
 import { isSnoozed, SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 import { needsYou } from '@/lib/grouping';
@@ -61,8 +63,16 @@ import type { SprintProgress } from '@/lib/sprint';
 import type { SavedView } from '@/lib/saved-views';
 import type { SourceStatus } from '@/lib/sync-status';
 import type { Item, Plan, PlanItem, Priority } from '@/lib/types';
+import { liveSessionsByItem } from '@/lib/agent-session-links';
+import type { SessionListEntry } from '@/lib/agent-session-list';
 
 const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+// Ambient, not read: on Planning a live session is "three agents are going",
+// not the thing on screen, so this polls at a third of the rail's rate
+// (AGENT_POLL_INTERVAL_MS in lib/agent-roster.ts) rather than sharing it --
+// a rail-rate poll here would buy freshness nobody on this surface is
+// looking at.
+const SESSION_POLL_INTERVAL_MS = 15_000;
 
 interface DashboardData {
   today: ScoredItem[];
@@ -112,6 +122,10 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   const [calibration, setCalibration] = useState<CalibrationEntry[]>([]);
   const [scoringReferenceOpen, setScoringReferenceOpen] = useState(false);
+  // Empty until the first poll lands -- every row simply has no session
+  // awareness for that first tick, the same "just don't know yet" this map
+  // means for any item it has no entry for.
+  const [liveSessions, setLiveSessions] = useState<Map<number, SessionListEntry>>(new Map());
 
   const autoSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
@@ -156,6 +170,40 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     fetchCalibration(today, today).then(setCalibration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const refreshLiveSessions = useCallback(async () => {
+    try {
+      const { sessions } = await fetchAgentSessions();
+      setLiveSessions(liveSessionsByItem(sessions));
+    } catch {
+      // Same house rule as WatchFloor's own poll of this endpoint: keep
+      // whatever was last good and let the next tick recover on its own.
+      // No staleness marker -- WatchFloor already owns that language and has
+      // a pane to put it in, and Planning has neither, so saying nothing
+      // here is the only way to avoid a second dialect of the same message.
+    }
+  }, []);
+
+  useEffect(() => {
+    // Unlike WatchFloor, Dashboard has no server-rendered session list to
+    // start from, so an immediate fetch is what makes a session visible on
+    // first paint instead of leaving every row blind for a full interval.
+    void refreshLiveSessions();
+    // A background tab polling every 15s for information nobody is looking
+    // at is wasted work; catch up on the way back instead. Same pattern as
+    // WatchFloor, at a third of its rate -- see SESSION_POLL_INTERVAL_MS.
+    function onVisible() {
+      if (!document.hidden) void refreshLiveSessions();
+    }
+    const timer = setInterval(() => {
+      if (!document.hidden) void refreshLiveSessions();
+    }, SESSION_POLL_INTERVAL_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [refreshLiveSessions]);
 
   // The running timer can be stopped from outside this component's own
   // handlers (e.g. completing the item straight from the header's ticker),
@@ -269,8 +317,35 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
-  async function handlePark(id: number) {
-    await parkItem(id);
+  // Parking always lands first: it is the action the user actually asked
+  // for, and dismissSessionId is only ever an optional extra on top of it.
+  // parkItem now throws on both a network failure and a non-2xx response,
+  // so this catch is what makes that true for a live server error too --
+  // without it, a 500 resolves like a success and dismiss runs for an item
+  // that was never actually parked. On that failure nothing else runs:
+  // no dismiss, no refresh, just a toast, because nothing changed.
+  async function handlePark(id: number, dismissSessionId?: number) {
+    try {
+      await parkItem(id);
+    } catch {
+      toast('Could not park the item.');
+      return;
+    }
+    // Dismissal itself failing is the safe side of the rule that a running
+    // session Ariadne knows about must never be hidden: the item is still
+    // parked, and the session is left tracked and visible in the rail.
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+        // Otherwise Planning's own liveSessions map -- refreshed on its own
+        // much slower interval, see SESSION_POLL_INTERVAL_MS -- keeps
+        // offering to dismiss a session that has already ended for up to
+        // that long.
+        await refreshLiveSessions();
+      } catch {
+        toast('Parked, but could not stop tracking the session.');
+      }
+    }
     await refresh();
   }
 
@@ -360,19 +435,69 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     }
   }
 
-  async function handleComplete(id: number, durationHours: number, note?: string) {
-    await completeItem(id, { durationHours, note });
+  // Completing lands first, same ordering as handlePark and handleSnooze:
+  // dismissSessionId is only ever an extra on top of a complete that actually
+  // happened. completeItem now throws on a non-2xx the same way parkItem and
+  // snoozeItem do, so this catch is what stops a live server error from
+  // reading as success and dismissing a session whose item was never
+  // actually completed. Unlike park and snooze, there is no checkbox to skip
+  // -- completing declares the work finished, so a dismissSessionId here is
+  // never optional once a live session exists, only its presence is.
+  //
+  // Returns whether the item actually completed -- ItemRow's linked-item
+  // cascade (closeCompleteCascade) reads this to gate itself on the primary
+  // action's own success, the same rule handlePark and handleSnooze already
+  // follow for their own optional dismiss.
+  async function handleComplete(
+    id: number,
+    durationHours: number,
+    note?: string,
+    dismissSessionId?: number
+  ): Promise<boolean> {
+    try {
+      await completeItem(id, { durationHours, note });
+    } catch {
+      toast('Could not complete the item.');
+      return false;
+    }
+    // Dismissal failing here is the same safe side as handlePark: the item
+    // is still completed, and the session is left tracked and visible in the
+    // rail rather than being hidden by a completion that didn't fully land.
+    let dismissFailed = false;
+    let dismissed = false;
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+        await refreshLiveSessions();
+        dismissed = true;
+      } catch {
+        dismissFailed = true;
+      }
+    }
     await refresh();
-    toast('Completed.', {
-      duration: 5000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          await undoItem(id);
-          await refresh();
+    // Undo below only ever restores the item, never the dismissal
+    // (deliberately irreversible, decided in phase 3) -- the toast says so
+    // only when a session was actually dismissed, never that Undo brings it
+    // back. Same wording snooze's own toast already uses for the identical
+    // fact.
+    toast(
+      dismissFailed
+        ? 'Completed, but could not stop tracking the session.'
+        : dismissed
+          ? 'Completed. The session stays untracked.'
+          : 'Completed.',
+      {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            await undoItem(id);
+            await refresh();
+          },
         },
-      },
-    });
+      }
+    );
+    return true;
   }
 
   async function handleStar(id: number, starred: boolean) {
@@ -392,8 +517,37 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     await refresh();
   }
 
-  async function handleSnooze(id: number, option: SnoozeOption) {
-    await snoozeItem(id, option);
+  // Same ordering as handlePark, for the same reason: snooze lands first,
+  // dismissal is the optional extra, and a dismissal failure leaves the
+  // session tracked and visible in the rail rather than losing track of it.
+  // snoozeItem now throws on a non-2xx the same way parkItem does, so this
+  // catch is what stops a live server error from reading as success and
+  // dismissing a session for an item that was never actually snoozed.
+  async function handleSnooze(id: number, option: SnoozeOption, dismissSessionId?: number) {
+    try {
+      await snoozeItem(id, option);
+    } catch {
+      toast('Could not snooze the item.');
+      return;
+    }
+    // Tracked separately from "was it requested": Undo below only ever
+    // undoes the snooze, never the dismissal (deliberately irreversible,
+    // decided in phase 3), and the toast must say so only when a session
+    // actually got dismissed, not just offered.
+    let dismissed = false;
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+        // Otherwise Planning's own liveSessions map -- refreshed on its own
+        // much slower interval, see SESSION_POLL_INTERVAL_MS -- keeps
+        // offering to dismiss a session that has already ended for up to
+        // that long.
+        await refreshLiveSessions();
+        dismissed = true;
+      } catch {
+        toast('Snoozed, but could not stop tracking the session.');
+      }
+    }
     await refresh();
     const undo = async () => {
       await unsnoozeItem(id);
@@ -402,7 +556,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     lastUndoRef.current = () => {
       undo();
     };
-    toast(`Snoozed — ${SNOOZE_LABEL[option]}`, {
+    toast(`Snoozed — ${SNOOZE_LABEL[option]}${dismissed ? '. The session stays untracked.' : ''}`, {
       duration: 10_000,
       action: { label: 'Undo', onClick: undo },
     });
@@ -553,6 +707,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onReorder={handleReorderToday}
             failingSources={failingSources}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
+            liveSessions={liveSessions}
+            onRefreshLiveSessions={refreshLiveSessions}
           />
           <Card>
             <CardContent className="pt-6">
@@ -572,6 +728,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
                   onSetPriority={handleSetPriority}
                   failingSources={failingSources}
                   onOpenScoringReference={() => setScoringReferenceOpen(true)}
+                  liveSessions={liveSessions}
+                  onRefreshLiveSessions={refreshLiveSessions}
                 />
               </Accordion>
             </CardContent>
@@ -595,6 +753,8 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             savedViews={savedViews}
             onSavedViewsChange={setSavedViews}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
+            liveSessions={liveSessions}
+            onRefreshLiveSessions={refreshLiveSessions}
           />
         </>
       )}

@@ -136,7 +136,7 @@ export default function SuggestPanel({
       }
 
       // Enter on a control is that control's own business; only a bare Enter
-      // means accept, so a focused Dismiss still dismisses.
+      // means accept, so a focused Close still closes.
       if (e.key === 'Enter' && !(e.target as HTMLElement | null)?.closest?.('button, input, label, [role="radio"]')) {
         const { checkedIds, onPin: pin } = keyStateRef.current;
         if (checkedIds.length === 0) return;
@@ -370,8 +370,14 @@ export default function SuggestPanel({
           </button>
         </p>
         <div className="flex items-center justify-between">
+          {/* "Not now" rather than "Close": the dialog already has a corner
+              close whose accessible name is "Close", and two controls with
+              one name read as a duplicate to a screen reader. This one also
+              says something the corner does not -- that the suggestion is
+              being declined -- and it cannot be "Dismiss", which in this app
+              means ending Ariadne's record of an agent session. */}
           <Button type="button" variant="ghost" onClick={onDismiss}>
-            Dismiss
+            Not now
           </Button>
           <Button
             type="button"

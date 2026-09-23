@@ -117,10 +117,16 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 }
 
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
-  // today_date is deliberately untouched here -- Today now tracks plan_items
-  // membership across a status change instead of dropping it, so a planned
-  // item stays visible in Today through Start/Pause/Complete (see
-  // getGroupedItems in lib/dashboard.ts).
+  // today_date is deliberately untouched here. It is what puts an item in
+  // Planning's Today section (isPinnedToday in lib/date.ts, filtered by
+  // getGroupedItems in lib/dashboard.ts), so leaving it alone keeps a
+  // planned item visible in Today through Start, Park and Complete instead
+  // of dropping out the moment its status changes.
+  //
+  // Not plan_items: that is the day's plan, which feeds capacity and
+  // logged-hours totals and can diverge from today_date. This comment used
+  // to say Today tracked plan_items, which was never true of the code and
+  // once led a change to mark the wrong rows.
   db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0 WHERE id = ?').run(status, completedAt, id);
 }
 
@@ -130,6 +136,20 @@ export function setParked(db: Database.Database, id: number, parked: boolean): v
 
 export function setTodayDate(db: Database.Database, id: number, date: string | null): void {
   db.prepare('UPDATE items SET today_date = ? WHERE id = ?').run(date, id);
+}
+
+// Every item pinned to a given day's Today bucket, id only. This is the same
+// fact isPinnedToday (lib/date.ts) states as a predicate and getGroupedItems
+// (lib/dashboard.ts) filters `scored` by -- the rail's own mirror of
+// Planning's Today section (listSessionsForDisplay in lib/agent-session-list.ts)
+// reads it from here rather than from plan_items, which is a different,
+// capacity-and-logged-hours fact that can disagree with today_date (see
+// dashboard.ts:60-64). Bounded by how many items a person has actually
+// pinned to one day, never by the size of the items table.
+export function listItemIdsPinnedToday(db: Database.Database, todayStr: string): number[] {
+  return (db.prepare('SELECT id FROM items WHERE today_date = ?').all(todayStr) as { id: number }[]).map(
+    (row) => row.id
+  );
 }
 
 export function setStarred(db: Database.Database, id: number, starred: boolean): void {
