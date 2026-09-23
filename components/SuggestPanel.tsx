@@ -370,8 +370,14 @@ export default function SuggestPanel({
           </button>
         </p>
         <div className="flex items-center justify-between">
+          {/* "Not now" rather than "Close": the dialog already has a corner
+              close whose accessible name is "Close", and two controls with
+              one name read as a duplicate to a screen reader. This one also
+              says something the corner does not -- that the suggestion is
+              being declined -- and it cannot be "Dismiss", which in this app
+              means ending Ariadne's record of an agent session. */}
           <Button type="button" variant="ghost" onClick={onDismiss}>
-            Close
+            Not now
           </Button>
           <Button
             type="button"

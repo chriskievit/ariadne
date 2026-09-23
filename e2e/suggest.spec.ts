@@ -78,12 +78,9 @@ test('closing the suggest panel leaves the day exactly as it was', async ({ page
   await page.keyboard.press('i');
   const dialog = page.getByRole('dialog');
   await expect(pinButton(page)).toBeEnabled();
-  // Two controls now share the accessible name "Close" in this dialog: the
-  // panel's own footer button and Radix's built-in corner dismiss (sr-only
-  // "Close" in DialogContent). The footer button renders first in the DOM
-  // as part of SuggestPanel's own children, so .first() is the panel's
-  // control, not a fragile guess.
-  await dialog.getByRole('button', { name: 'Close' }).first().click();
+  // The panel's own decline control, found by its exact name. It is not
+  // called "Close" because the dialog's corner close already is.
+  await dialog.getByRole('button', { name: 'Not now', exact: true }).click();
 
   await expect(dialog).toBeHidden();
   await expect(grips).toHaveCount(before);
