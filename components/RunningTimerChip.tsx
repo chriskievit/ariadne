@@ -13,7 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/sonner';
-import { elapsedHoursForInput } from '@/lib/elapsed';
+import { elapsedHoursForInput, formatElapsed } from '@/lib/elapsed';
 import type { RunningTimer } from '@/lib/time-logs-repo';
 
 interface Props {
@@ -21,15 +21,6 @@ interface Props {
   onStop: () => void;
   onComplete: (itemId: number, durationHours: number, note?: string) => void;
   longRunNudgeHours: number;
-}
-
-function formatElapsed(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 export default function RunningTimerChip({ runningTimer, onStop, onComplete, longRunNudgeHours }: Props) {

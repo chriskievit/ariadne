@@ -38,7 +38,13 @@ export async function startItem(id: number, options?: { withTimer?: boolean }) {
 }
 
 export async function completeItem(id: number, body: { durationHours: number; note?: string }) {
+  // Same reasoning as parkItem/snoozeItem: completing an item with a live
+  // session now dismisses it unconditionally once the complete has landed,
+  // so a silent non-2xx here (the fetch itself never rejects on one) would
+  // otherwise read as success and dismiss a session whose item was never
+  // actually completed.
   const res = await fetch(`/api/items/${id}/complete`, { method: 'POST', body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`Could not complete the item (${res.status}).`);
   return res.json();
 }
 

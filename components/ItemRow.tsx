@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn, formatRelativeTime } from '@/lib/utils';
+import { formatElapsed } from '@/lib/elapsed';
 import {
   REASON_LABEL,
   BAND_LABEL,
@@ -158,7 +159,11 @@ interface Props {
   };
   onStart?: (id: number, alsoStartIds?: number[]) => void;
   onRequeue?: (id: number) => void;
-  onComplete: (id: number, durationHours: number, note?: string) => void;
+  // dismissSessionId mirrors onPark/onSnooze's own optional extra, but with
+  // no checkbox behind it -- completing an item with a live session always
+  // dismisses it (see handleCompleteSubmit), so the id is the only thing
+  // that's actually optional here, not whether it's honoured.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => void;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   // dismissSessionId is only ever passed alongside a live session's own id
@@ -502,6 +507,14 @@ export default function ItemRow({
   const sessionDisplay = liveSession ? agentStateDisplay(liveSession.state) : null;
   const SessionGlyph = sessionDisplay ? AGENT_STATE_GLYPHS[sessionDisplay.glyph] : null;
 
+  // The agent's own clock, shown beside the hours field as a `~`-prefixed
+  // reference -- never fed into the field itself. registeredAt is when the
+  // agent actually checked in; createdAt is the fallback for a session that
+  // never got that far, so this is never null while liveSession exists.
+  const agentElapsedMs = liveSession
+    ? Date.now() - new Date(liveSession.registeredAt ?? liveSession.createdAt).getTime()
+    : null;
+
   // The source system has closed this item but Ariadne, being read-only, has
   // not. A settled row keeps its place and its full-strength text -- the chip
   // carries the state -- and swaps its primary action from Start to Complete,
@@ -579,7 +592,10 @@ export default function ItemRow({
       setPendingComplete({ hours: parsedHours, note: note || undefined });
       setCompleteCascadeOpen(true);
     } else {
-      onComplete(item.id, parsedHours, note || undefined);
+      // liveSession is this row's own session only -- see closeCompleteCascade
+      // for why a cascaded linked item's session (if it has one) is left
+      // alone rather than guessed at here.
+      onComplete(item.id, parsedHours, note || undefined, liveSession?.id);
       setHours('');
       setNote('');
     }
@@ -587,8 +603,14 @@ export default function ItemRow({
 
   function closeCompleteCascade(cascadeToLinked: boolean) {
     if (pendingComplete) {
-      onComplete(item.id, pendingComplete.hours, pendingComplete.note);
+      onComplete(item.id, pendingComplete.hours, pendingComplete.note, liveSession?.id);
       if (cascadeToLinked) {
+        // No dismissSessionId for a cascaded linked item: this row only ever
+        // knows its own liveSession prop, never a linked item's, so guessing
+        // here risks dismissing the wrong session (or none at all when there
+        // is one). Leaving a linked item's session tracked is the safe
+        // default -- completing it directly, later, offers the same dismiss
+        // this row just did.
         pendingCompleteLinks.forEach((link) => {
           if (link.itemId !== null) onComplete(link.itemId, 0);
         });
@@ -666,6 +688,14 @@ export default function ItemRow({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Mark complete</DialogTitle>
+          {liveSession && (
+            // Same honesty as agentDismissOption below, but with no checkbox:
+            // completing declares the work finished, so a session still
+            // tracked against it is stale by definition, not a choice.
+            <DialogDescription>
+              Completing stops tracking this session. The agent keeps running until you stop it in Warp.
+            </DialogDescription>
+          )}
         </DialogHeader>
         <div className="grid gap-4 py-2">
           {item.estimateMinutes != null && (
@@ -675,14 +705,28 @@ export default function ItemRow({
           )}
           <div className="grid gap-1.5">
             <Label htmlFor={`duration-${item.id}`}>Hours spent</Label>
-            <Input
-              id={`duration-${item.id}`}
-              type="number"
-              step="0.25"
-              min="0"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id={`duration-${item.id}`}
+                type="number"
+                step="0.25"
+                min="0"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+              />
+              {liveSession && agentElapsedMs !== null && (
+                // A reference, not an answer -- the `~` and the "agent's
+                // time" label are what keep this from reading as a suggested
+                // value. The field beside it stays empty on purpose: an
+                // agent's wall clock is never your hours (see DESIGN.md).
+                <span
+                  className="shrink-0 whitespace-nowrap text-xs text-muted-foreground"
+                  title="The agent's elapsed time. It is not counted as your hours."
+                >
+                  ~{formatElapsed(agentElapsedMs)} agent&apos;s time
+                </span>
+              )}
+            </div>
             {hours.trim() !== '' && !hoursValid ? (
               <p className="text-sm text-destructive">Enter a number 0 or greater.</p>
             ) : null}

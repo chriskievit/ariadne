@@ -40,7 +40,15 @@ export default function TopBar() {
   }
 
   async function handleCompleteTimer(itemId: number, durationHours: number, note?: string) {
-    await completeItem(itemId, { durationHours, note });
+    // completeItem now throws on a non-2xx (see lib/api-client.ts); without
+    // this catch a failure here would be an unhandled rejection, since
+    // RunningTimerChip calls onComplete without awaiting or catching it.
+    try {
+      await completeItem(itemId, { durationHours, note });
+    } catch {
+      toast('Could not complete the item.');
+      return;
+    }
     await refreshRunningTimer();
     toast('Completed.', {
       duration: 5000,

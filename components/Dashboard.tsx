@@ -435,19 +435,51 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     }
   }
 
-  async function handleComplete(id: number, durationHours: number, note?: string) {
-    await completeItem(id, { durationHours, note });
+  // Completing lands first, same ordering as handlePark and handleSnooze:
+  // dismissSessionId is only ever an extra on top of a complete that actually
+  // happened. completeItem now throws on a non-2xx the same way parkItem and
+  // snoozeItem do, so this catch is what stops a live server error from
+  // reading as success and dismissing a session whose item was never
+  // actually completed. Unlike park and snooze, there is no checkbox to skip
+  // -- completing declares the work finished, so a dismissSessionId here is
+  // never optional once a live session exists, only its presence is.
+  async function handleComplete(id: number, durationHours: number, note?: string, dismissSessionId?: number) {
+    try {
+      await completeItem(id, { durationHours, note });
+    } catch {
+      toast('Could not complete the item.');
+      return;
+    }
+    // Dismissal failing here is the same safe side as handlePark: the item
+    // is still completed, and the session is left tracked and visible in the
+    // rail rather than being hidden by a completion that didn't fully land.
+    let dismissFailed = false;
+    if (dismissSessionId !== undefined) {
+      try {
+        await dismissSession(dismissSessionId);
+        await refreshLiveSessions();
+      } catch {
+        dismissFailed = true;
+      }
+    }
     await refresh();
-    toast('Completed.', {
-      duration: 5000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          await undoItem(id);
-          await refresh();
+    // Undo below only ever restores the item, never the dismissal
+    // (deliberately irreversible, decided in phase 3) -- the toast says so
+    // only when a session was actually dismissed, never that Undo brings it
+    // back.
+    toast(
+      dismissFailed ? 'Completed, but could not stop tracking the session.' : 'Completed.',
+      {
+        duration: 5000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            await undoItem(id);
+            await refresh();
+          },
         },
-      },
-    });
+      }
+    );
   }
 
   async function handleStar(id: number, starred: boolean) {
