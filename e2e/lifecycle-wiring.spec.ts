@@ -1,6 +1,5 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { seedLifecycleFixtures } from './seed-agent-sessions';
-import { createItem, ensureNoRunningTimer } from './helpers';
 
 type LifecycleFixtures = ReturnType<typeof seedLifecycleFixtures>;
 
@@ -322,26 +321,15 @@ test('the parked group discloses its count, and the way back in reads Unpark', a
   await cleanupLifecycleFixtures(page, fixtures);
 });
 
-test('the running-timer control reads Stop timer', async ({ page, request }) => {
-  await ensureNoRunningTimer(request);
-  const title = `Vocab stop timer ${Date.now()}`;
-  const itemId = await createItem(request, title);
-
-  await page.goto('/');
-  const target = row(page, itemId);
-  await target.waitFor();
-  await target.getByRole('button', { name: /^Start$/ }).click();
-
-  await expect(page.getByRole('button', { name: 'Stop timer', exact: true })).toBeVisible();
-
-  // requeue both stops the timer (completeTimer) and moves the item out of
-  // In-progress -- deleting it outright would throw ItemHasLoggedTimeError
-  // (see items-repo.ts), since starting the timer already wrote a time_logs
-  // row. Left in Signals rather than In-progress: later specs already cope
-  // with stray Signals rows (helpers.ts's hideExistingItems), but nothing
-  // in this suite expects an extra row in In-progress.
-  await page.request.post(`/api/items/${itemId}/requeue`);
-});
+// The running-timer control's "Stop timer" name is covered by
+// e2e/timer-pause.spec.ts, which finds it by that exact name, clicks it and
+// proves it stops the timer. It is deliberately not re-asserted here: doing
+// so needs a real timer, and a started-then-stopped timer writes a time_logs
+// row on an ad-hoc item that nothing can delete (ItemHasLoggedTimeError).
+// suggest.spec.ts expects the "rough defaults" copy, which only shows while
+// fewer than MIN_SAMPLES_FOR_MEDIAN (3) ad-hoc logs exist in the shared e2e
+// database -- and two other specs already leave one each. A third turned
+// suggest.spec red whenever the whole suite ran.
 
 test("the Suggest panel's decline reads Not now", async ({ page }) => {
   await page.goto('/');
