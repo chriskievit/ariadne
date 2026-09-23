@@ -132,6 +132,20 @@ export function setTodayDate(db: Database.Database, id: number, date: string | n
   db.prepare('UPDATE items SET today_date = ? WHERE id = ?').run(date, id);
 }
 
+// Every item pinned to a given day's Today bucket, id only. This is the same
+// fact isPinnedToday (lib/date.ts) states as a predicate and getGroupedItems
+// (lib/dashboard.ts) filters `scored` by -- the rail's own mirror of
+// Planning's Today section (listSessionsForDisplay in lib/agent-session-list.ts)
+// reads it from here rather than from plan_items, which is a different,
+// capacity-and-logged-hours fact that can disagree with today_date (see
+// dashboard.ts:60-64). Bounded by how many items a person has actually
+// pinned to one day, never by the size of the items table.
+export function listItemIdsPinnedToday(db: Database.Database, todayStr: string): number[] {
+  return (db.prepare('SELECT id FROM items WHERE today_date = ?').all(todayStr) as { id: number }[]).map(
+    (row) => row.id
+  );
+}
+
 export function setStarred(db: Database.Database, id: number, starred: boolean): void {
   db.prepare('UPDATE items SET starred = ? WHERE id = ?').run(starred ? 1 : 0, id);
 }

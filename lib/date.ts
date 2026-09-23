@@ -16,6 +16,18 @@ export function addDays(dateStr: string, days: number): string {
   return localDateString(date);
 }
 
+// The one predicate for "is this item on Today". Planning's Today section
+// (getGroupedItems in lib/dashboard.ts) and the rail's mirror of it
+// (listSessionsForDisplay in lib/agent-session-list.ts) both call this
+// rather than each restating `todayDate === todayStr` -- two copies of what
+// counts as today is how the two surfaces drift apart. Deliberately not
+// plan_items membership: an item can sit in a day's plan_items (capacity,
+// logged-hours bookkeeping) without today_date naming that day, and Planning
+// does not show it in Today when that happens.
+export function isPinnedToday(todayDate: string | null, todayStr: string): boolean {
+  return todayDate === todayStr;
+}
+
 // Coarse, human relative age for a timestamp the user set themselves. It
 // deliberately loses precision as it goes back -- the point is never "how
 // long exactly", it is "is this assertion still fresh?", and "3 weeks ago"

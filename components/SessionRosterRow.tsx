@@ -54,7 +54,7 @@ export default function SessionRosterRow({
           {/* The word, always. Colour is the third channel here, never the
               only one. */}
           <span>{display.label}</span>
-          {session.onTodayPlan && (
+          {session.onToday && (
             <>
               <span aria-hidden="true">·</span>
               {/* Same glyph Planning's pin/unpin-from-today control uses

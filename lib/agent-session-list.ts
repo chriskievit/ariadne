@@ -8,7 +8,7 @@ import {
 } from './agent-sessions-repo';
 import { isNeverRegistered } from './agent-session-state';
 import { readTranscriptTail, type TranscriptEntry } from './agent-transcript';
-import { getPlanItems } from './plans-repo';
+import { listItemIdsPinnedToday } from './items-repo';
 import { localDateString } from './date';
 
 // How many transcript turns ride along with the list. Enough to show what a
@@ -22,13 +22,15 @@ export const RECENT_ENDED_LIMIT = 10;
 
 export interface SessionListEntry extends PublicAgentSession {
   lastLines: TranscriptEntry[];
-  // Whether this session's item sits in today's plan_items, not whether
-  // items.today_date happens to match -- the two can disagree (a plan
-  // built through add_plan_item never touches today_date), and plan_items
-  // is what Planning's Today concept actually tracks now. See
-  // setStatus in lib/items-repo.ts for why today_date is legacy but still
-  // present.
-  onTodayPlan: boolean;
+  // Whether this session's item is pinned to today in Planning's own sense
+  // (items.today_date, the same field getGroupedItems filters its Today
+  // bucket by in lib/dashboard.ts) -- not whether the item happens to sit in
+  // today's plan_items, which is a separate, capacity-and-logged-hours fact
+  // that can disagree with today_date (see dashboard.ts:60-64). Reading
+  // plan_items here would mark a row Planning does not show in Today. Named
+  // `onToday`, not `onTodayPlan`, so it can't be misread as tracking the
+  // plan.
+  onToday: boolean;
 }
 
 /**
@@ -67,12 +69,12 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
     .sort((a, b) => (b.endedAt as string).localeCompare(a.endedAt as string))
     .slice(0, RECENT_ENDED_LIMIT);
 
-  // One query for the whole day's plan, not one per session: plan_items for
-  // a single date is a handful of rows at most, so this is a flat cost per
-  // poll (both the rail's and Planning's) regardless of how many sessions
-  // are on screen. A per-session lookup here would turn a bounded read into
-  // an N+1 on every 5-second poll.
-  const todayItemIds = new Set(getPlanItems(db, localDateString(now)).map((planItem) => planItem.itemId));
+  // One query for every item pinned to today, not one per session: it is
+  // bounded by how many items a person has actually pinned to one day (a
+  // handful at most), so this is a flat cost per poll (both the rail's and
+  // Planning's) regardless of how many sessions are on screen. A per-session
+  // lookup here would turn a bounded read into an N+1 on every 5-second poll.
+  const todayItemIds = new Set(listItemIdsPinnedToday(db, localDateString(now)));
 
   return [...open, ...recentlyEnded].map((session) => ({
     ...toPublicAgentSession(session),
@@ -84,6 +86,6 @@ export function listSessionsForDisplay(db: Database.Database, now: Date): Sessio
       session.transcriptPath && session.state !== 'stopped' && session.state !== 'failed'
         ? readTranscriptTail(session.transcriptPath, TAIL_LIMIT)
         : [],
-    onTodayPlan: todayItemIds.has(session.itemId),
+    onToday: todayItemIds.has(session.itemId),
   }));
 }
