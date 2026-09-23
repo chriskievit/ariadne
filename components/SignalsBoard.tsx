@@ -353,6 +353,11 @@ export default function SignalsBoard({
                   onSetPriority={onSetPriority}
                   sourceIsStale={failingSources?.has(item.source)}
                   onOpenScoringReference={onOpenScoringReference}
+                  // Snoozing can now keep an agent's session tracked -- the
+                  // dismiss offer is declinable -- so a snoozed row is one of
+                  // the places a live session sits. Without this it would be
+                  // the only Planning surface where one goes unmarked.
+                  liveSession={liveSessions && liveSessionFor(liveSessions, item.id)}
                   onRefreshLiveSessions={onRefreshLiveSessions}
                 />
               ))}
