@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DIFF_FIXTURE_DIR_PREFIX, TRANSCRIPT_FIXTURE_PREFIX } from './seed-agent-sessions';
+import { E2E_AGENT_HOME } from './db-path';
 
 // The other end of global-setup's db wipe. Every seedAgentSessions call
 // writes a throwaway git repository (or two) and a JSONL transcript fixture
@@ -24,4 +25,10 @@ export default function globalTeardown(): void {
     if (!entry.startsWith(DIFF_FIXTURE_DIR_PREFIX) && !entry.startsWith(TRANSCRIPT_FIXTURE_PREFIX)) continue;
     fs.rmSync(path.join(tmp, entry), { recursive: true, force: true });
   }
+  // The webServer's own ARIADNE_WARP_TAB_CONFIG_DIR/ARIADNE_AGENT_SETTINGS_DIR
+  // (playwright.config.ts) point at this folder for the whole run -- removed
+  // here, not by anything mid-run, since resume/session-pane specs still
+  // need the tab configs and settings files they wrote to exist until the
+  // suite is done with them.
+  fs.rmSync(E2E_AGENT_HOME, { recursive: true, force: true });
 }
