@@ -163,7 +163,10 @@ interface Props {
   // no checkbox behind it -- completing an item with a live session always
   // dismisses it (see handleCompleteSubmit), so the id is the only thing
   // that's actually optional here, not whether it's honoured.
-  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => void;
+  // Returns whether the main item's own complete call landed -- the linked-
+  // item cascade below (closeCompleteCascade) only runs when it did, so a
+  // 500 on the main item can never complete the items linked to it.
+  onComplete: (id: number, durationHours: number, note?: string, dismissSessionId?: number) => Promise<boolean>;
   onOpenClaude: (id: number, workingDir?: string) => void;
   onDelete?: (id: number) => void;
   // dismissSessionId is only ever passed alongside a live session's own id
@@ -190,6 +193,12 @@ interface Props {
   // In-progress's Parked sub-list uses -- it's the one place you're actively
   // deciding what to resume next, not an ambient list to skim past.
   fullDetailWhenParked?: boolean;
+  // Fires when the delete, park, snooze or complete dialog opens, so each
+  // one decides from live data instead of Planning's own 15s poll (see
+  // Dashboard's refreshLiveSessions). Omitted wherever the caller has no
+  // shared session map at all -- same optionality as liveSession itself, and
+  // for the same reason: there is nothing fresher to fetch.
+  onRefreshLiveSessions?: () => void;
 }
 
 function actionableLinks(links: LinkedRef[] | undefined, targetStatus: Status): LinkedRef[] {
@@ -465,6 +474,7 @@ export default function ItemRow({
   onOpenScoringReference,
   liveSession,
   fullDetailWhenParked = false,
+  onRefreshLiveSessions,
 }: Props) {
   const Icon = SOURCE_ICON[item.source];
   const { query } = useSearch();
@@ -540,6 +550,28 @@ export default function ItemRow({
     }
   }
 
+  // The delete, park, snooze and complete dialogs all read liveSession --
+  // Planning's own map, polled on Dashboard's own 15s interval -- to decide
+  // what to say about an agent session. Refreshing it the moment one of
+  // these opens (rather than waiting for the next scheduled poll) is what
+  // keeps that up to 15s of staleness from ever reaching what the user
+  // actually sees; refreshLiveSessions itself lands as a prop update a
+  // moment later, same as any other poll.
+  function openDeleteDialog() {
+    onRefreshLiveSessions?.();
+    setDeleteOpen(true);
+  }
+
+  function openCompleteDialog() {
+    onRefreshLiveSessions?.();
+    setOpen(true);
+  }
+
+  function openSnoozeDialog() {
+    onRefreshLiveSessions?.();
+    setSnoozeDialogOpen(true);
+  }
+
   // A live session turns Park from a one-click action into a question --
   // an agent still working on something you just declared you're not
   // working on is incoherent, so this is the one path that gets a dialog.
@@ -547,6 +579,7 @@ export default function ItemRow({
   // exactly as it did before this existed.
   function handleParkClick() {
     if (liveSession) {
+      onRefreshLiveSessions?.();
       setDismissSessionToo(true);
       setParkCascadeOpen(true);
     } else {
@@ -563,6 +596,7 @@ export default function ItemRow({
   // option into a two-step question instead of firing straight away.
   function handleSnoozeOptionClick(option: SnoozeOption) {
     if (liveSession) {
+      onRefreshLiveSessions?.();
       setPendingSnoozeOption(option);
       setDismissSessionToo(true);
       setSnoozeDialogOpen(false);
@@ -594,17 +628,32 @@ export default function ItemRow({
     } else {
       // liveSession is this row's own session only -- see closeCompleteCascade
       // for why a cascaded linked item's session (if it has one) is left
-      // alone rather than guessed at here.
-      onComplete(item.id, parsedHours, note || undefined, liveSession?.id);
+      // alone rather than guessed at here. Nothing here depends on the
+      // result: there is no cascade to gate when there are no linked items.
+      void onComplete(item.id, parsedHours, note || undefined, liveSession?.id);
       setHours('');
       setNote('');
     }
   }
 
   function closeCompleteCascade(cascadeToLinked: boolean) {
-    if (pendingComplete) {
-      onComplete(item.id, pendingComplete.hours, pendingComplete.note, liveSession?.id);
-      if (cascadeToLinked) {
+    const pending = pendingComplete;
+    // Read before the dialog closes below, same as the rest of this
+    // function's local state -- the async work following it must not depend
+    // on state that has already been reset out from under it.
+    setPendingComplete(null);
+    setHours('');
+    setNote('');
+    setCompleteCascadeOpen(false);
+    if (!pending) return;
+    void (async () => {
+      // The primary action lands first: a 500 on the main item must not
+      // still complete the items linked to it, which is what unconditionally
+      // firing the loop below used to do. onComplete resolves to whether its
+      // own call actually landed (see Dashboard's handleComplete), so the
+      // cascade below is gated on that, not just on whether it was asked for.
+      const completed = await onComplete(item.id, pending.hours, pending.note, liveSession?.id);
+      if (cascadeToLinked && completed) {
         // No dismissSessionId for a cascaded linked item: the cascade dialog
         // never mentioned that item's session, so dismissing it here would
         // end tracking on a process the user was never told about. Once this
@@ -612,15 +661,11 @@ export default function ItemRow({
         // later "complete it directly" moment where this row would offer the
         // dismiss instead. The session stays live and visible in the /work
         // rail, where it can still be dismissed on its own.
-        pendingCompleteLinks.forEach((link) => {
-          if (link.itemId !== null) onComplete(link.itemId, 0);
-        });
+        for (const link of pendingCompleteLinks) {
+          if (link.itemId !== null) await onComplete(link.itemId, 0);
+        }
       }
-    }
-    setPendingComplete(null);
-    setHours('');
-    setNote('');
-    setCompleteCascadeOpen(false);
+    })();
   }
 
   async function handleOpenClaudeClick() {
@@ -660,13 +705,18 @@ export default function ItemRow({
         setChipOpen(true);
         return;
       case 'c':
-        if (canComplete) setOpen(true);
+        if (canComplete) openCompleteDialog();
         return;
       case 's':
         onStar?.(item.id, !item.starred);
         return;
       case 'e':
-        setSnoozeDialogOpen(true);
+        // Snoozing only ever works where onSnooze is wired up (Signals rows) --
+        // see rowShortcuts below, which already excludes 'e' from its own hint
+        // on any other row. Opening the picker anyway would let a Today or
+        // In-progress row walk the user into a dialog whose Snooze button has
+        // nothing to call.
+        if (onSnooze) openSnoozeDialog();
         return;
       case 'd':
         onDone?.(item.id, item.triageState !== 'done');
@@ -943,7 +993,19 @@ export default function ItemRow({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Park this item?</DialogTitle>
-          <DialogDescription>It drops out of Planning until you unpark it.</DialogDescription>
+          {/* Section-aware, not one line for both: a parked item never
+              leaves Planning. In Today (fullDetailWhenParked) it stays put at
+              full detail (see the prop's own comment) and only its In
+              progress listing moves, from the main list to the Parked
+              sub-list (ItemSection.tsx); on an In-progress row that sub-list
+              move is the whole story. Getting this wrong is exactly the bug
+              this dialog shipped with -- see lib/dashboard.ts's
+              getGroupedItems for what parked actually filters on. */}
+          <DialogDescription>
+            {fullDetailWhenParked
+              ? 'It stays in Today. In In progress, it moves to the Parked list.'
+              : 'It moves to the Parked list until you unpark it.'}
+          </DialogDescription>
         </DialogHeader>
         {agentDismissOption}
         <DialogFooter>
@@ -963,9 +1025,13 @@ export default function ItemRow({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Snooze this item?</DialogTitle>
+          {/* onSnooze only ever reaches a Signals row (see rowShortcuts and
+              the 'e' handler above), so this dialog only ever shows for one:
+              snoozing moves it to Signals' own Snoozed sub-list
+              (SignalsBoard.tsx), never out of Planning. */}
           <DialogDescription>
             {pendingSnoozeOption &&
-              `${SNOOZE_LABEL[pendingSnoozeOption]}. It drops out of Planning until then.`}
+              `${SNOOZE_LABEL[pendingSnoozeOption]}. It moves to the Snoozed list until then.`}
           </DialogDescription>
         </DialogHeader>
         {agentDismissOption}
@@ -983,9 +1049,9 @@ export default function ItemRow({
 
   // Parked rows deliberately cost as little visual attention as possible: no
   // icon, no badge, no priority dot, no primary action, no overflow menu —
-  // just the title and a one-click way back in. Today opts out via
-  // fullDetailWhenParked since it's the one place you're actively deciding
-  // what to resume, not an ambient list to skim past.
+  // just the title, the agent marker (below) and a one-click way back in.
+  // Today opts out via fullDetailWhenParked since it's the one place you're
+  // actively deciding what to resume, not an ambient list to skim past.
   if (item.parked && !fullDetailWhenParked) {
     return (
       <div
@@ -996,13 +1062,29 @@ export default function ItemRow({
           isMatch ? 'opacity-55' : 'opacity-30'
         )}
       >
-        {item.url ? (
-          <a href={item.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-sm hover:underline">
-            {renderTitle(item.title, query)}
-          </a>
-        ) : (
-          <span className="min-w-0 truncate text-sm">{renderTitle(item.title, query)}</span>
-        )}
+        <div className="flex min-w-0 items-center gap-1.5">
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noreferrer" className="min-w-0 truncate text-sm hover:underline">
+              {renderTitle(item.title, query)}
+            </a>
+          ) : (
+            <span className="min-w-0 truncate text-sm">{renderTitle(item.title, query)}</span>
+          )}
+          {/* Parking with the dismiss box unchecked (agentDismissOption above)
+              is the one case where the user chose to keep a session tracked
+              against an item that then left the main list -- DESIGN.md's
+              "whenever that item has a live session" promise means the
+              marker cannot stop at the door of this early return. */}
+          {sessionDisplay && SessionGlyph && (
+            <span
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground"
+              title={sessionDisplay.label}
+            >
+              <SessionGlyph className={cn('h-3 w-3 shrink-0', AGENT_TONE_CLASS[sessionDisplay.tone])} aria-hidden="true" />
+              <span>{sessionDisplay.label}</span>
+            </span>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => onUnpark?.(item.id)}
@@ -1173,7 +1255,7 @@ export default function ItemRow({
             variant="outline"
             size="sm"
             className={density === 'comfortable' ? 'h-11' : undefined}
-            onClick={() => setOpen(true)}
+            onClick={openCompleteDialog}
           >
             Complete
           </Button>
@@ -1185,11 +1267,11 @@ export default function ItemRow({
           onPark={onPark ? handleParkClick : undefined}
           onUnpark={onUnpark}
           onOpenClaude={handleOpenClaudeClick}
-          onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+          onDelete={canDelete ? openDeleteDialog : undefined}
           onPinToday={onPinToday}
           onUnpinToday={onUnpinToday}
           onStar={onStar}
-          onOpenSnooze={onSnooze ? () => setSnoozeDialogOpen(true) : undefined}
+          onOpenSnooze={onSnooze ? openSnoozeDialog : undefined}
           onUnsnooze={onUnsnooze}
           onDone={onDone}
           onSetPriority={onSetPriority}
