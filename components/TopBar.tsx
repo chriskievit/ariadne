@@ -43,6 +43,16 @@ export default function TopBar() {
     // completeItem now throws on a non-2xx (see lib/api-client.ts); without
     // this catch a failure here would be an unhandled rejection, since
     // RunningTimerChip calls onComplete without awaiting or catching it.
+    //
+    // Deliberately no session dismissal here, unlike ItemRow's own complete
+    // dialog. This chip has no liveSession data to act on (it never fetches
+    // Dashboard's session map), and guessing at one from just an itemId would
+    // risk dismissing a session nobody here was ever told about. Same safe
+    // side as the cascade in ItemRow: a session this path can't ask about
+    // stays tracked and visible in the /work rail rather than silently
+    // ending. Completing an item through the MCP `complete_item` tool has the
+    // same asymmetry, for the same reason -- it only ever posts the
+    // completion, never a dismissal.
     try {
       await completeItem(itemId, { durationHours, note });
     } catch {

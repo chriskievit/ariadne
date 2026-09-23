@@ -605,12 +605,13 @@ export default function ItemRow({
     if (pendingComplete) {
       onComplete(item.id, pendingComplete.hours, pendingComplete.note, liveSession?.id);
       if (cascadeToLinked) {
-        // No dismissSessionId for a cascaded linked item: this row only ever
-        // knows its own liveSession prop, never a linked item's, so guessing
-        // here risks dismissing the wrong session (or none at all when there
-        // is one). Leaving a linked item's session tracked is the safe
-        // default -- completing it directly, later, offers the same dismiss
-        // this row just did.
+        // No dismissSessionId for a cascaded linked item: the cascade dialog
+        // never mentioned that item's session, so dismissing it here would
+        // end tracking on a process the user was never told about. Once this
+        // completes the linked item, it also leaves Planning -- there is no
+        // later "complete it directly" moment where this row would offer the
+        // dismiss instead. The session stays live and visible in the /work
+        // rail, where it can still be dismissed on its own.
         pendingCompleteLinks.forEach((link) => {
           if (link.itemId !== null) onComplete(link.itemId, 0);
         });
