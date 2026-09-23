@@ -145,18 +145,29 @@ work with opaque, ML-driven priority.
   Resuming a dismissed session is refused for the same reason: the
   original process may still be alive, and resuming would start a second
   one on the same conversation rather than reattaching to the first
-  (`app/api/agent-sessions/[id]/resume/route.ts`). Parking, snoozing, and
-  completing an item carry the identical honesty when a session is live.
-  Park and Snooze offer a checkbox, checked by default, that stops
-  tracking the session alongside the item action (`ItemRow.tsx`'s
-  `agentDismissOption`, wired through an optional `dismissSessionId` on
-  `handlePark`/`handleSnooze` in `Dashboard.tsx`); Complete does the same
-  without asking, because declaring the work finished makes a session
-  still tracked against it stale by definition, not a choice. All three
-  call the same dismiss route Dismiss itself calls
-  (`app/api/agent-sessions/[id]/dismiss/route.ts`), so none of them can
-  say more than Dismiss is allowed to say: they end Ariadne's own record
-  of the session, never the agent. Completing an item with a live session
+  (`app/api/agent-sessions/[id]/resume/route.ts`). Only some of the paths
+  that park, snooze, or complete an item are wired to a live session at
+  all, and it is those, not the actions in the abstract, that carry the
+  identical honesty. On a row in Planning (`ItemRow.tsx`), Park and Snooze
+  offer a checkbox, checked by default, that stops tracking the session
+  alongside the item action (`agentDismissOption`, wired through an
+  optional `dismissSessionId` on `handlePark`/`handleSnooze` in
+  `Dashboard.tsx`); Complete does the same without asking, because
+  declaring the work finished makes a session still tracked against it
+  stale by definition, not a choice. All three call the same dismiss route
+  Dismiss itself calls (`app/api/agent-sessions/[id]/dismiss/route.ts`),
+  so none of them can say more than Dismiss is allowed to say: they end
+  Ariadne's own record of the session, never the agent. Every other path
+  that reaches the same three actions has no live-session data to ask the
+  question with, and each of them errs on the safe side by leaving the
+  session tracked and visible in the `/work` rail rather than guessing:
+  wrap-up's snooze (`ShutdownDialog.tsx`), Plan the day's snooze
+  (`PlanDayDialog.tsx`), the running-timer chip's Complete
+  (`RunningTimerChip.tsx`/`TopBar.tsx`), the MCP `complete_item` tool, and
+  the linked-item cascade's own completion of the items linked to the one
+  actually completed (`ItemRow.tsx`'s `closeCompleteCascade`, which also
+  never fires that cascade at all once the main item's own complete call
+  fails). Completing an item with a live session
   shows the agent's elapsed time beside the hours field as a
   `~`-prefixed reference labelled the agent's time (`ItemRow.tsx`); it is
   never written into the field itself, because an agent's wall clock is
@@ -209,7 +220,7 @@ work with opaque, ML-driven priority.
   the same way — `listItemIdsPinnedToday()` in `lib/items-repo.ts`, not
   `plan_items` — so the two surfaces cannot disagree about what Today
   means. An item pinned to today's plan stays visible in Today through
-  Start/Pause/Complete and can legitimately appear in both Today and
+  Start/Park/Complete and can legitimately appear in both Today and
   In-progress at once. Signals stays mutually exclusive of Today: an item
   exists in exactly one of Today / Signals at a time (pinning to today is a
   move out of Signals, not a copy). Preserve the Today/Signals exclusivity

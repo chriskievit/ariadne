@@ -45,7 +45,7 @@ export function getGroupedItems(db: Database.Database, now: Date): GroupedItems 
   }));
 
   // Today tracks plan membership (today_date), not status -- a planned item
-  // stays visible here through Start/Pause/Complete instead of disappearing
+  // stays visible here through Start/Park/Complete instead of disappearing
   // into In-progress with no trace, so it can now legitimately appear in
   // both Today and In-progress at once. Signals stays exclusive of Today:
   // an item pinned to today's plan is a move out of Signals, not a copy.
