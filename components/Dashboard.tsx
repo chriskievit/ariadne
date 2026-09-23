@@ -443,21 +443,33 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   // actually completed. Unlike park and snooze, there is no checkbox to skip
   // -- completing declares the work finished, so a dismissSessionId here is
   // never optional once a live session exists, only its presence is.
-  async function handleComplete(id: number, durationHours: number, note?: string, dismissSessionId?: number) {
+  //
+  // Returns whether the item actually completed -- ItemRow's linked-item
+  // cascade (closeCompleteCascade) reads this to gate itself on the primary
+  // action's own success, the same rule handlePark and handleSnooze already
+  // follow for their own optional dismiss.
+  async function handleComplete(
+    id: number,
+    durationHours: number,
+    note?: string,
+    dismissSessionId?: number
+  ): Promise<boolean> {
     try {
       await completeItem(id, { durationHours, note });
     } catch {
       toast('Could not complete the item.');
-      return;
+      return false;
     }
     // Dismissal failing here is the same safe side as handlePark: the item
     // is still completed, and the session is left tracked and visible in the
     // rail rather than being hidden by a completion that didn't fully land.
     let dismissFailed = false;
+    let dismissed = false;
     if (dismissSessionId !== undefined) {
       try {
         await dismissSession(dismissSessionId);
         await refreshLiveSessions();
+        dismissed = true;
       } catch {
         dismissFailed = true;
       }
@@ -466,9 +478,14 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     // Undo below only ever restores the item, never the dismissal
     // (deliberately irreversible, decided in phase 3) -- the toast says so
     // only when a session was actually dismissed, never that Undo brings it
-    // back.
+    // back. Same wording snooze's own toast already uses for the identical
+    // fact.
     toast(
-      dismissFailed ? 'Completed, but could not stop tracking the session.' : 'Completed.',
+      dismissFailed
+        ? 'Completed, but could not stop tracking the session.'
+        : dismissed
+          ? 'Completed. The session stays untracked.'
+          : 'Completed.',
       {
         duration: 5000,
         action: {
@@ -480,6 +497,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
         },
       }
     );
+    return true;
   }
 
   async function handleStar(id: number, starred: boolean) {
@@ -690,6 +708,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             failingSources={failingSources}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
             liveSessions={liveSessions}
+            onRefreshLiveSessions={refreshLiveSessions}
           />
           <Card>
             <CardContent className="pt-6">
@@ -710,6 +729,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
                   failingSources={failingSources}
                   onOpenScoringReference={() => setScoringReferenceOpen(true)}
                   liveSessions={liveSessions}
+                  onRefreshLiveSessions={refreshLiveSessions}
                 />
               </Accordion>
             </CardContent>
@@ -734,6 +754,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
             onSavedViewsChange={setSavedViews}
             onOpenScoringReference={() => setScoringReferenceOpen(true)}
             liveSessions={liveSessions}
+            onRefreshLiveSessions={refreshLiveSessions}
           />
         </>
       )}
