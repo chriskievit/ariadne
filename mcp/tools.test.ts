@@ -73,7 +73,7 @@ describe('the excluded routes stay excluded', () => {
     }
   });
 
-  it('exposes no tool that spawns Claude via open-claude', () => {
+  it('exposes no tool that spawns an agent session', () => {
     for (const tool of TOOLS) {
       expect(tool.name).not.toContain('claude');
     }

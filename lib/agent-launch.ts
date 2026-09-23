@@ -16,8 +16,8 @@ function assertTomlSafe(value: string, label: string): void {
   // commands from, so a quote, backslash, or newline could inject arbitrary
   // keys or corrupt values. TOML basic strings treat \ as an escape introducer;
   // a stray backslash is a parse error, and a recognized escape like \t silently
-  // corrupts the value. Same guard as lib/warp-launch.ts, applied to every
-  // interpolated value here rather than only the directory.
+  // corrupts the value. Applied to every interpolated value here rather than
+  // only the directory.
   if (/["\\\n\r]/.test(value)) {
     throw new Error(`${label} must not contain quotes, backslashes, or newlines.`);
   }

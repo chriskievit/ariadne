@@ -11,7 +11,7 @@
  *
  * Deliberately absent: `POST /api/settings`, which writes arbitrary key/value
  * pairs including the GitHub and Azure DevOps PATs, and
- * `POST /api/items/:id/open-claude`, which spawns Claude in a terminal.
+ * `POST /api/items/:id/agent-session`, which spawns an agent in a terminal.
  */
 
 import { z } from 'zod';
