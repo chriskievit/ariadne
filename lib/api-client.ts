@@ -11,6 +11,12 @@ import type { SessionListEntry } from './agent-session-list';
 // so importing anything but the type would pull that into the client bundle.
 import type { TranscriptEntry } from './agent-transcript';
 import type { SessionDiff } from './agent-worktree';
+// Type-only for the same reason: agent-sessions-repo reaches better-sqlite3
+// through its value exports (createAgentSession and friends), and
+// PublicAgentSession is the one shape from that file safe to bundle here --
+// it is what toPublicAgentSession strips a session down to before a route
+// answers with it, launchToken left out.
+import type { PublicAgentSession } from './agent-sessions-repo';
 
 export async function fetchDashboardData() {
   const [itemsRes, sprintRes] = await Promise.all([fetch('/api/items'), fetch('/api/sprint')]);
@@ -151,14 +157,38 @@ export async function fetchLocalRepos(): Promise<LocalRepo[]> {
   return res.json();
 }
 
-export async function openInClaude(id: number, workingDir?: string): Promise<{ warpUrl?: string; error?: string }> {
-  const res = await fetch(`/api/items/${id}/open-claude`, {
+export interface LaunchedAgentSession {
+  session: PublicAgentSession;
+  warpUrl: string;
+}
+
+export interface ExistingAgentSession {
+  session: PublicAgentSession;
+  existing: true;
+}
+
+export interface LaunchAgentSessionFailure {
+  error: string;
+}
+
+// Posts to the tracked launch route (POST /api/items/:id/agent-session), not
+// the old untracked /open-claude one: this is what creates the session row
+// that makes a launch show up on /work. res.ok is checked before trusting
+// the body, the same rule as completeItem/parkItem/snoozeItem below -- a
+// non-2xx here (an unwritable Warp config, an unknown workingDir) still
+// parses as JSON and would otherwise read as a launch that quietly produced
+// no warpUrl, indistinguishable from the deliberate no-URL "existing" case.
+export async function launchAgentSession(
+  id: number,
+  workingDir?: string
+): Promise<LaunchedAgentSession | ExistingAgentSession | LaunchAgentSessionFailure> {
+  const res = await fetch(`/api/items/${id}/agent-session`, {
     method: 'POST',
     body: JSON.stringify(workingDir ? { workingDir } : {}),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    return { error: body.error ?? 'Could not open Claude session.' };
+    return { error: body.error ?? 'Could not launch the agent session.' };
   }
   return body;
 }
