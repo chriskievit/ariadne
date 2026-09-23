@@ -319,16 +319,29 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
 
   // Parking always lands first: it is the action the user actually asked
   // for, and dismissSessionId is only ever an optional extra on top of it.
-  // If dismissal then fails, the item is still parked and the session is
-  // left tracked and visible in the rail -- the safe side of the rule that
-  // a running session Ariadne knows about must never be hidden. A failed
-  // park (network error) never reaches dismiss at all, so it can't strand
-  // a dismissed session under an item that was never actually parked.
+  // parkItem now throws on both a network failure and a non-2xx response,
+  // so this catch is what makes that true for a live server error too --
+  // without it, a 500 resolves like a success and dismiss runs for an item
+  // that was never actually parked. On that failure nothing else runs:
+  // no dismiss, no refresh, just a toast, because nothing changed.
   async function handlePark(id: number, dismissSessionId?: number) {
-    await parkItem(id);
+    try {
+      await parkItem(id);
+    } catch {
+      toast('Could not park the item.');
+      return;
+    }
+    // Dismissal itself failing is the safe side of the rule that a running
+    // session Ariadne knows about must never be hidden: the item is still
+    // parked, and the session is left tracked and visible in the rail.
     if (dismissSessionId !== undefined) {
       try {
         await dismissSession(dismissSessionId);
+        // Otherwise Planning's own liveSessions map -- refreshed on its own
+        // much slower interval, see SESSION_POLL_INTERVAL_MS -- keeps
+        // offering to dismiss a session that has already ended for up to
+        // that long.
+        await refreshLiveSessions();
       } catch {
         toast('Parked, but could not stop tracking the session.');
       }
@@ -457,11 +470,30 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   // Same ordering as handlePark, for the same reason: snooze lands first,
   // dismissal is the optional extra, and a dismissal failure leaves the
   // session tracked and visible in the rail rather than losing track of it.
+  // snoozeItem now throws on a non-2xx the same way parkItem does, so this
+  // catch is what stops a live server error from reading as success and
+  // dismissing a session for an item that was never actually snoozed.
   async function handleSnooze(id: number, option: SnoozeOption, dismissSessionId?: number) {
-    await snoozeItem(id, option);
+    try {
+      await snoozeItem(id, option);
+    } catch {
+      toast('Could not snooze the item.');
+      return;
+    }
+    // Tracked separately from "was it requested": Undo below only ever
+    // undoes the snooze, never the dismissal (deliberately irreversible,
+    // decided in phase 3), and the toast must say so only when a session
+    // actually got dismissed, not just offered.
+    let dismissed = false;
     if (dismissSessionId !== undefined) {
       try {
         await dismissSession(dismissSessionId);
+        // Otherwise Planning's own liveSessions map -- refreshed on its own
+        // much slower interval, see SESSION_POLL_INTERVAL_MS -- keeps
+        // offering to dismiss a session that has already ended for up to
+        // that long.
+        await refreshLiveSessions();
+        dismissed = true;
       } catch {
         toast('Snoozed, but could not stop tracking the session.');
       }
@@ -474,7 +506,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
     lastUndoRef.current = () => {
       undo();
     };
-    toast(`Snoozed — ${SNOOZE_LABEL[option]}`, {
+    toast(`Snoozed — ${SNOOZE_LABEL[option]}${dismissed ? '. The session stays untracked.' : ''}`, {
       duration: 10_000,
       action: { label: 'Undo', onClick: undo },
     });
