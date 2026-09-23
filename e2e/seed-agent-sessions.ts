@@ -252,7 +252,7 @@ export function seedAgentSessions(suffix: string): {
 // Task 8's own fixtures, kept out of seedAgentSessions above on purpose:
 // that function is called by several other spec files (session-pane.spec.ts,
 // work-mode.spec.ts), each with its own suffix, and every one of those calls
-// would otherwise also create these eight extra items as an unrequested side
+// would otherwise also create these ten extra items as an unrequested side
 // effect -- discovered the hard way, as a full-suite run that left a Today
 // row and an In-progress row behind per seedAgentSessions call across the
 // whole suite, breaking today-reorder.spec.ts's exact row-count assertions
@@ -286,6 +286,16 @@ export function seedLifecycleFixtures(suffix: string): {
   // "Unpark" and "Parked · N" vocabulary, not for session wiring.
   vocabParkedTitle: string;
   vocabParkedItemId: number;
+  // Task 3: parked with a live session still attached -- the case a park
+  // with the dismiss box unchecked produces, and the one the early-return
+  // collapsed row used to drop the marker for entirely.
+  parkedWithSessionTitle: string;
+  parkedWithSessionItemId: number;
+  // Task 2: an ordinary in-progress row with no onSnooze wired to it at all
+  // (ItemSection never passes one) -- ItemRow must not let 'e' open a picker
+  // that leads nowhere on a row like this.
+  noSnoozeTitle: string;
+  noSnoozeItemId: number;
 } {
   const db = openDb(E2E_DB_PATH);
   try {
@@ -300,6 +310,8 @@ export function seedLifecycleFixtures(suffix: string): {
       railTodayMarkedTitle: `Agent rail pin marked ${base}`,
       railTodayUnmarkedTitle: `Agent rail pin unmarked ${base}`,
       vocabParkedTitle: `Agent vocab parked ${base}`,
+      parkedWithSessionTitle: `Agent parked with session ${base}`,
+      noSnoozeTitle: `Agent no snooze ${base}`,
     };
 
     function launchOnItem(itemId: number, title: string) {
@@ -387,6 +399,27 @@ export function seedLifecycleFixtures(suffix: string): {
     setStatus(db, vocabParkedItem.id, 'in_progress');
     setParked(db, vocabParkedItem.id, true);
 
+    // Task 3: the same parked-with-a-session shape as vocabParkedItem above,
+    // but with a live session attached -- setStatus before setParked for the
+    // same reason as vocabParkedItem (setStatus resets `parked` as a side
+    // effect), and the session launched only after both, so it is never
+    // reset by either.
+    const parkedWithSessionItem = createAdhocItem(db, { title: titles.parkedWithSessionTitle });
+    setStatus(db, parkedWithSessionItem.id, 'in_progress');
+    setParked(db, parkedWithSessionItem.id, true);
+    const parkedWithSession = launchOnItem(parkedWithSessionItem.id, titles.parkedWithSessionTitle);
+    applyAgentSessionPatch(db, parkedWithSession.id, {
+      state: 'working',
+      registeredAt: new Date().toISOString(),
+      lastEventAt: new Date().toISOString(),
+    });
+
+    // Task 2: a plain in-progress item, no session -- the bug this fixture
+    // backs (a dead-end snooze picker on Today/In-progress rows) has nothing
+    // to do with agent sessions, so this one carries none.
+    const noSnoozeItem = createAdhocItem(db, { title: titles.noSnoozeTitle });
+    setStatus(db, noSnoozeItem.id, 'in_progress');
+
     return {
       ...titles,
       todayWorkingItemId: todayWorkingItem.id,
@@ -397,6 +430,8 @@ export function seedLifecycleFixtures(suffix: string): {
       railTodayMarkedItemId: railMarkedItem.id,
       railTodayUnmarkedItemId: railUnmarkedItem.id,
       vocabParkedItemId: vocabParkedItem.id,
+      parkedWithSessionItemId: parkedWithSessionItem.id,
+      noSnoozeItemId: noSnoozeItem.id,
     };
   } finally {
     db.close();
