@@ -943,7 +943,7 @@ export default function ItemRow({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Park this item?</DialogTitle>
-          <DialogDescription>It drops out of Planning until you resume it.</DialogDescription>
+          <DialogDescription>It drops out of Planning until you unpark it.</DialogDescription>
         </DialogHeader>
         {agentDismissOption}
         <DialogFooter>

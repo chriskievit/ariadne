@@ -91,14 +91,14 @@ export default function ItemSection({
                 <button
                   type="button"
                   aria-expanded={parkedOpen}
-                  aria-controls={`${value}-paused`}
+                  aria-controls={`${value}-parked`}
                   onClick={() => setParkedOpen((prev) => !prev)}
                   className="flex w-full items-center pb-1 pt-3 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   Parked · <span className="ml-1 font-mono tabular-nums">{parkedItems.length}</span>
                 </button>
                 {parkedOpen && (
-                  <div id={`${value}-paused`}>
+                  <div id={`${value}-parked`}>
                     {parkedItems.map((item) => (
                       <ItemRow
                         key={item.id}

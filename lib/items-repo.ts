@@ -117,10 +117,16 @@ export function getItemById(db: Database.Database, id: number): Item | undefined
 }
 
 export function setStatus(db: Database.Database, id: number, status: Status, completedAt: string | null = null): void {
-  // today_date is deliberately untouched here -- Today now tracks plan_items
-  // membership across a status change instead of dropping it, so a planned
-  // item stays visible in Today through Start/Pause/Complete (see
-  // getGroupedItems in lib/dashboard.ts).
+  // today_date is deliberately untouched here. It is what puts an item in
+  // Planning's Today section (isPinnedToday in lib/date.ts, filtered by
+  // getGroupedItems in lib/dashboard.ts), so leaving it alone keeps a
+  // planned item visible in Today through Start, Park and Complete instead
+  // of dropping out the moment its status changes.
+  //
+  // Not plan_items: that is the day's plan, which feeds capacity and
+  // logged-hours totals and can diverge from today_date. This comment used
+  // to say Today tracked plan_items, which was never true of the code and
+  // once led a change to mark the wrong rows.
   db.prepare('UPDATE items SET status = ?, completed_at = ?, parked = 0 WHERE id = ?').run(status, completedAt, id);
 }
 
