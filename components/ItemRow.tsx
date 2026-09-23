@@ -186,7 +186,7 @@ interface Props {
   // "live"; see liveSessionsByItem for why that is never a state check.
   liveSession?: LiveSessionSummary;
   // Today shows a parked item at full detail (score chip, Complete button,
-  // overflow menu) instead of the stripped-down title-plus-Resume treatment
+  // overflow menu) instead of the stripped-down title-plus-Unpark treatment
   // In-progress's Paused sub-list uses -- it's the one place you're actively
   // deciding what to resume next, not an ambient list to skim past.
   fullDetailWhenParked?: boolean;
@@ -244,9 +244,9 @@ function HoverExtras({ item, keptVisible }: { item: Item & { links?: LinkedRef[]
 
 // The quiet `⋯` overflow menu — contents depend on status, matching what
 // used to be always-visible buttons. Normally only mounted for non-parked
-// rows; parked rows get their own minimal "Resume" treatment instead (see
+// rows; parked rows get their own minimal "Unpark" treatment instead (see
 // the `item.parked` branch in ItemRow) -- except in Today, which shows the
-// full row (and this menu) even while parked, so the Park/Resume pair below
+// full row (and this menu) even while parked, so the Park/Unpark pair below
 // does need to branch on `item.parked`. Pin/unpin lives here too, keeping
 // the row's action cluster to exactly one primary action plus this one menu.
 function OverflowMenu({
@@ -364,7 +364,7 @@ function OverflowMenu({
         )}
         {item.status === 'in_progress' && item.parked && onUnpark && (
           <DropdownMenuItem onSelect={() => onUnpark(item.id)}>
-            <Play aria-hidden="true" /> Resume
+            <Play aria-hidden="true" /> Unpark
           </DropdownMenuItem>
         )}
         {/* Rendered on every row, including the ones that cannot have a
@@ -1008,7 +1008,7 @@ export default function ItemRow({
           onClick={() => onUnpark?.(item.id)}
           className="shrink-0 text-sm font-medium text-link hover:underline"
         >
-          Resume
+          Unpark
         </button>
       </div>
     );
