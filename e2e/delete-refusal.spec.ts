@@ -16,7 +16,7 @@ test('deleting an item with logged time is refused with an explanation, not sile
   // Starting it opens a time log, which is the history a delete must not
   // quietly discard.
   await row.getByRole('button', { name: /^Start$/ }).click();
-  await expect(page.getByRole('button', { name: 'Pause timer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Stop timer' })).toBeVisible();
 
   await row.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: /Delete/ }).click();

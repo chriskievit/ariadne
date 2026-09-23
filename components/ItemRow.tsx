@@ -187,7 +187,7 @@ interface Props {
   liveSession?: LiveSessionSummary;
   // Today shows a parked item at full detail (score chip, Complete button,
   // overflow menu) instead of the stripped-down title-plus-Unpark treatment
-  // In-progress's Paused sub-list uses -- it's the one place you're actively
+  // In-progress's Parked sub-list uses -- it's the one place you're actively
   // deciding what to resume next, not an ambient list to skim past.
   fullDetailWhenParked?: boolean;
 }
@@ -1087,7 +1087,7 @@ export default function ItemRow({
               />
             )}
             {item.parked && (
-              <span title="Paused">
+              <span title="Parked">
                 <Pause className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
               </span>
             )}

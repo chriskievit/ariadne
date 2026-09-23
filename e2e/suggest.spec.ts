@@ -68,7 +68,7 @@ test('suggests a day, then pins only what the user keeps', async ({ page, reques
   await expect(roughInputs.first()).not.toHaveValue('');
 });
 
-test('dismissing a suggestion leaves the day exactly as it was', async ({ page, request }) => {
+test('closing the suggest panel leaves the day exactly as it was', async ({ page, request }) => {
   await seedPool(request, Date.now());
 
   await page.goto('/');
@@ -78,7 +78,12 @@ test('dismissing a suggestion leaves the day exactly as it was', async ({ page, 
   await page.keyboard.press('i');
   const dialog = page.getByRole('dialog');
   await expect(pinButton(page)).toBeEnabled();
-  await dialog.getByRole('button', { name: 'Dismiss' }).click();
+  // Two controls now share the accessible name "Close" in this dialog: the
+  // panel's own footer button and Radix's built-in corner dismiss (sr-only
+  // "Close" in DialogContent). The footer button renders first in the DOM
+  // as part of SuggestPanel's own children, so .first() is the panel's
+  // control, not a fragile guess.
+  await dialog.getByRole('button', { name: 'Close' }).first().click();
 
   await expect(dialog).toBeHidden();
   await expect(grips).toHaveCount(before);

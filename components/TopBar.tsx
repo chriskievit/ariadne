@@ -111,7 +111,7 @@ export default function TopBar() {
           sm is the only breakpoint this grid uses, and the only one it
           should. The bar as a whole now also uses lg, but for content
           rather than for tracks: RunningTimerChip hides its Complete and
-          Pause buttons below it, because with a timer running the bar
+          Stop buttons below it, because with a timer running the bar
           cannot fit five things that each want 150-200px. That is the one
           sanctioned exception and it was argued out at length -- see the
           Layout section in DESIGN.md before adding a third. */}

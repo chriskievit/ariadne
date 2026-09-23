@@ -95,7 +95,7 @@ export default function ItemSection({
                   onClick={() => setParkedOpen((prev) => !prev)}
                   className="flex w-full items-center pb-1 pt-3 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  Paused · <span className="ml-1 font-mono tabular-nums">{parkedItems.length}</span>
+                  Parked · <span className="ml-1 font-mono tabular-nums">{parkedItems.length}</span>
                 </button>
                 {parkedOpen && (
                   <div id={`${value}-paused`}>

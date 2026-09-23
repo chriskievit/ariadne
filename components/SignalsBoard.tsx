@@ -135,7 +135,7 @@ export default function SignalsBoard({
   const filtered = applyQuery(withoutHiddenTriage, activeParsed, context);
 
   // Snoozed items get their own always-visible sub-list (same pattern as
-  // Paused in ItemSection) instead of only being reachable by typing
+  // Parked in ItemSection) instead of only being reachable by typing
   // `is:snoozed` -- otherwise a snoozed item just disappears with no
   // indication it still exists.
   const snoozedItems = items.filter(
@@ -294,7 +294,7 @@ export default function SignalsBoard({
             <div>{visible.map(renderRow)}</div>
             {hiddenCount > 0 && (
               <>
-                {/* Same disclosure grammar as Snoozed and Paused: a bare
+                {/* Same disclosure grammar as Snoozed and Parked: a bare
                     button at label weight, the count in the instrument
                     register, and a toggle that goes both ways. "Lower
                     scoring" rather than "Show more" because it is a claim

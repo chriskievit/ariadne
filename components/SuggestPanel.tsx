@@ -136,7 +136,7 @@ export default function SuggestPanel({
       }
 
       // Enter on a control is that control's own business; only a bare Enter
-      // means accept, so a focused Dismiss still dismisses.
+      // means accept, so a focused Close still closes.
       if (e.key === 'Enter' && !(e.target as HTMLElement | null)?.closest?.('button, input, label, [role="radio"]')) {
         const { checkedIds, onPin: pin } = keyStateRef.current;
         if (checkedIds.length === 0) return;
@@ -371,7 +371,7 @@ export default function SuggestPanel({
         </p>
         <div className="flex items-center justify-between">
           <Button type="button" variant="ghost" onClick={onDismiss}>
-            Dismiss
+            Close
           </Button>
           <Button
             type="button"
