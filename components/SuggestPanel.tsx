@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import ScoreChip from './ScoreChip';
 import SegmentedChoice, { type SegmentedOption } from './SegmentedChoice';
@@ -43,6 +44,15 @@ const PICK_REASON_LABEL: Record<PickReason, string> = {
   top_urgency: 'highest urgency that fits',
   best_value: 'best value per minute',
   fills_room: 'fills the remaining room',
+  agent_finished: 'agent finished, diff to read',
+};
+
+type Disclosure = 'did_not_fit' | 'deferred' | 'agent_working';
+
+const DISCLOSURE_LABEL: Record<Disclosure, string> = {
+  deferred: 'Deferred by your lean',
+  did_not_fit: "Didn't fit",
+  agent_working: 'Agent working',
 };
 
 // Only a number the user set is stated plainly. Everything else is marked, so
@@ -93,7 +103,7 @@ export default function SuggestPanel({
   onOpenScoringReference,
 }: Props) {
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  const [openDisclosure, setOpenDisclosure] = useState<'did_not_fit' | 'deferred' | null>(null);
+  const [openDisclosure, setOpenDisclosure] = useState<Disclosure | null>(null);
   const [openChipId, setOpenChipId] = useState<number | null>(null);
 
   // The shortcuts read live state through a ref so the document listener can
@@ -184,10 +194,15 @@ export default function SuggestPanel({
     });
   }
 
-  function renderExcluded(kind: 'did_not_fit' | 'deferred') {
-    const rows = kind === 'did_not_fit' ? suggestion!.didNotFit : suggestion!.deferredByLean;
+  function renderExcluded(kind: Disclosure) {
+    const rows =
+      kind === 'did_not_fit'
+        ? suggestion!.didNotFit
+        : kind === 'deferred'
+          ? suggestion!.deferredByLean
+          : suggestion!.agentWorking;
     if (rows.length === 0) return null;
-    const label = kind === 'did_not_fit' ? "Didn't fit" : 'Deferred by your lean';
+    const label = DISCLOSURE_LABEL[kind];
     const id = `suggest-excluded-${kind}`;
     const expanded = openDisclosure === kind;
     return (
@@ -262,6 +277,10 @@ export default function SuggestPanel({
           loading && 'opacity-60'
         )}
       >
+        {suggestion.picks.length === 0 &&
+          (suggestion.agentWorking.length > 0 || suggestion.blockedByAgentCount > 0) && (
+            <p className="text-sm text-muted-foreground">Agents hold everything on the list right now.</p>
+          )}
         {suggestion.degradedToQuickWins && (
           <p className="text-xs text-muted-foreground">
             Nothing on the list runs over an hour, so this is the quick wins order.
@@ -324,6 +343,19 @@ export default function SuggestPanel({
 
         {renderExcluded('deferred')}
         {renderExcluded('did_not_fit')}
+        {renderExcluded('agent_working')}
+
+        {suggestion.blockedByAgentCount > 0 && (
+          <p className="pt-1 text-xs text-muted-foreground">
+            <span className="font-mono tabular-nums">{suggestion.blockedByAgentCount}</span>{' '}
+            {suggestion.blockedByAgentCount === 1 ? 'item is' : 'items are'} left out because an agent is waiting on
+            you. Answer it in{' '}
+            <Link href="/work" className="underline underline-offset-2 hover:text-foreground">
+              Work mode
+            </Link>
+            .
+          </p>
+        )}
 
         {suggestion.note === 'nothing_else_fits' && (
           <p className="pt-1 text-xs text-muted-foreground">

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createItem, hideExistingItems } from './helpers';
+import { seedSuggestSessions } from './seed-suggest-sessions';
 
 // Ad-hoc items are the only source an e2e run can create, so these specs
 // cover the surface and the accept path. The lean is exercised in
@@ -38,9 +39,15 @@ test('suggests a day, then pins only what the user keeps', async ({ page, reques
   await expect(pinButton(page)).toBeEnabled();
   await expect(pinButton(page)).toContainText(String(titles.length));
 
-  // With no logged time yet, every duration is a fixed default and the panel
-  // has to say so rather than presenting a guess as a measurement.
-  await expect(dialog).toContainText('Durations are rough defaults');
+  // With too little logged time, every duration is a fixed default and the
+  // panel has to say so rather than presenting a guess as a measurement.
+  // Other specs log time into the same database, so whether that holds
+  // depends on run order. The engine's own flag is the precondition, and the
+  // panel is held to whichever way it went.
+  const { suggestion } = await (await request.get('/api/suggest')).json();
+  const roughCopy = dialog.getByText('Durations are rough defaults');
+  if (suggestion.durationsAreRough) await expect(roughCopy).toBeVisible();
+  else await expect(roughCopy).toHaveCount(0);
 
   // Switching algorithm keeps the panel in place rather than emptying it.
   await page.keyboard.press('2');
@@ -103,4 +110,32 @@ test('All signals stays the default mode and keeps its own copy', async ({ page,
 
   await dialog.getByRole('radio', { name: 'Suggested' }).click();
   await expect(dialog).not.toContainText('Ordered by score. Nothing is recommended.');
+});
+
+test('an agent working keeps its item out of the day, and a finished one is offered as a diff to read', async ({
+  page,
+  request,
+}) => {
+  await hideExistingItems(request);
+  const titles = seedSuggestSessions(Date.now());
+
+  await page.goto('/');
+  await page.keyboard.press('i');
+  const dialog = page.getByRole('dialog');
+  await expect(pinButton(page)).toBeEnabled();
+
+  // The finished session is the one pick, labelled for what is left of it.
+  const finished = dialog.locator('[data-row-nav]').filter({ hasText: titles.ready });
+  await expect(finished).toContainText('agent finished, diff to read');
+  expect(await pinCount(page)).toBe(1);
+
+  // The working one is disclosed rather than silently missing.
+  const disclosure = dialog.getByRole('button', { name: /Agent working/ });
+  await expect(disclosure).toHaveText(/·\s*1$/);
+  await disclosure.click();
+  await expect(dialog.getByText(titles.working)).toBeVisible();
+
+  // The blocked one is never a candidate, and one line says where it went.
+  await expect(dialog.getByText(titles.needsYou)).toHaveCount(0);
+  await expect(dialog).toContainText('left out because an agent is waiting on you');
 });
