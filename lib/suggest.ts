@@ -220,9 +220,9 @@ function take(state: PassState, item: Sized, pickReason: PickReason): void {
     durationMinutes: item.durationMinutes,
     durationSource: item.durationSource,
     // A finished agent is the more useful thing to say about a pick than
-    // which pass took it. The anchor keeps its own label, because it is the
-    // one pick Balanced is built around.
-    pickReason: item.agentState === 'ready' && pickReason !== 'anchor' ? 'agent_finished' : pickReason,
+    // which pass took it, the anchor included: the anchor is already the
+    // first row, and nothing else on it would say the diff is waiting.
+    pickReason: item.agentState === 'ready' ? 'agent_finished' : pickReason,
   });
   state.remaining -= item.durationMinutes;
   const side = leanSide(item.source);
@@ -507,7 +507,7 @@ export function getSuggestionReference(): SuggestionReference {
       'A duration the tool worked out for you never becomes an estimate until you accept it.',
       'Where the lean holds something back, the day is left with room in it rather than filled from the other side. The rows it held back are listed, so the cost is visible.',
       'Once an agent has finished, what is left of the item is reading its diff, so it is sized as a review. An estimate you set for today still wins, and an earlier estimate is skipped because it sized the work the agent has done.',
-      'While an agent is still working on an item, it stays out of the day. It is listed under Agent working, so it is not silently missing.',
+      'While an agent is still working on an item, it stays out of the day. It is listed under Agent working, so it is not silently missing. An agent that cannot report its progress stays there until you dismiss its session in Work mode.',
       'An item whose agent is waiting on you is not planned at all. It needs you in minutes, not in a day plan, so it waits in Work mode instead.',
     ],
   };

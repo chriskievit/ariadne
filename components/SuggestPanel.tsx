@@ -277,6 +277,10 @@ export default function SuggestPanel({
           loading && 'opacity-60'
         )}
       >
+        {suggestion.picks.length === 0 &&
+          (suggestion.agentWorking.length > 0 || suggestion.blockedByAgentCount > 0) && (
+            <p className="text-sm text-muted-foreground">Agents hold everything on the list right now.</p>
+          )}
         {suggestion.degradedToQuickWins && (
           <p className="text-xs text-muted-foreground">
             Nothing on the list runs over an hour, so this is the quick wins order.

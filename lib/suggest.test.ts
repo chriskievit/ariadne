@@ -479,11 +479,11 @@ describe('suggestDay with agent sessions', () => {
     }
   });
 
-  it('keeps the anchor label on a finished-agent item that anchors the day', () => {
+  it('says the agent finished even when that item anchors the day', () => {
     const result = suggestDay(
       input({ algorithm: 'balanced', candidates: [sized(1, 90, 90, { agentState: 'ready' }), sized(2, 40, 30)] })
     );
-    expect(result.picks[0]).toMatchObject({ itemId: 1, pickReason: 'anchor' });
+    expect(result.picks[0]).toMatchObject({ itemId: 1, pickReason: 'agent_finished' });
   });
 
   it('lets quick wins surface a finished session without special-casing it', () => {

@@ -5,6 +5,7 @@ import { getSetting } from '@/lib/settings-repo';
 import { sortByUrgency } from '@/lib/scoring';
 import { getPlan, getPlanItems, getLatestPriorEstimates } from '@/lib/plans-repo';
 import { listOpenAgentSessions } from '@/lib/agent-sessions-repo';
+import { isNeverRegistered } from '@/lib/agent-session-state';
 import { medianMinutesByWorkType } from '@/lib/time-logs-repo';
 import { localDateString } from '@/lib/date';
 import { SETTINGS_KEYS, DEFAULT_SUGGEST_ALGORITHM } from '@/lib/config';
@@ -63,11 +64,16 @@ export async function GET(request: Request) {
 
   // The state of each item's active session, matching
   // getActiveAgentSessionForItem: a failed session does not occupy its
-  // ticket, so it does not shape the day either. Newest first, so the first
-  // row per item wins.
+  // ticket, so it does not shape the day either. A Claude session that never
+  // reported in counts as failed here too, even before the rail's reconciler
+  // has written that down, so this read stays a read. A hookless agent stays
+  // 'launching' for good, and correctly counts as working: the item was
+  // handed over, and Ariadne cannot see when it comes back. Newest first, so
+  // the first row per item wins. The 'ready' reading ends with the session:
+  // once the tab exits, the item goes back to its own work type.
   const agentStateByItemId = new Map<number, AgentSessionState>();
   for (const session of listOpenAgentSessions(db)) {
-    if (session.state === 'failed') continue;
+    if (session.state === 'failed' || isNeverRegistered(session, now)) continue;
     if (!agentStateByItemId.has(session.itemId)) agentStateByItemId.set(session.itemId, session.state);
   }
 

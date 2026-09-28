@@ -127,11 +127,11 @@ test('an agent working keeps its item out of the day, and a finished one is offe
   // The finished session is the one pick, labelled for what is left of it.
   const finished = dialog.locator('[data-row-nav]').filter({ hasText: titles.ready });
   await expect(finished).toContainText('agent finished, diff to read');
-  await expect(pinButton(page)).toContainText('1');
+  expect(await pinCount(page)).toBe(1);
 
   // The working one is disclosed rather than silently missing.
   const disclosure = dialog.getByRole('button', { name: /Agent working/ });
-  await expect(disclosure).toContainText('1');
+  await expect(disclosure).toHaveText(/·\s*1$/);
   await disclosure.click();
   await expect(dialog.getByText(titles.working)).toBeVisible();
 
