@@ -24,6 +24,7 @@ function candidate(overrides: Partial<SuggestCandidate> = {}): SuggestCandidate 
     score: 40,
     rawUpdatedAt: '2026-09-01T09:00:00.000Z',
     estimateMinutes: null,
+    agentState: null,
     ...overrides,
   };
 }
@@ -77,6 +78,47 @@ describe('resolveDuration', () => {
   it('rounds a fractional median to whole minutes', () => {
     const medians = { review: { medianMinutes: 37.6, sampleCount: 5 } };
     expect(resolveDuration(candidate(), medians, new Map()).minutes).toBe(38);
+  });
+
+  describe('with a finished agent session', () => {
+    const assigned = (overrides: Partial<SuggestCandidate> = {}) =>
+      candidate({ source: 'ado_workitem', reason: 'assigned', agentState: 'ready', ...overrides });
+
+    it('sizes the item as a review, because what is left is reading the diff', () => {
+      expect(resolveDuration(assigned(), {}, new Map())).toEqual({
+        minutes: FALLBACK_MINUTES.review,
+        source: 'fallback',
+      });
+    });
+
+    it('uses the logged review median, not the median of its own work type', () => {
+      const medians = {
+        review: { medianMinutes: 25, sampleCount: MIN_SAMPLES_FOR_MEDIAN },
+        assigned: { medianMinutes: 200, sampleCount: 10 },
+      };
+      expect(resolveDuration(assigned(), medians, new Map())).toEqual({ minutes: 25, source: 'logged_median' });
+    });
+
+    it('skips an earlier estimate, which sized the work the agent has now done', () => {
+      expect(resolveDuration(assigned(), {}, new Map([[1, 240]]))).toEqual({
+        minutes: FALLBACK_MINUTES.review,
+        source: 'fallback',
+      });
+    });
+
+    it("still honours an estimate you set for today", () => {
+      expect(resolveDuration(assigned({ estimateMinutes: 50 }), {}, new Map([[1, 240]]))).toEqual({
+        minutes: 50,
+        source: 'plan_estimate',
+      });
+    });
+
+    it('leaves the work type alone while the agent is still working', () => {
+      expect(resolveDuration(assigned({ agentState: 'working' }), {}, new Map())).toEqual({
+        minutes: FALLBACK_MINUTES.assigned,
+        source: 'fallback',
+      });
+    });
   });
 
   it('classifies an ad-hoc item into the ad_hoc fallback', () => {
@@ -403,6 +445,80 @@ function eligibleItem(overrides: Partial<Item> = {}): Item {
   };
 }
 
+describe('suggestDay with agent sessions', () => {
+  it('keeps an item with a working agent out of the day, and lists it', () => {
+    const result = suggestDay(
+      input({ candidates: [sized(1, 90, 60, { agentState: 'working' }), sized(2, 40, 60)] })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([2]);
+    expect(result.agentWorking).toEqual([
+      { itemId: 1, durationMinutes: 60, durationSource: 'plan_estimate', exclusionReason: 'agent_working' },
+    ]);
+  });
+
+  it('treats a session that has not reported in yet as working', () => {
+    const result = suggestDay(input({ candidates: [sized(1, 90, 60, { agentState: 'launching' })] }));
+    expect(result.picks).toEqual([]);
+    expect(result.agentWorking.map((c) => c.itemId)).toEqual([1]);
+  });
+
+  it('leaves a blocked agent out of the plan and counts it, without listing it as a candidate', () => {
+    const result = suggestDay(
+      input({ candidates: [sized(1, 90, 60, { agentState: 'needs_you' }), sized(2, 40, 60)] })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([2]);
+    expect(result.blockedByAgentCount).toBe(1);
+    expect(result.agentWorking).toEqual([]);
+    expect(result.didNotFit).toEqual([]);
+  });
+
+  it('labels a pick whose agent has finished, whatever pass picked it', () => {
+    for (const algorithm of ['urgency', 'quick_wins'] as const) {
+      const result = suggestDay(input({ algorithm, candidates: [candidate({ id: 1, agentState: 'ready' })] }));
+      expect(result.picks[0].pickReason).toBe('agent_finished');
+    }
+  });
+
+  it('keeps the anchor label on a finished-agent item that anchors the day', () => {
+    const result = suggestDay(
+      input({ algorithm: 'balanced', candidates: [sized(1, 90, 90, { agentState: 'ready' }), sized(2, 40, 30)] })
+    );
+    expect(result.picks[0]).toMatchObject({ itemId: 1, pickReason: 'anchor' });
+  });
+
+  it('lets quick wins surface a finished session without special-casing it', () => {
+    const work = { source: 'ado_workitem' as const, reason: 'assigned' as const };
+    const result = suggestDay(
+      input({
+        algorithm: 'quick_wins',
+        candidates: [
+          candidate({ id: 1, score: 50, ...work }),
+          candidate({ id: 2, score: 50, ...work, agentState: 'ready' }),
+        ],
+      })
+    );
+    expect(result.picks.map((p) => p.itemId)).toEqual([2, 1]);
+  });
+
+  it('never adjusts the score of an item with a session', () => {
+    const result = suggestDay(input({ candidates: [sized(1, 77, 30, { agentState: 'ready' })] }));
+    expect(result.picks).toHaveLength(1);
+    // The engine returns ids and durations only. The score the panel shows is
+    // the item's own, which this candidate passed in unchanged.
+    expect(Object.keys(result.picks[0])).not.toContain('score');
+  });
+
+  it('does not claim the capacity is too small when agents hold every candidate', () => {
+    const result = suggestDay(
+      input({
+        candidates: [sized(1, 90, 60, { agentState: 'working' }), sized(2, 40, 60, { agentState: 'needs_you' })],
+      })
+    );
+    expect(result.picks).toEqual([]);
+    expect(result.note).toBeNull();
+  });
+});
+
 describe('isSuggestCandidate', () => {
   it('accepts an inbox item', () => {
     expect(isSuggestCandidate(eligibleItem(), TODAY, NOW)).toBe(true);
@@ -458,6 +574,13 @@ describe('getSuggestionReference', () => {
     expect(ref.minSamplesForMedian).toBe(MIN_SAMPLES_FOR_MEDIAN);
     expect(ref.fallbackMinutes).toEqual(FALLBACK_MINUTES);
     expect(ref.leanShares).toEqual(Object.values(LEAN_WORK_ITEM_SHARE));
+  });
+
+  it('states how agent sessions shape a suggestion', () => {
+    const rules = getSuggestionReference().nonPointRules.join(' ');
+    expect(rules).toContain('agent has finished');
+    expect(rules).toContain('agent is still working');
+    expect(rules).toContain('waiting on you');
   });
 
   it('states that the score is never adjusted to produce a suggestion', () => {

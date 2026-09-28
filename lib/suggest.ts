@@ -1,6 +1,6 @@
 import { classifyWorkType, type WorkType } from './calibration';
 import type { ScoreBreakdownEntry } from './scoring';
-import type { Item, Reason, Source, Status } from './types';
+import type { AgentSessionState, Item, Reason, Source, Status } from './types';
 
 export type SuggestAlgorithm = 'urgency' | 'quick_wins' | 'balanced';
 
@@ -12,9 +12,9 @@ export type LeanNotch = 0 | 1 | 2 | 3 | 4;
 
 export type DurationSource = 'plan_estimate' | 'prior_estimate' | 'logged_median' | 'fallback';
 
-export type PickReason = 'anchor' | 'top_urgency' | 'best_value' | 'fills_room';
+export type PickReason = 'anchor' | 'top_urgency' | 'best_value' | 'fills_room' | 'agent_finished';
 
-export type ExclusionReason = 'did_not_fit' | 'deferred_by_lean';
+export type ExclusionReason = 'did_not_fit' | 'deferred_by_lean' | 'agent_working';
 
 export type SuggestionNote = 'signals_empty' | 'all_pinned' | 'capacity_too_small' | 'nothing_else_fits';
 
@@ -39,6 +39,11 @@ export interface SuggestCandidate {
   score: number;
   rawUpdatedAt: string | null;
   estimateMinutes: number | null;
+  // The state of the item's active agent session, or null when it has none.
+  // It never touches the score. It changes the work type a finished item is
+  // sized as, and keeps an item with a working or blocked agent out of the
+  // day.
+  agentState: AgentSessionState | null;
 }
 
 export interface WorkTypeDuration {
@@ -101,14 +106,22 @@ export function resolveDuration(
     return { minutes: candidate.estimateMinutes, source: 'plan_estimate' };
   }
 
+  // A finished agent leaves a diff to read, so what is left of the item is a
+  // review whatever kind of work it started as. The rest of the chain then
+  // does the right thing on its own: the logged review median once there is
+  // enough of it, the review default before that. No new number.
+  const agentFinished = candidate.agentState === 'ready';
+
   // Carried-over work keeps the size the user already gave it, rather than
-  // being re-guessed from a bucket average.
+  // being re-guessed from a bucket average. Not once an agent has finished,
+  // though: that estimate sized the work the agent has now done, not the
+  // reading of its diff.
   const prior = priorEstimates.get(candidate.id);
-  if (prior !== undefined && prior > 0) {
+  if (!agentFinished && prior !== undefined && prior > 0) {
     return { minutes: prior, source: 'prior_estimate' };
   }
 
-  const workType = classifyWorkType(candidate.reason);
+  const workType: WorkType = agentFinished ? 'review' : classifyWorkType(candidate.reason);
   const median = medians[workType];
   if (median && median.sampleCount >= MIN_SAMPLES_FOR_MEDIAN && median.medianMinutes > 0) {
     return { minutes: Math.round(median.medianMinutes), source: 'logged_median' };
@@ -154,6 +167,13 @@ export interface Suggestion {
   picks: SuggestedPick[];
   didNotFit: ExcludedCandidate[];
   deferredByLean: ExcludedCandidate[];
+  // Items an agent is working on. They are out of the pool, and listed so
+  // the absence is visible rather than silent.
+  agentWorking: ExcludedCandidate[];
+  // Items whose agent is waiting on you. They need you in minutes, not in a
+  // day plan, so they are counted for one line of explanation and never
+  // listed as candidates.
+  blockedByAgentCount: number;
   degradedToQuickWins: boolean;
   durationsAreRough: boolean;
   note: SuggestionNote | null;
@@ -199,7 +219,10 @@ function take(state: PassState, item: Sized, pickReason: PickReason): void {
     itemId: item.id,
     durationMinutes: item.durationMinutes,
     durationSource: item.durationSource,
-    pickReason,
+    // A finished agent is the more useful thing to say about a pick than
+    // which pass took it. The anchor keeps its own label, because it is the
+    // one pick Balanced is built around.
+    pickReason: item.agentState === 'ready' && pickReason !== 'anchor' ? 'agent_finished' : pickReason,
   });
   state.remaining -= item.durationMinutes;
   const side = leanSide(item.source);
@@ -285,10 +308,21 @@ function pickAnchor(order: Sized[], capacityMinutes: number): Sized | null {
 export function suggestDay(input: SuggestInput): Suggestion {
   const { candidates, capacityMinutes, algorithm, lean, medians, priorEstimates, pinnedTodayCount } = input;
 
-  const sizedCandidates: Sized[] = candidates.map((item) => {
+  const sizedAll: Sized[] = candidates.map((item) => {
     const { minutes, source } = resolveDuration(item, medians, priorEstimates);
     return { ...item, durationMinutes: minutes, durationSource: source };
   });
+
+  // An agent that is working has the item in hand, and one that is blocked
+  // needs you now, not in a plan. Neither is a candidate. A session still
+  // launching counts as working: the item has been handed over either way.
+  const agentWorking = sizedAll
+    .filter((item) => item.agentState === 'working' || item.agentState === 'launching')
+    .map((item) => excluded(item, 'agent_working'));
+  const blockedByAgentCount = sizedAll.filter((item) => item.agentState === 'needs_you').length;
+  const sizedCandidates = sizedAll.filter(
+    (item) => item.agentState !== 'working' && item.agentState !== 'launching' && item.agentState !== 'needs_you'
+  );
 
   const durationsAreRough = !Object.values(medians).some(
     (median) => median !== undefined && median.sampleCount >= MIN_SAMPLES_FOR_MEDIAN
@@ -302,12 +336,18 @@ export function suggestDay(input: SuggestInput): Suggestion {
     picks: [],
     didNotFit: [],
     deferredByLean: [],
+    agentWorking,
+    blockedByAgentCount,
     degradedToQuickWins: false,
     durationsAreRough,
     note: null,
   };
 
   if (sizedCandidates.length === 0) {
+    // Agents hold everything that is left. Their disclosure and the blocked
+    // line already say why the day is empty, and a note claiming the list is
+    // empty or the capacity too small would be false.
+    if (sizedAll.length > 0) return empty;
     return { ...empty, note: pinnedTodayCount > 0 ? 'all_pinned' : 'signals_empty' };
   }
 
@@ -373,6 +413,8 @@ export function suggestDay(input: SuggestInput): Suggestion {
     picks: state.picks,
     didNotFit,
     deferredByLean,
+    agentWorking,
+    blockedByAgentCount,
     degradedToQuickWins,
     durationsAreRough,
     note,
@@ -464,6 +506,9 @@ export function getSuggestionReference(): SuggestionReference {
       'A suggestion writes nothing until you pin it, and it never reorders or removes anything on its own.',
       'A duration the tool worked out for you never becomes an estimate until you accept it.',
       'Where the lean holds something back, the day is left with room in it rather than filled from the other side. The rows it held back are listed, so the cost is visible.',
+      'Once an agent has finished, what is left of the item is reading its diff, so it is sized as a review. An estimate you set for today still wins, and an earlier estimate is skipped because it sized the work the agent has done.',
+      'While an agent is still working on an item, it stays out of the day. It is listed under Agent working, so it is not silently missing.',
+      'An item whose agent is waiting on you is not planned at all. It needs you in minutes, not in a day plan, so it waits in Work mode instead.',
     ],
   };
 }
