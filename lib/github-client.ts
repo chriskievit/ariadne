@@ -1,4 +1,4 @@
-import type { NewSyncedItemInput, PrStatus } from './types';
+import type { ItemLinkInput, NewSyncedItemInput, PrStatus } from './types';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -73,6 +73,10 @@ export function parseLinkedAdoIds(text: string): string[] {
     ids.add(match[1]);
   }
   return Array.from(ids);
+}
+
+function adoLinks(ids: string[]): ItemLinkInput[] {
+  return ids.map((externalId) => ({ targetSource: 'ado_workitem', externalId }));
 }
 
 interface PrStatusResult {
@@ -183,7 +187,7 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       prStatus,
       hasUnresolvedConversations,
       repo,
-      linkedAdoExternalIds: linkedAdoIds,
+      links: adoLinks(linkedAdoIds),
     });
   }
   return results;
@@ -211,7 +215,7 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
         prStatus,
         hasUnresolvedConversations,
         repo,
-        linkedAdoExternalIds: linkedAdoIds,
+        links: adoLinks(linkedAdoIds),
       };
     })
   );
@@ -236,7 +240,7 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
         prStatus,
         hasUnresolvedConversations,
         repo,
-        linkedAdoExternalIds: linkedAdoIds,
+        links: adoLinks(linkedAdoIds),
       };
     })
   );

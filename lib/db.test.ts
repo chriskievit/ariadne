@@ -121,10 +121,10 @@ describe('openDb', () => {
     db.close();
   });
 
-  it('includes the item_links table with pr_item_id and ado_external_id columns', () => {
+  it('includes the item_links table with pr_item_id, target_source and target_external_id columns', () => {
     const db = openDb(':memory:');
     const columns = (db.prepare('PRAGMA table_info(item_links)').all() as { name: string }[]).map((c) => c.name);
-    expect(columns).toEqual(expect.arrayContaining(['id', 'pr_item_id', 'ado_external_id']));
+    expect(columns).toEqual(['id', 'pr_item_id', 'target_source', 'target_external_id']);
     db.close();
   });
 });
@@ -478,5 +478,38 @@ describe('items source-shape migration', () => {
         idle.close();
       }
     });
+  });
+});
+
+describe('item_links target-source migration', () => {
+  it('moves existing links to target_source ado_workitem and keeps them', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
+    const path = join(dir, 'old-links.db');
+    try {
+      const fresh = openDb(path);
+      fresh.prepare("INSERT INTO items (id, source, external_id, title, reason, status, created_at) VALUES (1, 'github_pr', '1@a/b', 'PR', 'authored', 'inbox', 'now')").run();
+      // Recreate the pre-#97 link table by hand on top of a current database.
+      fresh.exec(`
+        DROP TABLE item_links;
+        CREATE TABLE item_links (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pr_item_id INTEGER NOT NULL REFERENCES items(id),
+          ado_external_id TEXT NOT NULL,
+          UNIQUE(pr_item_id, ado_external_id)
+        );
+        INSERT INTO item_links (pr_item_id, ado_external_id) VALUES (1, '101'), (1, '102');
+      `);
+      fresh.close();
+
+      const db = openDb(path);
+      expect(db.prepare('SELECT pr_item_id, target_source, target_external_id FROM item_links ORDER BY target_external_id').all()).toEqual([
+        { pr_item_id: 1, target_source: 'ado_workitem', target_external_id: '101' },
+        { pr_item_id: 1, target_source: 'ado_workitem', target_external_id: '102' },
+      ]);
+      db.close();
+      openDb(path).close(); // second open is a no-op
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

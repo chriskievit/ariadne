@@ -43,15 +43,18 @@ const ITEMS_COPIED_COLUMNS = [
   'snoozed_until', 'triage_state', 'woke_early',
 ].join(', ');
 
+const ITEM_LINKS_TABLE_BODY = `(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pr_item_id INTEGER NOT NULL REFERENCES items(id),
+  target_source TEXT NOT NULL CHECK (target_source IN ('ado_workitem','jira_issue')),
+  target_external_id TEXT NOT NULL,
+  UNIQUE(pr_item_id, target_source, target_external_id)
+)`;
+
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS items ${ITEMS_TABLE_BODY};
 
-CREATE TABLE IF NOT EXISTS item_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  pr_item_id INTEGER NOT NULL REFERENCES items(id),
-  ado_external_id TEXT NOT NULL,
-  UNIQUE(pr_item_id, ado_external_id)
-);
+CREATE TABLE IF NOT EXISTS item_links ${ITEM_LINKS_TABLE_BODY};
 
 CREATE TABLE IF NOT EXISTS time_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -239,6 +242,28 @@ function migrateItemsToSourceShape(db: Database.Database): void {
   }
 }
 
+function itemLinksHasTargetSource(db: Database.Database): boolean {
+  return (db.prepare('PRAGMA table_info(item_links)').all() as { name: string }[]).some((c) => c.name === 'target_source');
+}
+
+// item_links used to point only at ADO work items. Every existing row is one,
+// so it migrates as target_source 'ado_workitem'. Same guard-twice and
+// BEGIN IMMEDIATE pattern as migrateItemsToSourceShape; nothing references
+// item_links, so foreign keys can stay on.
+function migrateItemLinksToTargets(db: Database.Database): void {
+  if (itemLinksHasTargetSource(db)) return;
+  db.transaction(() => {
+    if (itemLinksHasTargetSource(db)) return;
+    db.exec(`CREATE TABLE item_links_new ${ITEM_LINKS_TABLE_BODY}`);
+    db.exec(
+      `INSERT INTO item_links_new (id, pr_item_id, target_source, target_external_id)
+       SELECT id, pr_item_id, 'ado_workitem', ado_external_id FROM item_links`
+    );
+    db.exec('DROP TABLE item_links');
+    db.exec('ALTER TABLE item_links_new RENAME TO item_links');
+  }).immediate();
+}
+
 // Opening a brand-new database file and switching it to WAL mode is not fully
 // covered by `busy_timeout` when multiple processes race to initialize the
 // same file concurrently (e.g. Next.js's parallel build-time page-data
@@ -276,6 +301,7 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'priority_set_at', 'TEXT');
       migrateTimeLogsToHours(db);
       migrateItemsToSourceShape(db);
+      migrateItemLinksToTargets(db);
 
       return db;
     } catch (err) {

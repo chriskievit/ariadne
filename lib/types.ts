@@ -49,6 +49,14 @@ export interface Item {
   prioritySetAt: string | null;
 }
 
+// Widened to include 'jira_issue' in phase 4 (#100), when PRs start linking to Jira keys.
+export type LinkTargetSource = 'ado_workitem';
+
+export interface ItemLinkInput {
+  targetSource: LinkTargetSource;
+  externalId: string;
+}
+
 export interface NewSyncedItemInput {
   source: 'github_pr' | 'ado_workitem';
   externalId: string;
@@ -63,7 +71,7 @@ export interface NewSyncedItemInput {
   prStatus?: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations?: boolean;
-  linkedAdoExternalIds?: string[];
+  links?: ItemLinkInput[];
 }
 
 export interface NewAdhocItemInput {

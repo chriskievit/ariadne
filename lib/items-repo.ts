@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { Item, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
+import type { Item, ItemLinkInput, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
 import { canCarryPriority } from './scoring';
 
 function rowToItem(row: any): Item {
@@ -33,10 +33,10 @@ function rowToItem(row: any): Item {
   };
 }
 
-function replaceItemLinks(db: Database.Database, prItemId: number, adoExternalIds: string[]): void {
+function replaceItemLinks(db: Database.Database, prItemId: number, links: ItemLinkInput[]): void {
   db.prepare('DELETE FROM item_links WHERE pr_item_id = ?').run(prItemId);
-  const insert = db.prepare('INSERT INTO item_links (pr_item_id, ado_external_id) VALUES (?, ?)');
-  for (const adoExternalId of adoExternalIds) insert.run(prItemId, adoExternalId);
+  const insert = db.prepare('INSERT OR IGNORE INTO item_links (pr_item_id, target_source, target_external_id) VALUES (?, ?, ?)');
+  for (const link of links) insert.run(prItemId, link.targetSource, link.externalId);
 }
 
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
@@ -83,8 +83,8 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
     db.prepare('UPDATE items SET snoozed_until = NULL, woke_early = 1 WHERE id = ?').run(item.id);
   }
 
-  if (input.source === 'github_pr' && input.linkedAdoExternalIds) {
-    replaceItemLinks(db, item.id, input.linkedAdoExternalIds);
+  if (input.source === 'github_pr' && input.links) {
+    replaceItemLinks(db, item.id, input.links);
   }
 
   return wasSnoozed && activityChanged ? { ...item, snoozedUntil: null, wokeEarly: true } : item;

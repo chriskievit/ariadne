@@ -14,7 +14,7 @@ export interface LinkedRef {
 
 interface LinkRow {
   pr_item_id: number;
-  ado_external_id: string;
+  target_external_id: string;
 }
 
 function prShortLabel(externalId: string | null): string {
@@ -30,7 +30,10 @@ export function getLinksForItems(db: Database.Database, items: Item[]): Map<numb
 
   const placeholders = prIds.map(() => '?').join(',');
   const linkRows = db
-    .prepare(`SELECT pr_item_id, ado_external_id FROM item_links WHERE pr_item_id IN (${placeholders})`)
+    .prepare(
+      `SELECT pr_item_id, target_external_id FROM item_links
+       WHERE target_source = 'ado_workitem' AND pr_item_id IN (${placeholders})`
+    )
     .all(...prIds) as LinkRow[];
   if (linkRows.length === 0) return result;
 
@@ -51,16 +54,16 @@ export function getLinksForItems(db: Database.Database, items: Item[]): Map<numb
     const prItem = itemsById.get(row.pr_item_id);
     if (!prItem) continue;
 
-    const adoItem = adoItemsByExternalId.get(row.ado_external_id);
+    const adoItem = adoItemsByExternalId.get(row.target_external_id);
 
     addLink(row.pr_item_id, {
       source: 'ado_workitem',
-      shortLabel: `WI-${row.ado_external_id}`,
-      title: adoItem ? adoItem.title : `WI-${row.ado_external_id}`,
+      shortLabel: `WI-${row.target_external_id}`,
+      title: adoItem ? adoItem.title : `WI-${row.target_external_id}`,
       url:
         adoItem?.url ??
         (org && project
-          ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${row.ado_external_id}`
+          ? `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${row.target_external_id}`
           : ''),
       status: adoItem?.status ?? null,
       itemId: adoItem?.id ?? null,
