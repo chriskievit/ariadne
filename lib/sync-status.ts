@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
+import { SOURCE_KEYS, type SourceKey } from './sources/types';
 
-export type Source = 'github' | 'ado';
+export type Source = SourceKey;
 export type SourceState = 'ok' | 'stale' | 'error' | 'partial';
 
 export interface SourceStatus {
@@ -46,7 +47,7 @@ export function getSourceStatus(db: Database.Database, source: Source, now: Date
 }
 
 export function getAllSourceStatuses(db: Database.Database, now: Date): SourceStatus[] {
-  return [getSourceStatus(db, 'github', now), getSourceStatus(db, 'ado', now)];
+  return SOURCE_KEYS.map((source) => getSourceStatus(db, source, now));
 }
 
 export interface ErrorClassification {

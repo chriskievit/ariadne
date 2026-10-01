@@ -1,4 +1,5 @@
 import { NEEDS_ATTENTION_THRESHOLD } from './config';
+import { isTrackerSource } from './sources/tracker';
 import type { Item, Reason } from './types';
 
 export type ObligationGroup = 'blocked' | 'waiting_on_you' | 'moving_without_you' | 'lower_priority';
@@ -25,18 +26,18 @@ export const GROUP_LABEL: Record<ObligationGroup, string> = {
 const WAITING_ON_YOU_REASONS = new Set<Reason>(['review_requested', 'mention', 'approved_unmerged']);
 const MOVING_WITHOUT_YOU_REASONS = new Set<Reason>(['stale_own_pr', 'authored']);
 
-function isBlocked(item: Pick<Item, 'source' | 'adoStatus'>): boolean {
-  return item.source === 'ado_workitem' && !!item.adoStatus && /block/i.test(item.adoStatus);
+function isBlocked(item: Pick<Item, 'source' | 'upstreamStatus'>): boolean {
+  return isTrackerSource(item.source) && !!item.upstreamStatus && /block/i.test(item.upstreamStatus);
 }
 
 // Total over Reason: every branch of the union lands in exactly one group.
-// Classification precedence: a blocked ADO state wins regardless of reason
+// Classification precedence: a blocked tracker state wins regardless of reason
 // (checked first below); otherwise the reason alone determines the group.
 // approved_unmerged is filed under Waiting on you, not Moving without you --
 // it is the highest-scoring reason (45) and the ball is in your court to
 // merge, a deliberate deviation from the source proposal (see
 // docs/wireframes/README.md).
-export function groupOf(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): ObligationGroup {
+export function groupOf(item: Pick<Item, 'source' | 'upstreamStatus' | 'reason'>): ObligationGroup {
   if (isBlocked(item)) return 'blocked';
   if (WAITING_ON_YOU_REASONS.has(item.reason)) return 'waiting_on_you';
   if (MOVING_WITHOUT_YOU_REASONS.has(item.reason)) return 'moving_without_you';
@@ -47,7 +48,7 @@ export function groupOf(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): Ob
 // from you", and they must never disagree -- one predicate so there is only
 // one definition. Blocked is included: the next move is not yours, but
 // getting someone to make it is.
-export function needsYou(item: Pick<Item, 'source' | 'adoStatus' | 'reason'>): boolean {
+export function needsYou(item: Pick<Item, 'source' | 'upstreamStatus' | 'reason'>): boolean {
   const group = groupOf(item);
   return group === 'waiting_on_you' || group === 'blocked';
 }

@@ -1,4 +1,5 @@
-import type { NewSyncedItemInput } from './types';
+import type { NewSyncedItemInput } from '../types';
+import { adoStateFields } from './ado-state';
 
 export interface AdoConfig {
   pat: string;
@@ -87,7 +88,7 @@ async function fetchWorkItemDetails(config: AdoConfig, ids: number[]): Promise<N
     dueDate: wi.fields['Microsoft.VSTS.Scheduling.DueDate'] ?? null,
     sprintIteration: wi.fields['System.IterationPath'] ?? null,
     rawUpdatedAt: wi.fields['System.ChangedDate'],
-    adoStatus: wi.fields['System.State'] ?? null,
+    ...adoStateFields(wi.fields['System.State'] ?? null),
     repo: null,
   }));
 }

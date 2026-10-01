@@ -145,7 +145,7 @@ describe('fetchAdoData', () => {
     expect(result.items[0]).toMatchObject({ externalId: '101', url: 'https://dev.azure.com/org/project/_workitems/edit/101' });
   });
 
-  it('maps System.State to adoStatus', async () => {
+  it('maps System.State to upstreamStatus and statusCategory', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockImplementation(async (url: string) => {
       if (url.includes('teamsettings/iterations')) return jsonResponse({ value: [] });
@@ -172,7 +172,7 @@ describe('fetchAdoData', () => {
     });
 
     const result = await fetchAdoData({ pat: 'x', org: 'org', project: 'project' });
-    expect(result.items[0].adoStatus).toBe('Ready for Test');
+    expect(result.items[0]).toMatchObject({ upstreamStatus: 'Ready for Test', statusCategory: null });
   });
 });
 

@@ -14,8 +14,8 @@ const ALL_REASONS: Reason[] = [
   'mention', 'review_requested', 'assigned', 'authored', 'manual', 'stale_own_pr', 'approved_unmerged',
 ];
 
-function item(overrides: { source?: 'github_pr' | 'ado_workitem' | 'adhoc'; adoStatus?: string | null; reason: Reason }) {
-  return { source: 'github_pr' as const, adoStatus: null, ...overrides };
+function item(overrides: { source?: 'github_pr' | 'ado_workitem' | 'adhoc'; upstreamStatus?: string | null; reason: Reason }) {
+  return { source: 'github_pr' as const, upstreamStatus: null, ...overrides };
 }
 
 describe('groupOf', () => {
@@ -42,15 +42,15 @@ describe('groupOf', () => {
   });
 
   it('classifies an ADO item whose state matches /block/ as blocked, regardless of reason', () => {
-    expect(groupOf(item({ source: 'ado_workitem', adoStatus: 'Blocked', reason: 'assigned' }))).toBe('blocked');
+    expect(groupOf(item({ source: 'ado_workitem', upstreamStatus: 'Blocked', reason: 'assigned' }))).toBe('blocked');
   });
 
   it('blocked outranks waiting_on_you when both would otherwise apply', () => {
-    expect(groupOf(item({ source: 'ado_workitem', adoStatus: 'Blocked', reason: 'approved_unmerged' }))).toBe('blocked');
+    expect(groupOf(item({ source: 'ado_workitem', upstreamStatus: 'Blocked', reason: 'approved_unmerged' }))).toBe('blocked');
   });
 
   it('a non-blocked ADO state does not trigger the blocked group', () => {
-    expect(groupOf(item({ source: 'ado_workitem', adoStatus: 'In Progress', reason: 'assigned' }))).toBe('lower_priority');
+    expect(groupOf(item({ source: 'ado_workitem', upstreamStatus: 'In Progress', reason: 'assigned' }))).toBe('lower_priority');
   });
 });
 
@@ -62,7 +62,7 @@ describe('needsYou', () => {
   });
 
   it('is true for a blocked item, whatever its reason', () => {
-    expect(needsYou(item({ source: 'ado_workitem', adoStatus: 'Blocked', reason: 'assigned' }))).toBe(true);
+    expect(needsYou(item({ source: 'ado_workitem', upstreamStatus: 'Blocked', reason: 'assigned' }))).toBe(true);
   });
 
   it('is false for moving_without_you and lower_priority', () => {

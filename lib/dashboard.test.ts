@@ -224,7 +224,7 @@ describe('getGroupedItems links', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'widgets',
-      linkedAdoExternalIds: ['41363'],
+      links: [{ targetSource: 'ado_workitem', externalId: '41363' }],
     });
 
     const grouped = getGroupedItems(db, new Date());

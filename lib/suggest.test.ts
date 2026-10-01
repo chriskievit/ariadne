@@ -429,7 +429,7 @@ function eligibleItem(overrides: Partial<Item> = {}): Item {
     status: 'inbox',
     createdAt: '2026-09-01T09:00:00.000Z',
     completedAt: null,
-    adoStatus: null,
+    upstreamStatus: null, statusCategory: null,
     prStatus: null,
     repo: 'org/repo',
     hasUnresolvedConversations: false,

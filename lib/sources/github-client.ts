@@ -1,4 +1,4 @@
-import type { NewSyncedItemInput, PrStatus } from './types';
+import type { ItemLinkInput, NewSyncedItemInput, PrStatus } from '../types';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -73,6 +73,10 @@ export function parseLinkedAdoIds(text: string): string[] {
     ids.add(match[1]);
   }
   return Array.from(ids);
+}
+
+function adoLinks(ids: string[]): ItemLinkInput[] {
+  return ids.map((externalId) => ({ targetSource: 'ado_workitem', externalId }));
 }
 
 interface PrStatusResult {
@@ -180,11 +184,10 @@ async function fetchAuthoredPrItems(config: GithubConfig, username: string): Pro
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: pr.updated_at,
-      adoStatus: null,
       prStatus,
       hasUnresolvedConversations,
       repo,
-      linkedAdoExternalIds: linkedAdoIds,
+      links: adoLinks(linkedAdoIds),
     });
   }
   return results;
@@ -209,11 +212,10 @@ async function fetchReviewRequestedItems(config: GithubConfig, username: string)
         dueDate: null,
         sprintIteration: null,
         rawUpdatedAt: pr.updated_at,
-        adoStatus: null,
         prStatus,
         hasUnresolvedConversations,
         repo,
-        linkedAdoExternalIds: linkedAdoIds,
+        links: adoLinks(linkedAdoIds),
       };
     })
   );
@@ -235,11 +237,10 @@ async function fetchMentionItems(config: GithubConfig, username: string): Promis
         dueDate: null,
         sprintIteration: null,
         rawUpdatedAt: issue.updated_at,
-        adoStatus: null,
         prStatus,
         hasUnresolvedConversations,
         repo,
-        linkedAdoExternalIds: linkedAdoIds,
+        links: adoLinks(linkedAdoIds),
       };
     })
   );

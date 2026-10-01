@@ -5,6 +5,7 @@ import { upsertSyncedItem, listItems } from './items-repo';
 import { setSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import { getLinksForItems } from './links-repo';
+import { adoStateFields } from './sources/ado-state';
 
 let db: Database.Database;
 
@@ -24,7 +25,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
     const pr = upsertSyncedItem(db, {
       source: 'github_pr',
@@ -36,7 +37,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'widgets',
-      linkedAdoExternalIds: ['41363'],
+      links: [{ targetSource: 'ado_workitem', externalId: '41363' }],
     });
 
     const links = getLinksForItems(db, listItems(db));
@@ -85,7 +86,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'widgets',
-      linkedAdoExternalIds: ['41363'],
+      links: [{ targetSource: 'ado_workitem', externalId: '41363' }],
     });
     const prB = upsertSyncedItem(db, {
       source: 'github_pr',
@@ -97,7 +98,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'backend',
-      linkedAdoExternalIds: ['41363'],
+      links: [{ targetSource: 'ado_workitem', externalId: '41363' }],
     });
 
     const links = getLinksForItems(db, listItems(db));
@@ -121,7 +122,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'widgets',
-      linkedAdoExternalIds: ['99999'],
+      links: [{ targetSource: 'ado_workitem', externalId: '99999' }],
     });
 
     const links = getLinksForItems(db, listItems(db));
@@ -152,7 +153,7 @@ describe('getLinksForItems', () => {
     expect(getLinksForItems(db, listItems(db)).size).toBe(0);
   });
 
-  it('returns an empty map when no PR has linkedAdoExternalIds', () => {
+  it('returns an empty map when no PR has links', () => {
     upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: '1@acme/widgets',

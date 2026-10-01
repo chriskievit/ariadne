@@ -23,6 +23,7 @@ import { addPlanItem, getPlanItems } from './plans-repo';
 import { startTimer, completeTimer, listLogsByItem } from './time-logs-repo';
 import { getLinksForItems } from './links-repo';
 import { createAgentSession, getAgentSessionById } from './agent-sessions-repo';
+import { adoStateFields } from './sources/ado-state';
 
 let db: Database.Database;
 
@@ -138,7 +139,7 @@ describe('upsertSyncedItem', () => {
     expect(getItemById(db, first.id)?.todayDate).toBe('2026-08-13');
   });
 
-  it('stores and updates ado_status on re-sync', () => {
+  it('stores and updates upstream_status on re-sync', () => {
     const first = upsertSyncedItem(db, {
       source: 'ado_workitem',
       externalId: '101',
@@ -149,9 +150,10 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
-    expect(first.adoStatus).toBe('Active');
+    expect(first.upstreamStatus).toBe('Active');
+    expect(first.statusCategory).toBe('in_progress');
 
     const updated = upsertSyncedItem(db, {
       source: 'ado_workitem',
@@ -163,12 +165,12 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Done',
+      ...adoStateFields('Done'),
     });
-    expect(updated.adoStatus).toBe('Done');
+    expect(updated.upstreamStatus).toBe('Done');
   });
 
-  it('defaults ado_status to null when not provided', () => {
+  it('defaults upstream_status to null when not provided', () => {
     const item = upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: 'gh-3',
@@ -180,7 +182,7 @@ describe('upsertSyncedItem', () => {
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
     });
-    expect(item.adoStatus).toBeNull();
+    expect(item.upstreamStatus).toBeNull();
   });
 
   it('stores and updates pr_status on re-sync', () => {
@@ -224,7 +226,7 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
     expect(item.prStatus).toBeNull();
   });
@@ -397,7 +399,7 @@ describe('deleteItem', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: 'acme/app',
-      linkedAdoExternalIds: ['1234'],
+      links: [{ targetSource: 'ado_workitem', externalId: '1234' }],
     });
     expect(getLinksForItems(db, [pr]).get(pr.id)).toHaveLength(1);
 
@@ -666,7 +668,7 @@ describe('setStatus today_date interaction', () => {
 });
 
 describe('upsertSyncedItem item_links', () => {
-  it('writes item_links rows for a PR with linkedAdoExternalIds', () => {
+  it('writes item_links rows for a PR with links', () => {
     const pr = upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: 'gh-40',
@@ -677,12 +679,12 @@ describe('upsertSyncedItem item_links', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      linkedAdoExternalIds: ['41363', '99'],
+      links: [{ targetSource: 'ado_workitem', externalId: '41363' }, { targetSource: 'ado_workitem', externalId: '99' }],
     });
     const rows = db
-      .prepare('SELECT ado_external_id FROM item_links WHERE pr_item_id = ? ORDER BY ado_external_id')
-      .all(pr.id) as { ado_external_id: string }[];
-    expect(rows.map((r) => r.ado_external_id)).toEqual(['41363', '99']);
+      .prepare('SELECT target_external_id FROM item_links WHERE pr_item_id = ? ORDER BY target_external_id')
+      .all(pr.id) as { target_external_id: string }[];
+    expect(rows.map((r) => r.target_external_id)).toEqual(['41363', '99']);
   });
 
   it('fully replaces item_links on re-sync when the referenced ids change', () => {
@@ -696,7 +698,7 @@ describe('upsertSyncedItem item_links', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      linkedAdoExternalIds: ['1'],
+      links: [{ targetSource: 'ado_workitem', externalId: '1' }],
     });
     upsertSyncedItem(db, {
       source: 'github_pr',
@@ -708,15 +710,15 @@ describe('upsertSyncedItem item_links', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
       repo: null,
-      linkedAdoExternalIds: ['2'],
+      links: [{ targetSource: 'ado_workitem', externalId: '2' }],
     });
-    const rows = db.prepare('SELECT ado_external_id FROM item_links WHERE pr_item_id = ?').all(pr.id) as {
-      ado_external_id: string;
+    const rows = db.prepare('SELECT target_external_id FROM item_links WHERE pr_item_id = ?').all(pr.id) as {
+      target_external_id: string;
     }[];
-    expect(rows.map((r) => r.ado_external_id)).toEqual(['2']);
+    expect(rows.map((r) => r.target_external_id)).toEqual(['2']);
   });
 
-  it('does not write item_links rows when linkedAdoExternalIds is absent', () => {
+  it('does not write item_links rows when links is absent', () => {
     const pr = upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: 'gh-42',

@@ -42,4 +42,3 @@ export type Density = 'comfortable' | 'compact';
 // opened dozens of times a day shouldn't ship at its tightest setting.
 export const DEFAULT_DENSITY: Density = 'comfortable';
 
-export const SPRINT_DONE_ADO_STATES = new Set(['done', 'ready for validation', 'ready for test']);

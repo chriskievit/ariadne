@@ -1,12 +1,12 @@
 import type Database from 'better-sqlite3';
-import { fetchGithubItems, fetchMergedExternalIds } from './github-client';
-import { fetchAdoData } from './ado-client';
-import { upsertSyncedItem, getOpenGithubPrCandidates, setPrStatus } from './items-repo';
+import { upsertSyncedItem } from './items-repo';
 import { getSetting, setSetting } from './settings-repo';
-import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from './config';
+import { SETTINGS_KEYS } from './config';
+import { SOURCE_ADAPTERS } from './sources';
+import type { SourceAdapter, SourceKey } from './sources/types';
 
 export interface SyncOutcome {
-  source: 'github' | 'ado';
+  source: SourceKey;
   itemCount: number;
   error: string | null;
 }
@@ -20,66 +20,36 @@ export function logSyncResult(db: Database.Database, source: string, itemCount: 
   );
 }
 
-async function syncGithub(db: Database.Database): Promise<SyncOutcome> {
-  const pat = getSetting(db, SETTINGS_KEYS.githubPat);
-  if (!pat) {
-    const error = 'GitHub PAT not configured';
-    logSyncResult(db, 'github', 0, error);
-    return { source: 'github', itemCount: 0, error };
-  }
-
-  const parsedStaleDays = Number(getSetting(db, SETTINGS_KEYS.staleDays) ?? DEFAULT_STALE_DAYS);
-  const staleDays = Number.isNaN(parsedStaleDays) ? DEFAULT_STALE_DAYS : parsedStaleDays;
-  try {
-    const items = await fetchGithubItems({ pat, staleDays });
-    for (const item of items) upsertSyncedItem(db, item);
-
-    const fetchedExternalIds = new Set(items.map((item) => item.externalId));
-    const candidates = getOpenGithubPrCandidates(db).filter((c) => !fetchedExternalIds.has(c.externalId));
-    if (candidates.length > 0) {
-      const merged = await fetchMergedExternalIds({ pat, staleDays }, candidates);
-      for (const candidate of candidates) {
-        if (merged.has(candidate.externalId)) setPrStatus(db, candidate.id, 'merged');
-      }
-    }
-
-    logSyncResult(db, 'github', items.length, null);
-    return { source: 'github', itemCount: items.length, error: null };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logSyncResult(db, 'github', 0, message);
-    return { source: 'github', itemCount: 0, error: message };
-  }
-}
-
-async function syncAdo(db: Database.Database): Promise<SyncOutcome> {
-  const pat = getSetting(db, SETTINGS_KEYS.adoPat);
-  const org = getSetting(db, SETTINGS_KEYS.adoOrg);
-  const project = getSetting(db, SETTINGS_KEYS.adoProject);
-  if (!pat || !org || !project) {
-    const error = 'Azure DevOps settings not configured';
-    logSyncResult(db, 'ado', 0, error);
-    return { source: 'ado', itemCount: 0, error };
+// One adapter's sync, isolated: whatever it throws is logged against that
+// source only, so one broken token never hides another source's items.
+async function syncSource(db: Database.Database, adapter: SourceAdapter): Promise<SyncOutcome> {
+  const get = (key: string) => getSetting(db, key);
+  if (!adapter.isConfigured(get)) {
+    logSyncResult(db, adapter.key, 0, adapter.notConfiguredError);
+    return { source: adapter.key, itemCount: 0, error: adapter.notConfiguredError };
   }
 
   try {
-    const team = getSetting(db, SETTINGS_KEYS.adoTeam) || undefined;
-    const { items, iteration } = await fetchAdoData({ pat, org, project, team });
+    const { items, sprint } = await adapter.sync(get);
     for (const item of items) upsertSyncedItem(db, item);
-    if (iteration) {
-      setSetting(db, SETTINGS_KEYS.sprintName, iteration.name);
-      setSetting(db, SETTINGS_KEYS.sprintStart, iteration.startDate);
-      setSetting(db, SETTINGS_KEYS.sprintEnd, iteration.endDate);
+    // The sprint.* settings keys are ADO's until #99 gives each source its
+    // own; another source writing them would race with the ADO sprint. A null
+    // sprint leaves the stored one alone for now; #99 changes this to clear it.
+    if (sprint && adapter.key === 'ado') {
+      setSetting(db, SETTINGS_KEYS.sprintName, sprint.name);
+      setSetting(db, SETTINGS_KEYS.sprintStart, sprint.startDate);
+      setSetting(db, SETTINGS_KEYS.sprintEnd, sprint.endDate);
     }
-    logSyncResult(db, 'ado', items.length, null);
-    return { source: 'ado', itemCount: items.length, error: null };
+    await adapter.reconcile?.(db, items, get);
+    logSyncResult(db, adapter.key, items.length, null);
+    return { source: adapter.key, itemCount: items.length, error: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    logSyncResult(db, 'ado', 0, message);
-    return { source: 'ado', itemCount: 0, error: message };
+    logSyncResult(db, adapter.key, 0, message);
+    return { source: adapter.key, itemCount: 0, error: message };
   }
 }
 
 export async function runSync(db: Database.Database): Promise<SyncOutcome[]> {
-  return Promise.all([syncGithub(db), syncAdo(db)]);
+  return Promise.all(SOURCE_ADAPTERS.map((adapter) => syncSource(db, adapter)));
 }
