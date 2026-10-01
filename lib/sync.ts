@@ -32,9 +32,10 @@ async function syncSource(db: Database.Database, adapter: SourceAdapter): Promis
   try {
     const { items, sprint } = await adapter.sync(get);
     for (const item of items) upsertSyncedItem(db, item);
-    // A null sprint leaves the stored one alone for now; per-source sprints
-    // (#99) change this to clear it.
-    if (sprint) {
+    // The sprint.* settings keys are ADO's until #99 gives each source its
+    // own; another source writing them would race with the ADO sprint. A null
+    // sprint leaves the stored one alone for now; #99 changes this to clear it.
+    if (sprint && adapter.key === 'ado') {
       setSetting(db, SETTINGS_KEYS.sprintName, sprint.name);
       setSetting(db, SETTINGS_KEYS.sprintStart, sprint.startDate);
       setSetting(db, SETTINGS_KEYS.sprintEnd, sprint.endDate);
