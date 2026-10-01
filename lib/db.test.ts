@@ -512,4 +512,32 @@ describe('item_links target-source migration', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('keeps a link whose PR item no longer exists instead of failing to open', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
+    const path = join(dir, 'orphan-links.db');
+    try {
+      const fresh = openDb(path);
+      fresh.pragma('foreign_keys = OFF');
+      fresh.exec(`
+        DROP TABLE item_links;
+        CREATE TABLE item_links (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pr_item_id INTEGER NOT NULL REFERENCES items(id),
+          ado_external_id TEXT NOT NULL,
+          UNIQUE(pr_item_id, ado_external_id)
+        );
+        INSERT INTO item_links (pr_item_id, ado_external_id) VALUES (999, '101');
+      `);
+      fresh.close();
+
+      const db = openDb(path);
+      expect(db.prepare('SELECT pr_item_id, target_source, target_external_id FROM item_links').all()).toEqual([
+        { pr_item_id: 999, target_source: 'ado_workitem', target_external_id: '101' },
+      ]);
+      db.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

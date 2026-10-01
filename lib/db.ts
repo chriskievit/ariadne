@@ -248,20 +248,31 @@ function itemLinksHasTargetSource(db: Database.Database): boolean {
 
 // item_links used to point only at ADO work items. Every existing row is one,
 // so it migrates as target_source 'ado_workitem'. Same guard-twice and
-// BEGIN IMMEDIATE pattern as migrateItemsToSourceShape; nothing references
-// item_links, so foreign keys can stay on.
+// BEGIN IMMEDIATE pattern as migrateItemsToSourceShape.
+//
+// Foreign keys are off for the copy because item_links itself references
+// items(id): an orphan row from before foreign keys were enforced would make
+// the INSERT throw, and the app would then never open. The rows are kept as
+// they are. The sqlite_sequence of item_links is not carried over, which is
+// harmless because nothing references item_links.id.
 function migrateItemLinksToTargets(db: Database.Database): void {
   if (itemLinksHasTargetSource(db)) return;
-  db.transaction(() => {
-    if (itemLinksHasTargetSource(db)) return;
-    db.exec(`CREATE TABLE item_links_new ${ITEM_LINKS_TABLE_BODY}`);
-    db.exec(
-      `INSERT INTO item_links_new (id, pr_item_id, target_source, target_external_id)
-       SELECT id, pr_item_id, 'ado_workitem', ado_external_id FROM item_links`
-    );
-    db.exec('DROP TABLE item_links');
-    db.exec('ALTER TABLE item_links_new RENAME TO item_links');
-  }).immediate();
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      if (itemLinksHasTargetSource(db)) return;
+      db.exec(`CREATE TABLE item_links_new ${ITEM_LINKS_TABLE_BODY}`);
+      db.exec(
+        `INSERT INTO item_links_new (id, pr_item_id, target_source, target_external_id)
+         SELECT id, pr_item_id, 'ado_workitem', ado_external_id FROM item_links`
+      );
+      db.exec('DROP TABLE item_links');
+      db.exec('ALTER TABLE item_links_new RENAME TO item_links');
+    }).immediate();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
 }
 
 // Opening a brand-new database file and switching it to WAL mode is not fully
