@@ -1,4 +1,5 @@
-import { ADO_FINISHED_PATTERN, ADO_GONE_PATTERN } from './settled';
+import { isGoneState } from './settled';
+import { isTrackerSource } from './sources/tracker';
 import type { Item, PrStatus } from './types';
 
 export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'warning' | 'success' | 'outline' | 'blocked';
@@ -19,22 +20,23 @@ const PR_STATUS_PILL: Record<PrStatus, StatusPill> = {
   merged: { label: 'Merged', variant: 'outline' },
 };
 
-// The done and removed patterns come from lib/settled.ts, which decides
-// whether a row gets the settled check -- the pill's colour and that check are
-// two readings of the same fact and must not drift apart.
-function adoStatusVariant(state: string): BadgeVariant {
-  const s = state.toLowerCase();
-  if (/block/.test(s)) return 'blocked';
-  if (ADO_GONE_PATTERN.test(s)) return 'destructive';
-  if (ADO_FINISHED_PATTERN.test(s)) return 'success';
-  if (/active|committ|doing|progress/.test(s)) return 'secondary';
+// The gone check comes from lib/settled.ts and the done category is what
+// settled reads too -- the pill's colour and that check are two readings of
+// the same fact and must not drift apart.
+function trackerStatusVariant(item: Pick<Item, 'source' | 'upstreamStatus' | 'statusCategory'>): BadgeVariant {
+  if (/block/i.test(item.upstreamStatus ?? '')) return 'blocked';
+  if (isGoneState(item)) return 'destructive';
+  if (item.statusCategory === 'done') return 'success';
+  if (item.statusCategory === 'in_progress') return 'secondary';
   return 'outline';
 }
 
-export function getStatusPill(item: Pick<Item, 'source' | 'prStatus' | 'upstreamStatus' | 'statusCategory'>): StatusPill | null {
+export function getStatusPill(
+  item: Pick<Item, 'source' | 'prStatus' | 'upstreamStatus' | 'statusCategory'>
+): StatusPill | null {
   if (item.source === 'github_pr' && item.prStatus) return PR_STATUS_PILL[item.prStatus];
-  if (item.source === 'ado_workitem' && item.upstreamStatus) {
-    return { label: item.upstreamStatus, variant: adoStatusVariant(item.upstreamStatus) };
+  if (isTrackerSource(item.source) && item.upstreamStatus) {
+    return { label: item.upstreamStatus, variant: trackerStatusVariant(item) };
   }
   return null;
 }

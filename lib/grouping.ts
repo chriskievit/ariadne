@@ -1,4 +1,5 @@
 import { NEEDS_ATTENTION_THRESHOLD } from './config';
+import { isTrackerSource } from './sources/tracker';
 import type { Item, Reason } from './types';
 
 export type ObligationGroup = 'blocked' | 'waiting_on_you' | 'moving_without_you' | 'lower_priority';
@@ -26,7 +27,7 @@ const WAITING_ON_YOU_REASONS = new Set<Reason>(['review_requested', 'mention', '
 const MOVING_WITHOUT_YOU_REASONS = new Set<Reason>(['stale_own_pr', 'authored']);
 
 function isBlocked(item: Pick<Item, 'source' | 'upstreamStatus'>): boolean {
-  return item.source === 'ado_workitem' && !!item.upstreamStatus && /block/i.test(item.upstreamStatus);
+  return isTrackerSource(item.source) && !!item.upstreamStatus && /block/i.test(item.upstreamStatus);
 }
 
 // Total over Reason: every branch of the union lands in exactly one group.

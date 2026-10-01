@@ -63,4 +63,10 @@ describe('settledOutcome', () => {
   it('ignores a stale upstreamStatus on a pull request', () => {
     expect(settledOutcome({ source: 'github_pr', prStatus: 'approved', ...adoStateFields('Done') })).toBeNull();
   });
+
+  it('reads the category, not the label, for finished', () => {
+    // A label the ADO patterns never produced, paired with a done category,
+    // as a future tracker would send it.
+    expect(settledOutcome({ source: 'ado_workitem', prStatus: null, upstreamStatus: 'Shipped', statusCategory: 'done' })).toBe('finished');
+  });
 });
