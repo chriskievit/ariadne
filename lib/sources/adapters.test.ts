@@ -32,6 +32,13 @@ describe('adoAdapter', () => {
   });
 });
 
+describe('itemSource', () => {
+  it('maps each sync key to its item source', () => {
+    expect(githubAdapter.itemSource).toBe('github_pr');
+    expect(adoAdapter.itemSource).toBe('ado_workitem');
+  });
+});
+
 describe('githubAdapter', () => {
   it('needs only the PAT', () => {
     expect(githubAdapter.isConfigured(getter({}))).toBe(false);

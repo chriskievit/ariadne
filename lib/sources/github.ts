@@ -11,6 +11,7 @@ function githubConfig(get: SettingGetter): GithubConfig {
 
 export const githubAdapter: SourceAdapter = {
   key: 'github',
+  itemSource: 'github_pr',
   notConfiguredError: 'GitHub PAT not configured',
   isConfigured: (get) => !!get(SETTINGS_KEYS.githubPat),
   async sync(get) {

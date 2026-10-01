@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { NewSyncedItemInput } from '../types';
+import type { NewSyncedItemInput, Source } from '../types';
 
 // Pure on purpose: lib/sync-status.ts imports SOURCE_KEYS, and that module is
 // imported by client components. The adapters themselves live in index.ts.
@@ -23,6 +23,9 @@ export interface SourceSyncResult {
 
 export interface SourceAdapter {
   key: SourceKey;
+  // The sync key and the item source are different vocabularies ('github' vs
+  // 'github_pr'); phase 3 needs this map to find a source's items.
+  itemSource: Source;
   // Written to sync_log when the adapter is not configured, so the sync
   // status explains why nothing came in.
   notConfiguredError: string;
