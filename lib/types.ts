@@ -9,6 +9,10 @@ export type Reason =
   | 'approved_unmerged';
 export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved' | 'merged';
 export type Status = 'inbox' | 'in_progress' | 'done';
+// The tracker-neutral reading of an upstream state. Jira reports it directly
+// (statusCategory); for Azure DevOps it is derived from the free-text state
+// name in lib/sources/ado-state.ts. Null when the name maps to nothing known.
+export type StatusCategory = 'todo' | 'in_progress' | 'done';
 export type TriageState = 'none' | 'done';
 // Set by hand, ad-hoc items only. Distinct from UrgencyBand in lib/scoring.ts,
 // which is the band a score lands in and is derived, never set.
