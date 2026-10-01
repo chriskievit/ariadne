@@ -1,4 +1,4 @@
-import type { ItemLinkInput, NewSyncedItemInput, PrStatus } from './types';
+import type { ItemLinkInput, NewSyncedItemInput, PrStatus } from '../types';
 
 const GITHUB_API = 'https://api.github.com';
 

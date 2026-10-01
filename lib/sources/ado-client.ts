@@ -1,5 +1,5 @@
-import type { NewSyncedItemInput } from './types';
-import { adoStateFields } from './sources/ado-state';
+import type { NewSyncedItemInput } from '../types';
+import { adoStateFields } from './ado-state';
 
 export interface AdoConfig {
   pat: string;
