@@ -28,7 +28,9 @@ jobs:
           # which HTTP requires for a request body (GitHub GraphQL, Azure
           # DevOps WIQL). Anything else matching a non-GET method string
           # fails the build.
-          for file in lib/github-client.ts lib/ado-client.ts; do
+          for file in lib/sources/github-client.ts lib/sources/ado-client.ts; do
+            # A moved file would make grep fail quietly and the guard pass.
+            test -f "$file" || { echo "::error::read-only guard: $file not found"; exit 1; }
             matches=$(grep -nE "method:\s*['\"](POST|PUT|PATCH|DELETE)['\"]" "$file" | grep -v "READ-ONLY-QUERY" || true)
             if [ -n "$matches" ]; then
               echo "::error file=$file::Non-GET method string found outside an explicitly marked read-only query:"

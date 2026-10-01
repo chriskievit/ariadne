@@ -75,7 +75,7 @@ npm run test:e2e                      # end-to-end tests
 npm audit --omit=dev --audit-level=high   # production dependency audit
 ```
 
-CI also greps `lib/github-client.ts` and `lib/ado-client.ts` for non-GET request
+CI also greps `lib/sources/github-client.ts` and `lib/sources/ado-client.ts` for non-GET request
 methods. See below.
 
 ## Project invariants
