@@ -31,7 +31,7 @@ function isBlocked(item: Pick<Item, 'source' | 'upstreamStatus'>): boolean {
 }
 
 // Total over Reason: every branch of the union lands in exactly one group.
-// Classification precedence: a blocked ADO state wins regardless of reason
+// Classification precedence: a blocked tracker state wins regardless of reason
 // (checked first below); otherwise the reason alone determines the group.
 // approved_unmerged is filed under Waiting on you, not Moving without you --
 // it is the highest-scoring reason (45) and the ball is in your court to

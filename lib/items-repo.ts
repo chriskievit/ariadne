@@ -17,7 +17,7 @@ function rowToItem(row: any): Item {
     status: row.status,
     createdAt: row.created_at,
     completedAt: row.completed_at,
-    upstreamStatus: row.upstream_status,
+    upstreamStatus: row.upstream_status ?? null,
     statusCategory: row.status_category ?? null,
     prStatus: row.pr_status,
     repo: row.repo,

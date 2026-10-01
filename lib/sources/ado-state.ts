@@ -2,7 +2,8 @@ import type { StatusCategory } from '../types';
 
 // Azure DevOps work item states are free text per process template, so every
 // rule here is a substring match on the state name. This module is pure:
-// lib/settled.ts and lib/status-pill.ts run in client components and import it.
+// lib/settled.ts and lib/status-pill.ts run in client components; settled.ts
+// imports it, and status-pill.ts reaches it through settled.
 
 export const ADO_FINISHED_PATTERN = /resolv|done|closed|complet/i;
 export const ADO_GONE_PATTERN = /remov/i;

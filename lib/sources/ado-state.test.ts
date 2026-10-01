@@ -23,7 +23,7 @@ describe('adoStatusCategory', () => {
   });
 
   it('checks finished before in-progress, as the pill always has', () => {
-    // "Completed" also contains no in-progress word, but "Done (in progress review)" does.
+    // "Done (in progress review)" matches both patterns, and finished must win.
     expect(adoStatusCategory('Done (in progress review)')).toBe('done');
   });
 });
