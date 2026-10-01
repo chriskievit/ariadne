@@ -17,7 +17,8 @@ function rowToItem(row: any): Item {
     status: row.status,
     createdAt: row.created_at,
     completedAt: row.completed_at,
-    adoStatus: row.ado_status,
+    upstreamStatus: row.upstream_status,
+    statusCategory: row.status_category ?? null,
     prStatus: row.pr_status,
     repo: row.repo,
     hasUnresolvedConversations: !!row.has_unresolved_conversations,
@@ -45,8 +46,8 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
     .get(input.source, input.externalId) as { raw_updated_at: string | null; snoozed_until: string | null } | undefined;
 
   db.prepare(
-    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, pr_status, repo, has_unresolved_conversations, status, created_at)
-     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
+    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, upstream_status, status_category, pr_status, repo, has_unresolved_conversations, status, created_at)
+     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @upstreamStatus, @statusCategory, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
      ON CONFLICT(source, external_id) DO UPDATE SET
        title = excluded.title,
        url = excluded.url,
@@ -54,13 +55,15 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
        due_date = excluded.due_date,
        sprint_iteration = excluded.sprint_iteration,
        raw_updated_at = excluded.raw_updated_at,
-       ado_status = excluded.ado_status,
+       upstream_status = excluded.upstream_status,
+       status_category = excluded.status_category,
        pr_status = excluded.pr_status,
        repo = excluded.repo,
        has_unresolved_conversations = excluded.has_unresolved_conversations`
   ).run({
     ...input,
-    adoStatus: input.adoStatus ?? null,
+    upstreamStatus: input.upstreamStatus ?? null,
+    statusCategory: input.statusCategory ?? null,
     prStatus: input.prStatus ?? null,
     repo: input.repo ?? null,
     hasUnresolvedConversations: input.hasUnresolvedConversations ? 1 : 0,

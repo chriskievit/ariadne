@@ -17,14 +17,14 @@ export type SettledOutcome = 'finished' | 'gone';
 export const ADO_FINISHED_PATTERN = /resolv|done|closed|complet/i;
 export const ADO_GONE_PATTERN = /remov/i;
 
-export function settledOutcome(item: Pick<Item, 'source' | 'prStatus' | 'adoStatus'>): SettledOutcome | null {
+export function settledOutcome(item: Pick<Item, 'source' | 'prStatus' | 'upstreamStatus' | 'statusCategory'>): SettledOutcome | null {
   if (item.source === 'github_pr') {
     return item.prStatus === 'merged' ? 'finished' : null;
   }
-  if (item.source === 'ado_workitem' && item.adoStatus) {
+  if (item.source === 'ado_workitem' && item.upstreamStatus) {
     // Gone wins a state that matches both: "Removed (was Done)" is removed.
-    if (ADO_GONE_PATTERN.test(item.adoStatus)) return 'gone';
-    if (ADO_FINISHED_PATTERN.test(item.adoStatus)) return 'finished';
+    if (ADO_GONE_PATTERN.test(item.upstreamStatus)) return 'gone';
+    if (ADO_FINISHED_PATTERN.test(item.upstreamStatus)) return 'finished';
   }
   return null;
 }

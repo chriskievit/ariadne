@@ -23,6 +23,7 @@ import { addPlanItem, getPlanItems } from './plans-repo';
 import { startTimer, completeTimer, listLogsByItem } from './time-logs-repo';
 import { getLinksForItems } from './links-repo';
 import { createAgentSession, getAgentSessionById } from './agent-sessions-repo';
+import { adoStateFields } from './sources/ado-state';
 
 let db: Database.Database;
 
@@ -138,7 +139,7 @@ describe('upsertSyncedItem', () => {
     expect(getItemById(db, first.id)?.todayDate).toBe('2026-08-13');
   });
 
-  it('stores and updates ado_status on re-sync', () => {
+  it('stores and updates upstream_status on re-sync', () => {
     const first = upsertSyncedItem(db, {
       source: 'ado_workitem',
       externalId: '101',
@@ -149,9 +150,10 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
-    expect(first.adoStatus).toBe('Active');
+    expect(first.upstreamStatus).toBe('Active');
+    expect(first.statusCategory).toBe('in_progress');
 
     const updated = upsertSyncedItem(db, {
       source: 'ado_workitem',
@@ -163,12 +165,12 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-02T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Done',
+      ...adoStateFields('Done'),
     });
-    expect(updated.adoStatus).toBe('Done');
+    expect(updated.upstreamStatus).toBe('Done');
   });
 
-  it('defaults ado_status to null when not provided', () => {
+  it('defaults upstream_status to null when not provided', () => {
     const item = upsertSyncedItem(db, {
       source: 'github_pr',
       externalId: 'gh-3',
@@ -180,7 +182,7 @@ describe('upsertSyncedItem', () => {
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
     });
-    expect(item.adoStatus).toBeNull();
+    expect(item.upstreamStatus).toBeNull();
   });
 
   it('stores and updates pr_status on re-sync', () => {
@@ -224,7 +226,7 @@ describe('upsertSyncedItem', () => {
       sprintIteration: null,
       rawUpdatedAt: '2026-07-01T00:00:00.000Z',
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
     expect(item.prStatus).toBeNull();
   });

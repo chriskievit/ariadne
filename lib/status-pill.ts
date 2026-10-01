@@ -31,10 +31,10 @@ function adoStatusVariant(state: string): BadgeVariant {
   return 'outline';
 }
 
-export function getStatusPill(item: Pick<Item, 'source' | 'prStatus' | 'adoStatus'>): StatusPill | null {
+export function getStatusPill(item: Pick<Item, 'source' | 'prStatus' | 'upstreamStatus' | 'statusCategory'>): StatusPill | null {
   if (item.source === 'github_pr' && item.prStatus) return PR_STATUS_PILL[item.prStatus];
-  if (item.source === 'ado_workitem' && item.adoStatus) {
-    return { label: item.adoStatus, variant: adoStatusVariant(item.adoStatus) };
+  if (item.source === 'ado_workitem' && item.upstreamStatus) {
+    return { label: item.upstreamStatus, variant: adoStatusVariant(item.upstreamStatus) };
   }
   return null;
 }

@@ -16,10 +16,12 @@ describe('openDb', () => {
     db.close();
   });
 
-  it('includes the ado_status column on a fresh items table', () => {
+  it('includes upstream_status and status_category on a fresh items table, and no ado_status', () => {
     const db = openDb(':memory:');
     const columns = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map((c) => c.name);
-    expect(columns).toContain('ado_status');
+    expect(columns).toContain('upstream_status');
+    expect(columns).toContain('status_category');
+    expect(columns).not.toContain('ado_status');
     db.close();
   });
 
@@ -51,7 +53,7 @@ describe('openDb', () => {
 
     const db = openDb(path);
     const columns = (db.prepare('PRAGMA table_info(items)').all() as { name: string }[]).map((c) => c.name);
-    expect(columns).toContain('ado_status');
+    expect(columns).toContain('upstream_status');
     db.close();
 
     // Reopening an already-migrated database must not error or duplicate the column.
@@ -305,5 +307,176 @@ describe('time_logs duration migration', () => {
     reopened.close();
 
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('items source-shape migration', () => {
+  // An items table as every pre-#97 database has it after the existing
+  // addColumnIfMissing migrations ran: ado_status, no upstream_status, the
+  // old source CHECK, priority added by ALTER (so without a CHECK).
+  function writeOldShapeDb(path: string, seed: (db: Database.Database) => void): void {
+    const legacy = new Database(path);
+    legacy.exec(`
+      CREATE TABLE items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        source TEXT NOT NULL CHECK (source IN ('github_pr','ado_workitem','adhoc')),
+        external_id TEXT,
+        title TEXT NOT NULL,
+        url TEXT,
+        reason TEXT NOT NULL,
+        category TEXT,
+        due_date TEXT,
+        sprint_iteration TEXT,
+        raw_updated_at TEXT,
+        status TEXT NOT NULL DEFAULT 'inbox',
+        created_at TEXT NOT NULL,
+        completed_at TEXT,
+        ado_status TEXT,
+        pr_status TEXT,
+        repo TEXT,
+        has_unresolved_conversations INTEGER,
+        parked INTEGER,
+        today_date TEXT,
+        starred INTEGER,
+        snoozed_until TEXT,
+        triage_state TEXT,
+        woke_early INTEGER,
+        priority TEXT,
+        priority_set_at TEXT,
+        UNIQUE(source, external_id)
+      );
+      CREATE TABLE time_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER NOT NULL REFERENCES items(id),
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        duration_hours REAL,
+        note TEXT
+      );
+    `);
+    seed(legacy);
+    legacy.close();
+  }
+
+  function withTempDb(run: (path: string) => void): void {
+    const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
+    try {
+      run(join(dir, 'old.db'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  const insertItem = `INSERT INTO items (id, source, external_id, title, reason, status, created_at, ado_status, priority)
+                      VALUES (?, ?, ?, ?, 'assigned', 'inbox', '2026-09-01T00:00:00.000Z', ?, ?)`;
+
+  it('keeps ids, renames ado_status and backfills status_category for ADO rows', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => {
+        db.prepare(insertItem).run(7, 'ado_workitem', '101', 'WI active', 'Active', null);
+        db.prepare(insertItem).run(9, 'ado_workitem', '102', 'WI done', 'Done', null);
+        db.prepare(insertItem).run(12, 'github_pr', '1@a/b', 'PR', null, null);
+        db.prepare("INSERT INTO time_logs (item_id, started_at, duration_hours) VALUES (7, '2026-09-01T09:00:00.000Z', 1.5)").run();
+      });
+
+      const db = openDb(path);
+      const rows = db.prepare('SELECT id, source, upstream_status, status_category FROM items ORDER BY id').all();
+      expect(rows).toEqual([
+        { id: 7, source: 'ado_workitem', upstream_status: 'Active', status_category: 'in_progress' },
+        { id: 9, source: 'ado_workitem', upstream_status: 'Done', status_category: 'done' },
+        { id: 12, source: 'github_pr', upstream_status: null, status_category: null },
+      ]);
+      const joined = db.prepare('SELECT items.title FROM time_logs JOIN items ON items.id = time_logs.item_id').all();
+      expect(joined).toEqual([{ title: 'WI active' }]);
+      db.close();
+    });
+  });
+
+  it('accepts jira_issue as a source after the rebuild', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, () => {});
+      const db = openDb(path);
+      expect(() =>
+        db.prepare("INSERT INTO items (source, external_id, title, reason, status, created_at) VALUES ('jira_issue', 'PLAT-1', 'x', 'assigned', 'inbox', 'now')").run()
+      ).not.toThrow();
+      db.close();
+    });
+  });
+
+  it('migrates an ADO row with no state to a null category', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => db.prepare(insertItem).run(1, 'ado_workitem', '101', 'WI', null, null));
+      const db = openDb(path);
+      expect(db.prepare('SELECT upstream_status, status_category FROM items').get()).toEqual({ upstream_status: null, status_category: null });
+      db.close();
+    });
+  });
+
+  it('nulls a priority the new CHECK would reject instead of refusing to open', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => {
+        db.prepare(insertItem).run(1, 'adhoc', null, 'bad', null, 'urgent');
+        db.prepare(insertItem).run(2, 'adhoc', null, 'good', null, 'high');
+      });
+      const db = openDb(path);
+      expect(db.prepare('SELECT id, priority FROM items ORDER BY id').all()).toEqual([
+        { id: 1, priority: null },
+        { id: 2, priority: 'high' },
+      ]);
+      db.close();
+    });
+  });
+
+  it('does not let orphan child rows block the migration', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => {
+        // Orphans only exist in databases written before foreign keys were
+        // enforced, so the seed connection has to switch enforcement off.
+        db.pragma('foreign_keys = OFF');
+        db.prepare(insertItem).run(1, 'adhoc', null, 'kept', null, null);
+        db.prepare("INSERT INTO time_logs (item_id, started_at) VALUES (999, '2026-09-01T09:00:00.000Z')").run();
+      });
+      expect(() => openDb(path).close()).not.toThrow();
+    });
+  });
+
+  it('never hands out the id of an item deleted before the migration', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => {
+        db.prepare(insertItem).run(1, 'adhoc', null, 'kept', null, null);
+        db.prepare(insertItem).run(5, 'adhoc', null, 'deleted later', null, null);
+        db.prepare('DELETE FROM items WHERE id = 5').run();
+      });
+      const db = openDb(path);
+      const { lastInsertRowid } = db
+        .prepare("INSERT INTO items (source, title, reason, status, created_at) VALUES ('adhoc', 'new', 'manual', 'inbox', 'now')")
+        .run();
+      expect(Number(lastInsertRowid)).toBe(6);
+      db.close();
+    });
+  });
+
+  it('is a no-op on a second open, and keeps the data', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => db.prepare(insertItem).run(3, 'ado_workitem', '101', 'WI', 'Active', null));
+      openDb(path).close();
+      const db = openDb(path);
+      expect(db.prepare('SELECT id, upstream_status FROM items').all()).toEqual([{ id: 3, upstream_status: 'Active' }]);
+      db.close();
+    });
+  });
+
+  it('migrates while another idle connection holds the file open', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => db.prepare(insertItem).run(1, 'adhoc', null, 'x', null, null));
+      const idle = new Database(path);
+      try {
+        const db = openDb(path);
+        expect(db.prepare('SELECT COUNT(*) AS n FROM items').get()).toEqual({ n: 1 });
+        db.close();
+      } finally {
+        idle.close();
+      }
+    });
   });
 });

@@ -12,9 +12,9 @@ export interface SprintProgress {
   lastSyncedAt: string | null;
 }
 
-function isComplete(item: { source: string; status: string; adoStatus: string | null }): boolean {
+function isComplete(item: { source: string; status: string; upstreamStatus: string | null }): boolean {
   if (item.source === 'ado_workitem') {
-    return item.adoStatus != null && SPRINT_DONE_ADO_STATES.has(item.adoStatus.toLowerCase());
+    return item.upstreamStatus != null && SPRINT_DONE_ADO_STATES.has(item.upstreamStatus.toLowerCase());
   }
   return item.status === 'done';
 }

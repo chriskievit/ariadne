@@ -32,7 +32,10 @@ export interface Item {
   status: Status;
   createdAt: string;
   completedAt: string | null;
-  adoStatus: string | null;
+  // The tracker's own state name (ADO System.State, Jira status.name), shown as
+  // the status pill label. Null for GitHub and ad-hoc items.
+  upstreamStatus: string | null;
+  statusCategory: StatusCategory | null;
   prStatus: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations: boolean;
@@ -55,7 +58,8 @@ export interface NewSyncedItemInput {
   dueDate: string | null;
   sprintIteration: string | null;
   rawUpdatedAt: string | null;
-  adoStatus?: string | null;
+  upstreamStatus?: string | null;
+  statusCategory?: StatusCategory | null;
   prStatus?: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations?: boolean;

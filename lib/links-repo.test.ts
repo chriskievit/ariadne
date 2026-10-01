@@ -5,6 +5,7 @@ import { upsertSyncedItem, listItems } from './items-repo';
 import { setSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import { getLinksForItems } from './links-repo';
+import { adoStateFields } from './sources/ado-state';
 
 let db: Database.Database;
 
@@ -24,7 +25,7 @@ describe('getLinksForItems', () => {
       sprintIteration: null,
       rawUpdatedAt: null,
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
     const pr = upsertSyncedItem(db, {
       source: 'github_pr',

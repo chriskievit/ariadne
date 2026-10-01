@@ -192,9 +192,9 @@ export function applyQuery(items: ScoredItem[], parsed: ParsedQuery, context: Qu
   });
 }
 
-export function stateOf(item: Pick<Item, 'source' | 'adoStatus' | 'prStatus'>): QueryState | null {
-  if (item.source === 'ado_workitem' && item.adoStatus) {
-    const s = item.adoStatus.toLowerCase();
+export function stateOf(item: Pick<Item, 'source' | 'upstreamStatus' | 'statusCategory' | 'prStatus'>): QueryState | null {
+  if (item.source === 'ado_workitem' && item.upstreamStatus) {
+    const s = item.upstreamStatus.toLowerCase();
     if (/block/.test(s)) return 'blocked';
     if (/review/.test(s)) return 'review';
     if (/active|committ|doing|progress/.test(s)) return 'progress';

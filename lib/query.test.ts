@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseQuery, applyQuery, stateOf, withoutFilter, withoutBareWord } from './query';
 import type { ScoredItem } from './dashboard';
+import { adoStateFields } from './sources/ado-state';
 
 const NOW = new Date('2026-08-14T12:00:00.000Z');
 
@@ -19,7 +20,7 @@ function item(overrides: Partial<ScoredItem> = {}): ScoredItem {
     status: 'inbox',
     createdAt: '2026-08-14T00:00:00.000Z',
     completedAt: null,
-    adoStatus: null,
+    upstreamStatus: null, statusCategory: null,
     prStatus: null,
     repo: 'widgets',
     hasUnresolvedConversations: false,
@@ -167,27 +168,27 @@ describe('applyQuery', () => {
 
 describe('stateOf', () => {
   it('maps a draft PR to draft', () => {
-    expect(stateOf({ source: 'github_pr', adoStatus: null, prStatus: 'draft' })).toBe('draft');
+    expect(stateOf({ source: 'github_pr', upstreamStatus: null, statusCategory: null, prStatus: 'draft' })).toBe('draft');
   });
 
   it('maps a ready-for-review PR to review', () => {
-    expect(stateOf({ source: 'github_pr', adoStatus: null, prStatus: 'ready_for_review' })).toBe('review');
+    expect(stateOf({ source: 'github_pr', upstreamStatus: null, statusCategory: null, prStatus: 'ready_for_review' })).toBe('review');
   });
 
   it('maps a blocked ADO state to blocked', () => {
-    expect(stateOf({ source: 'ado_workitem', adoStatus: 'Blocked', prStatus: null })).toBe('blocked');
+    expect(stateOf({ source: 'ado_workitem', ...adoStateFields('Blocked'), prStatus: null })).toBe('blocked');
   });
 
   it('maps an active ADO state to progress', () => {
-    expect(stateOf({ source: 'ado_workitem', adoStatus: 'Active', prStatus: null })).toBe('progress');
+    expect(stateOf({ source: 'ado_workitem', ...adoStateFields('Active'), prStatus: null })).toBe('progress');
   });
 
   it('maps a To Do ADO state to todo', () => {
-    expect(stateOf({ source: 'ado_workitem', adoStatus: 'To Do', prStatus: null })).toBe('todo');
+    expect(stateOf({ source: 'ado_workitem', ...adoStateFields('To Do'), prStatus: null })).toBe('todo');
   });
 
   it('returns null when there is nothing to map', () => {
-    expect(stateOf({ source: 'adhoc', adoStatus: null, prStatus: null })).toBeNull();
+    expect(stateOf({ source: 'adhoc', upstreamStatus: null, statusCategory: null, prStatus: null })).toBeNull();
   });
 });
 

@@ -1,9 +1,12 @@
 import Database from 'better-sqlite3';
+import { adoStatusCategory } from './sources/ado-state';
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS items (
+// The one definition of the items table, used by SCHEMA_SQL for a fresh file
+// and by migrateItemsToSourceShape for the rebuild of an old one, so the two
+// can never disagree.
+const ITEMS_TABLE_BODY = `(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source TEXT NOT NULL CHECK (source IN ('github_pr','ado_workitem','adhoc')),
+  source TEXT NOT NULL CHECK (source IN ('github_pr','ado_workitem','jira_issue','adhoc')),
   external_id TEXT,
   title TEXT NOT NULL,
   url TEXT,
@@ -15,14 +18,33 @@ CREATE TABLE IF NOT EXISTS items (
   status TEXT NOT NULL DEFAULT 'inbox' CHECK (status IN ('inbox','in_progress','done')),
   created_at TEXT NOT NULL,
   completed_at TEXT,
-  ado_status TEXT,
+  upstream_status TEXT,
+  status_category TEXT CHECK (status_category IS NULL OR status_category IN ('todo','in_progress','done')),
   pr_status TEXT,
   repo TEXT,
   has_unresolved_conversations INTEGER,
   priority TEXT CHECK (priority IS NULL OR priority IN ('low','medium','high')),
   priority_set_at TEXT,
+  parked INTEGER,
+  today_date TEXT,
+  starred INTEGER,
+  snoozed_until TEXT,
+  triage_state TEXT,
+  woke_early INTEGER,
   UNIQUE(source, external_id)
-);
+)`;
+
+// Columns copied verbatim by the rebuild. upstream_status (from ado_status),
+// status_category (backfilled) and priority (sanitised) are handled apart.
+const ITEMS_COPIED_COLUMNS = [
+  'id', 'source', 'external_id', 'title', 'url', 'reason', 'category', 'due_date', 'sprint_iteration',
+  'raw_updated_at', 'status', 'created_at', 'completed_at', 'pr_status', 'repo',
+  'has_unresolved_conversations', 'priority_set_at', 'parked', 'today_date', 'starred',
+  'snoozed_until', 'triage_state', 'woke_early',
+].join(', ');
+
+const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS items ${ITEMS_TABLE_BODY};
 
 CREATE TABLE IF NOT EXISTS item_links (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,6 +179,66 @@ function migrateTimeLogsToHours(db: Database.Database): void {
   }
 }
 
+function itemsHasSourceShape(db: Database.Database): boolean {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'items'").get() as
+    | { sql: string }
+    | undefined;
+  return row?.sql.includes('jira_issue') ?? false;
+}
+
+// Rebuilds a pre-#97 items table into the source-neutral shape: the source
+// CHECK gains jira_issue, ado_status becomes upstream_status, and ADO rows get
+// their status_category. SQLite cannot alter a CHECK in place, so this is the
+// documented create-copy-drop-rename procedure.
+//
+// Foreign keys are off for the swap, because four tables reference items(id)
+// and DROP TABLE would otherwise fail or cascade. Ids are copied verbatim, so
+// every reference still points at the same row afterwards. There is no
+// foreign_key_check at the end on purpose: an orphan row that predates the
+// migration would fail it, and the app would then never open.
+//
+// BEGIN IMMEDIATE plus the second guard inside the transaction is what makes
+// a concurrent openDb() on the same file harmless: the loser waits for the
+// write lock, then sees the new shape and does nothing.
+function migrateItemsToSourceShape(db: Database.Database): void {
+  if (itemsHasSourceShape(db)) return;
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      if (itemsHasSourceShape(db)) return;
+
+      // DROP TABLE removes the old sqlite_sequence row, and the copy only
+      // advances the new one to MAX(id). Carrying the old value over keeps a
+      // deleted item's id from being handed out again.
+      const oldSeq =
+        (db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'items'").get() as { seq: number } | undefined)?.seq ?? 0;
+
+      db.exec(`CREATE TABLE items_new ${ITEMS_TABLE_BODY}`);
+      // priority was added by ALTER without a CHECK, so an old row can hold a
+      // value the new table rejects. It becomes NULL, never a failed open.
+      db.exec(
+        `INSERT INTO items_new (${ITEMS_COPIED_COLUMNS}, upstream_status, priority)
+         SELECT ${ITEMS_COPIED_COLUMNS}, ado_status,
+                CASE WHEN priority IN ('low','medium','high') THEN priority END
+         FROM items`
+      );
+
+      const adoRows = db
+        .prepare("SELECT id, upstream_status FROM items_new WHERE source = 'ado_workitem' AND upstream_status IS NOT NULL")
+        .all() as { id: number; upstream_status: string }[];
+      const setCategory = db.prepare('UPDATE items_new SET status_category = ? WHERE id = ?');
+      for (const row of adoRows) setCategory.run(adoStatusCategory(row.upstream_status), row.id);
+
+      db.exec('DROP TABLE items');
+      db.exec('ALTER TABLE items_new RENAME TO items');
+      db.prepare("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'items'").run(oldSeq);
+    }).immediate();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 // Opening a brand-new database file and switching it to WAL mode is not fully
 // covered by `busy_timeout` when multiple processes race to initialize the
 // same file concurrently (e.g. Next.js's parallel build-time page-data
@@ -175,7 +257,9 @@ export function openDb(path: string): Database.Database {
       db.pragma('foreign_keys = ON');
       db.exec(SCHEMA_SQL);
 
-      addColumnIfMissing(db, 'items', 'ado_status', 'TEXT');
+      // Only an old-shape table needs ado_status: the rebuild below reads it.
+      // A fresh or migrated table has upstream_status instead.
+      if (!itemsHasSourceShape(db)) addColumnIfMissing(db, 'items', 'ado_status', 'TEXT');
       addColumnIfMissing(db, 'items', 'pr_status', 'TEXT');
       addColumnIfMissing(db, 'items', 'repo', 'TEXT');
       addColumnIfMissing(db, 'items', 'has_unresolved_conversations', 'INTEGER');
@@ -191,6 +275,7 @@ export function openDb(path: string): Database.Database {
       addColumnIfMissing(db, 'items', 'priority', 'TEXT');
       addColumnIfMissing(db, 'items', 'priority_set_at', 'TEXT');
       migrateTimeLogsToHours(db);
+      migrateItemsToSourceShape(db);
 
       return db;
     } catch (err) {
