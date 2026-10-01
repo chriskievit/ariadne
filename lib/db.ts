@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { existsSync } from 'node:fs';
 import { adoStatusCategory } from './sources/ado-state';
 
 // The one definition of the items table, used by SCHEMA_SQL for a fresh file
@@ -203,8 +204,26 @@ function itemsHasSourceShape(db: Database.Database): boolean {
 // BEGIN IMMEDIATE plus the second guard inside the transaction is what makes
 // a concurrent openDb() on the same file harmless: the loser waits for the
 // write lock, then sees the new shape and does nothing.
+// The rebuild is a one-way table swap on a user's irreplaceable local database,
+// so a file-backed one is copied first. VACUUM cannot run inside a transaction,
+// hence this runs before it. An existing backup means an earlier attempt or a
+// concurrent opener made it, and the older copy is the one worth keeping.
+function backUpBeforeItemsRebuild(db: Database.Database): void {
+  if (!db.name || db.name === ':memory:') return;
+  const backupPath = `${db.name}.pre-source-shape.bak`;
+  if (existsSync(backupPath)) return;
+  try {
+    db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+  } catch (err) {
+    // Another process can create the file between the check and the VACUUM.
+    if (!existsSync(backupPath)) throw err;
+  }
+}
+
 function migrateItemsToSourceShape(db: Database.Database): void {
   if (itemsHasSourceShape(db)) return;
+
+  backUpBeforeItemsRebuild(db);
 
   db.pragma('foreign_keys = OFF');
   try {
@@ -235,7 +254,8 @@ function migrateItemsToSourceShape(db: Database.Database): void {
 
       db.exec('DROP TABLE items');
       db.exec('ALTER TABLE items_new RENAME TO items');
-      db.prepare("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'items'").run(oldSeq);
+      // BigInt, because a JS number binds as REAL and seq would become 57602.0.
+      db.prepare("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'items'").run(BigInt(oldSeq));
     }).immediate();
   } finally {
     db.pragma('foreign_keys = ON');

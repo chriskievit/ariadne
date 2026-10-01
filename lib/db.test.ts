@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -25,7 +25,7 @@ describe('openDb', () => {
     db.close();
   });
 
-  it('adds the ado_status column to a pre-existing items table that lacks it', () => {
+  it('adds the upstream_status column to a pre-existing items table that lacks it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ariadne-db-test-'));
     const path = join(dir, 'legacy.db');
 
@@ -448,11 +448,45 @@ describe('items source-shape migration', () => {
         db.prepare('DELETE FROM items WHERE id = 5').run();
       });
       const db = openDb(path);
+      // A JS number binds as REAL, which would store 5.0 here.
+      expect(db.prepare("SELECT typeof(seq) AS t FROM sqlite_sequence WHERE name = 'items'").get()).toEqual({ t: 'integer' });
       const { lastInsertRowid } = db
         .prepare("INSERT INTO items (source, title, reason, status, created_at) VALUES ('adhoc', 'new', 'manual', 'inbox', 'now')")
         .run();
       expect(Number(lastInsertRowid)).toBe(6);
       db.close();
+    });
+  });
+
+  it('backs the file up next to itself before the rebuild, with the old shape', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => db.prepare(insertItem).run(1, 'ado_workitem', '101', 'WI', 'Active', null));
+      openDb(path).close();
+      const backup = new Database(`${path}.pre-source-shape.bak`, { readonly: true });
+      try {
+        expect(backup.prepare('SELECT id, ado_status FROM items').all()).toEqual([{ id: 1, ado_status: 'Active' }]);
+      } finally {
+        backup.close();
+      }
+    });
+  });
+
+  it('opens when the backup already exists, and leaves it alone', () => {
+    withTempDb((path) => {
+      writeOldShapeDb(path, (db) => db.prepare(insertItem).run(1, 'adhoc', null, 'x', null, null));
+      writeFileSync(`${path}.pre-source-shape.bak`, 'earlier attempt');
+      const db = openDb(path);
+      expect(db.prepare('SELECT id FROM items').all()).toEqual([{ id: 1 }]);
+      db.close();
+      expect(readFileSync(`${path}.pre-source-shape.bak`, 'utf8')).toBe('earlier attempt');
+    });
+  });
+
+  it('makes no backup for an in-memory database or for an already migrated file', () => {
+    openDb(':memory:').close();
+    withTempDb((path) => {
+      openDb(path).close();
+      expect(existsSync(`${path}.pre-source-shape.bak`)).toBe(false);
     });
   });
 
