@@ -23,14 +23,21 @@ jobs:
       - run: npm run test:e2e
       - name: Guard against non-GET calls in the read-only provider clients
         run: |
-          # Both files are read-only in effect. Each has exactly one
+          # Every provider client is read-only in effect. Each has exactly one
           # legitimate exception -- a read-only query submitted via POST,
           # which HTTP requires for a request body (GitHub GraphQL, Azure
           # DevOps WIQL). Anything else matching a non-GET method string
-          # fails the build.
-          for file in lib/sources/github-client.ts lib/sources/ado-client.ts; do
-            # A moved file would make grep fail quietly and the guard pass.
-            test -f "$file" || { echo "::error::read-only guard: $file not found"; exit 1; }
+          # fails the build. The glob picks up a new client without anyone
+          # having to remember to list it.
+          shopt -s nullglob
+          files=(lib/sources/*-client.ts)
+          # A moved or renamed file would make the glob match nothing and the
+          # guard pass quietly.
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::read-only guard: no lib/sources/*-client.ts files found"
+            exit 1
+          fi
+          for file in "${files[@]}"; do
             matches=$(grep -nE "method:\s*['\"](POST|PUT|PATCH|DELETE)['\"]" "$file" | grep -v "READ-ONLY-QUERY" || true)
             if [ -n "$matches" ]; then
               echo "::error file=$file::Non-GET method string found outside an explicitly marked read-only query:"
