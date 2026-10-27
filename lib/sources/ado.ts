@@ -1,12 +1,12 @@
 import { fetchAdoData } from './ado-client';
 import { SETTINGS_KEYS } from '../config';
+import { SOURCE_CONFIGURED } from './configured';
 import type { SourceAdapter } from './types';
 
 export const adoAdapter: SourceAdapter = {
   key: 'ado',
   itemSource: 'ado_workitem',
-  notConfiguredError: 'Azure DevOps settings not configured',
-  isConfigured: (get) => !!(get(SETTINGS_KEYS.adoPat) && get(SETTINGS_KEYS.adoOrg) && get(SETTINGS_KEYS.adoProject)),
+  isConfigured: SOURCE_CONFIGURED.ado,
   async sync(get) {
     const { items, iteration } = await fetchAdoData({
       pat: get(SETTINGS_KEYS.adoPat) ?? '',

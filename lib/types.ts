@@ -1,4 +1,4 @@
-export type Source = 'github_pr' | 'ado_workitem' | 'adhoc';
+export type Source = 'github_pr' | 'ado_workitem' | 'jira_issue' | 'adhoc';
 export type Reason =
   | 'mention'
   | 'review_requested'
@@ -58,7 +58,7 @@ export interface ItemLinkInput {
 }
 
 export interface NewSyncedItemInput {
-  source: 'github_pr' | 'ado_workitem';
+  source: 'github_pr' | 'ado_workitem' | 'jira_issue';
   externalId: string;
   title: string;
   url: string | null;

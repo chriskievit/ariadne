@@ -70,7 +70,7 @@ export const FALLBACK_MINUTES: Record<WorkType, number> = {
 // What counts as "a long item" for the Balanced anchor.
 export const ANCHOR_MIN_MINUTES = 60;
 
-// Target share of capacity for Azure DevOps work items. The control the user
+// Target share of capacity for tracker work items (Azure DevOps, Jira). The control the user
 // sees is this table, nothing more: no score is ever multiplied to produce a
 // suggestion, because a ranking number that disagreed with the score chip on
 // the same row would break the one promise this product actually makes.
@@ -196,7 +196,7 @@ interface PassState {
 // counted toward either side of the split.
 function leanSide(source: Source): LeanSide | null {
   if (source === 'github_pr') return 'pr';
-  if (source === 'ado_workitem') return 'work_item';
+  if (source === 'ado_workitem' || source === 'jira_issue') return 'work_item';
   return null;
 }
 

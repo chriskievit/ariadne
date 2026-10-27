@@ -23,7 +23,7 @@ export interface ParsedQuery {
   errors: string[];
 }
 
-const SOURCE_VALUES = new Set(['github', 'ado', 'adhoc']);
+const SOURCE_VALUES = new Set(['github', 'ado', 'jira', 'adhoc']);
 const GROUP_VALUES = new Set(['waiting', 'blocked', 'moving', 'lower']);
 const STATE_VALUES = new Set(['blocked', 'review', 'todo', 'progress', 'draft']);
 const IS_VALUES = new Set(['starred', 'snoozed', 'done', 'stale']);
@@ -134,7 +134,12 @@ const GROUP_KEY: Record<string, ObligationGroup> = {
   lower: 'lower_priority',
 };
 
-const SOURCE_KEY: Record<string, Source> = { github: 'github_pr', ado: 'ado_workitem', adhoc: 'adhoc' };
+const SOURCE_KEY: Record<string, Source> = {
+  github: 'github_pr',
+  ado: 'ado_workitem',
+  jira: 'jira_issue',
+  adhoc: 'adhoc',
+};
 
 function matchesFilter(item: ScoredItem, filter: ParsedFilter, context: QueryContext): boolean {
   const { prefix, values } = filter;

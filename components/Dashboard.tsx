@@ -665,6 +665,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
   const SOURCE_STATUS_TO_ITEM_SOURCE: Record<SourceStatus['source'], Item['source']> = {
     github: 'github_pr',
     ado: 'ado_workitem',
+    jira: 'jira_issue',
   };
   const failingSources = new Set(
     sourceStatuses

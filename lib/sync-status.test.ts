@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { openDb } from './db';
 import { logSyncResult } from './sync';
+import { setSetting } from './settings-repo';
+import { SETTINGS_KEYS } from './config';
 import { getSourceStatus, getAllSourceStatuses, classifyError, STALE_AFTER_MINUTES } from './sync-status';
 import type Database from 'better-sqlite3';
 
@@ -58,9 +60,18 @@ describe('getSourceStatus', () => {
 });
 
 describe('getAllSourceStatuses', () => {
-  it('returns both sources', () => {
-    const statuses = getAllSourceStatuses(db(), new Date());
-    expect(statuses.map((s) => s.source)).toEqual(['github', 'ado']);
+  it('returns nothing when no source is set up', () => {
+    expect(getAllSourceStatuses(db(), new Date())).toEqual([]);
+  });
+
+  it('leaves out a source that is not set up, even with a failed sync on record', () => {
+    const conn = db();
+    setSetting(conn, SETTINGS_KEYS.jiraSite, 'acme.atlassian.net');
+    setSetting(conn, SETTINGS_KEYS.jiraEmail, 'me@acme.test');
+    setSetting(conn, SETTINGS_KEYS.jiraToken, 'tok');
+    logSyncResult(conn, 'ado', 0, 'Azure DevOps settings not configured');
+    const statuses = getAllSourceStatuses(conn, new Date());
+    expect(statuses.map((s) => s.source)).toEqual(['jira']);
   });
 });
 

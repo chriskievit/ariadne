@@ -13,6 +13,7 @@ const SOURCE_TOKENS: { source: Source | 'all'; label: string; token: string | nu
   { source: 'all', label: 'All', token: null },
   { source: 'github_pr', label: 'GitHub', token: 'source:github' },
   { source: 'ado_workitem', label: 'Azure DevOps', token: 'source:ado' },
+  { source: 'jira_issue', label: 'Jira', token: 'source:jira' },
   { source: 'adhoc', label: 'Ad-hoc', token: 'source:adhoc' },
 ];
 

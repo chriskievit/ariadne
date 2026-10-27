@@ -1,10 +1,11 @@
 import type { Item, Source } from './types';
 import { ADO_GONE_PATTERN } from './sources/ado-state';
+import { JIRA_GONE_PATTERN } from './sources/jira-state';
 import { isTrackerSource } from './sources/tracker';
 
 // An item is "settled" when its source system says there is nothing left to do
 // on it, but Ariadne's own status still says otherwise. Ariadne is read-only
-// against GitHub and Azure DevOps, so it can never act on that itself -- it can
+// against GitHub, Azure DevOps and Jira, so it can never act on that itself -- it can
 // only surface it and let you Complete the item by hand.
 //
 // 'finished' means you got it over the line (merged, Done). 'gone' means it
@@ -17,6 +18,7 @@ export type SettledOutcome = 'finished' | 'gone';
 // files "Won't Do" under done.
 const GONE_PATTERNS: Partial<Record<Source, RegExp>> = {
   ado_workitem: ADO_GONE_PATTERN,
+  jira_issue: JIRA_GONE_PATTERN,
 };
 
 // Shared with lib/status-pill.ts, which colours the pill off the same facts --

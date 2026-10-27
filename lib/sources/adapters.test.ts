@@ -3,8 +3,12 @@ import { SETTINGS_KEYS } from '../config';
 
 vi.mock('./ado-client', () => ({ fetchAdoData: vi.fn() }));
 vi.mock('./github-client', () => ({ fetchGithubItems: vi.fn(), fetchMergedExternalIds: vi.fn() }));
+vi.mock('./jira-client', () => ({ fetchJiraData: vi.fn(), MAX_ISSUES: 500 }));
 
 import { fetchAdoData } from './ado-client';
+import { fetchJiraData } from './jira-client';
+import { jiraAdapter } from './jira';
+import { normalizeJiraSite } from './configured';
 import { adoAdapter } from './ado';
 import { githubAdapter } from './github';
 import { SOURCE_ADAPTERS } from './index';
@@ -36,6 +40,7 @@ describe('itemSource', () => {
   it('maps each sync key to its item source', () => {
     expect(githubAdapter.itemSource).toBe('github_pr');
     expect(adoAdapter.itemSource).toBe('ado_workitem');
+    expect(jiraAdapter.itemSource).toBe('jira_issue');
   });
 });
 
@@ -43,6 +48,33 @@ describe('githubAdapter', () => {
   it('needs only the PAT', () => {
     expect(githubAdapter.isConfigured(getter({}))).toBe(false);
     expect(githubAdapter.isConfigured(getter({ [SETTINGS_KEYS.githubPat]: 'p' }))).toBe(true);
+  });
+});
+
+describe('jiraAdapter', () => {
+  const full = { [SETTINGS_KEYS.jiraSite]: 'acme.atlassian.net', [SETTINGS_KEYS.jiraEmail]: 'me@acme.test', [SETTINGS_KEYS.jiraToken]: 't' };
+
+  it('needs site, email and token, but not a query', () => {
+    expect(jiraAdapter.isConfigured(getter({ ...full, [SETTINGS_KEYS.jiraToken]: '' }))).toBe(false);
+    expect(jiraAdapter.isConfigured(getter({ ...full, [SETTINGS_KEYS.jiraEmail]: '' }))).toBe(false);
+    expect(jiraAdapter.isConfigured(getter(full))).toBe(true);
+  });
+
+  it('passes the settings through and returns the sprint', async () => {
+    const sprint = { name: 'PLAT Sprint 7', startDate: 'a', endDate: 'b' };
+    (fetchJiraData as any).mockResolvedValue({ items: [], sprint, truncated: false });
+    const result = await jiraAdapter.sync(getter({ ...full, [SETTINGS_KEYS.jiraJql]: 'project = PLAT' }));
+    expect(fetchJiraData).toHaveBeenCalledWith({ site: 'acme.atlassian.net', email: 'me@acme.test', token: 't', jql: 'project = PLAT' });
+    expect(result.sprint).toEqual(sprint);
+  });
+});
+
+describe('normalizeJiraSite', () => {
+  it('keeps only the host, whatever gets pasted', () => {
+    expect(normalizeJiraSite('acme.atlassian.net')).toBe('acme.atlassian.net');
+    expect(normalizeJiraSite(' https://Acme.atlassian.net/ ')).toBe('acme.atlassian.net');
+    expect(normalizeJiraSite('https://acme.atlassian.net/jira/software/projects/PLAT/boards/1')).toBe('acme.atlassian.net');
+    expect(normalizeJiraSite('')).toBe('');
   });
 });
 

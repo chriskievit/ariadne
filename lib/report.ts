@@ -6,10 +6,10 @@ export interface TimeReport {
   dailySeries: Array<{ date: string } & Record<Source, number>>;
 }
 
-const SOURCES: Source[] = ['github_pr', 'ado_workitem', 'adhoc'];
+const SOURCES: Source[] = ['github_pr', 'ado_workitem', 'jira_issue', 'adhoc'];
 
 function emptyTotals(): Record<Source, number> {
-  return { github_pr: 0, ado_workitem: 0, adhoc: 0 };
+  return { github_pr: 0, ado_workitem: 0, jira_issue: 0, adhoc: 0 };
 }
 
 export function getTimeReport(db: Database.Database, startDate: string, endDate: string): TimeReport {

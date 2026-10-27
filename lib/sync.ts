@@ -20,22 +20,23 @@ export function logSyncResult(db: Database.Database, source: string, itemCount: 
   );
 }
 
+// The sprint.* settings keys hold one sprint until #99 gives each tracker its
+// own. Azure DevOps keeps them when it is set up, so two trackers never race
+// for them; a Jira-only setup gets its sprint header now rather than in #99.
+function sprintOwner(adapters: SourceAdapter[]): SourceKey | null {
+  const keys = adapters.map((a) => a.key);
+  return keys.includes('ado') ? 'ado' : keys.includes('jira') ? 'jira' : null;
+}
+
 // One adapter's sync, isolated: whatever it throws is logged against that
 // source only, so one broken token never hides another source's items.
-async function syncSource(db: Database.Database, adapter: SourceAdapter): Promise<SyncOutcome> {
+async function syncSource(db: Database.Database, adapter: SourceAdapter, ownsSprint: boolean): Promise<SyncOutcome> {
   const get = (key: string) => getSetting(db, key);
-  if (!adapter.isConfigured(get)) {
-    logSyncResult(db, adapter.key, 0, adapter.notConfiguredError);
-    return { source: adapter.key, itemCount: 0, error: adapter.notConfiguredError };
-  }
-
   try {
     const { items, sprint } = await adapter.sync(get);
     for (const item of items) upsertSyncedItem(db, item);
-    // The sprint.* settings keys are ADO's until #99 gives each source its
-    // own; another source writing them would race with the ADO sprint. A null
-    // sprint leaves the stored one alone for now; #99 changes this to clear it.
-    if (sprint && adapter.key === 'ado') {
+    // A null sprint leaves the stored one alone for now; #99 changes this to clear it.
+    if (sprint && ownsSprint) {
       setSetting(db, SETTINGS_KEYS.sprintName, sprint.name);
       setSetting(db, SETTINGS_KEYS.sprintStart, sprint.startDate);
       setSetting(db, SETTINGS_KEYS.sprintEnd, sprint.endDate);
@@ -50,6 +51,11 @@ async function syncSource(db: Database.Database, adapter: SourceAdapter): Promis
   }
 }
 
+// Only sources that are set up run. One that is not leaves no sync_log row,
+// so it never reads as failed: you may simply not use that tracker.
 export async function runSync(db: Database.Database): Promise<SyncOutcome[]> {
-  return Promise.all(SOURCE_ADAPTERS.map((adapter) => syncSource(db, adapter)));
+  const get = (key: string) => getSetting(db, key);
+  const configured = SOURCE_ADAPTERS.filter((adapter) => adapter.isConfigured(get));
+  const owner = sprintOwner(configured);
+  return Promise.all(configured.map((adapter) => syncSource(db, adapter, adapter.key === owner)));
 }

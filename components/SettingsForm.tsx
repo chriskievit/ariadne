@@ -10,7 +10,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { SETTINGS_KEYS, DEFAULT_STALE_DAYS, DEFAULT_DENSITY } from '@/lib/config';
+import { SETTINGS_KEYS, DEFAULT_STALE_DAYS, DEFAULT_DENSITY, DEFAULT_JIRA_JQL } from '@/lib/config';
+import { normalizeJiraSite } from '@/lib/sources/configured';
 import SettingsScoringLink from './SettingsScoringLink';
 import { formatMinutes } from '@/lib/format-duration';
 import type { WorkType } from '@/lib/calibration';
@@ -41,6 +42,10 @@ const settingsSchema = z.object({
   adoOrg: z.string().optional(),
   adoProject: z.string().optional(),
   adoTeam: z.string().optional(),
+  jiraSite: z.string().optional(),
+  jiraEmail: z.string().optional(),
+  jiraToken: z.string().optional(),
+  jiraJql: z.string().optional(),
   staleDays: z.string().optional(),
   localReposBaseDir: z.string().optional(),
   repoPathOverrides: z.string().optional(),
@@ -61,6 +66,9 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
     initialSettings[`${SETTINGS_KEYS.githubPat}.isSet`] === 'true'
   );
   const [adoPatIsSet, setAdoPatIsSet] = useState(initialSettings[`${SETTINGS_KEYS.adoPat}.isSet`] === 'true');
+  const [jiraTokenIsSet, setJiraTokenIsSet] = useState(
+    initialSettings[`${SETTINGS_KEYS.jiraToken}.isSet`] === 'true'
+  );
   const form = useForm<SettingsValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
@@ -69,6 +77,10 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
       adoOrg: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
       adoProject: initialSettings[SETTINGS_KEYS.adoProject] ?? '',
       adoTeam: initialSettings[SETTINGS_KEYS.adoTeam] ?? '',
+      jiraSite: initialSettings[SETTINGS_KEYS.jiraSite] ?? '',
+      jiraEmail: initialSettings[SETTINGS_KEYS.jiraEmail] ?? '',
+      jiraToken: initialSettings[SETTINGS_KEYS.jiraToken] ?? '',
+      jiraJql: initialSettings[SETTINGS_KEYS.jiraJql] ?? '',
       staleDays: initialSettings[SETTINGS_KEYS.staleDays] ?? String(DEFAULT_STALE_DAYS),
       localReposBaseDir: initialSettings[SETTINGS_KEYS.localReposBaseDir] ?? '',
       repoPathOverrides: initialSettings[SETTINGS_KEYS.repoPathOverrides] ?? '',
@@ -81,6 +93,9 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
       [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
       [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
       [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
+      [SETTINGS_KEYS.jiraSite]: normalizeJiraSite(values.jiraSite ?? ''),
+      [SETTINGS_KEYS.jiraEmail]: (values.jiraEmail ?? '').trim(),
+      [SETTINGS_KEYS.jiraJql]: (values.jiraJql ?? '').trim(),
       [SETTINGS_KEYS.staleDays]: values.staleDays ?? String(DEFAULT_STALE_DAYS),
       [SETTINGS_KEYS.localReposBaseDir]: values.localReposBaseDir ?? '',
       [SETTINGS_KEYS.repoPathOverrides]: values.repoPathOverrides ?? '',
@@ -91,6 +106,7 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
     // when the user actually typed a new one.
     if (values.githubPat) body[SETTINGS_KEYS.githubPat] = values.githubPat;
     if (values.adoPat) body[SETTINGS_KEYS.adoPat] = values.adoPat;
+    if (values.jiraToken) body[SETTINGS_KEYS.jiraToken] = values.jiraToken.trim();
 
     setSaved(false);
     setSaveError(false);
@@ -103,6 +119,9 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
       const updated = (await response.json()) as Record<string, string>;
       setGithubPatIsSet(updated[`${SETTINGS_KEYS.githubPat}.isSet`] === 'true');
       setAdoPatIsSet(updated[`${SETTINGS_KEYS.adoPat}.isSet`] === 'true');
+      setJiraTokenIsSet(updated[`${SETTINGS_KEYS.jiraToken}.isSet`] === 'true');
+      // Show the site as it was saved, so a pasted URL visibly becomes the host.
+      form.setValue('jiraSite', updated[SETTINGS_KEYS.jiraSite] ?? '');
       setSaved(true);
     } catch {
       setSaveError(true);
@@ -200,6 +219,71 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
                       <FormControl>
                         <Input {...field} placeholder="Defaults to the project name if left blank" />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium">Jira</h3>
+                  <ConnectionBadge connected={jiraTokenIsSet} />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="jiraSite"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jira site</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="your-company.atlassian.net" />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">Jira Cloud only. Pasting a full Jira URL also works.</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jiraEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Atlassian account email</FormLabel>
+                      <FormControl>
+                        <Input type="email" autoComplete="off" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jiraToken"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jira API token</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder={jiraTokenIsSet ? 'Saved. Leave blank to keep it.' : ''} {...field} />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Create one at id.atlassian.com under Security, API tokens. It carries all of your Jira
+                        permissions; Ariadne only ever reads with it.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="jiraJql"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Jira query (optional)</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder={DEFAULT_JIRA_JQL} className="font-mono text-xs" />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">JQL. Leave blank for your issues in open sprints.</p>
                       <FormMessage />
                     </FormItem>
                   )}

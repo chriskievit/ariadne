@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Github,
   ClipboardList,
+  SquareKanban,
   MessageSquare,
   Bot,
   Trash2,
@@ -69,6 +70,7 @@ import { useRunningTimer } from '@/components/RunningTimerProvider';
 import type { Density } from '@/lib/config';
 import ScoreChip from './ScoreChip';
 import { settledOutcome } from '@/lib/settled';
+import { isTrackerSource } from '@/lib/sources/tracker';
 import { SNOOZE_LABEL, type SnoozeOption } from '@/lib/snooze';
 
 // The order the `p` row binding walks. Unset lands on high first, so one
@@ -102,11 +104,12 @@ const REASON_VARIANT: Record<Item['reason'], ReasonVariant> = {
   manual: 'outline',
 };
 
-// ADO mention detection only ever looks at items already assigned to the
-// user (see fetchMentionWorkItems in lib/sources/ado-client.ts), so a 'mention'
-// reason on an ado_workitem always implies assignment too — show both pills.
+// Tracker mention detection only ever looks at items already assigned to the
+// user (fetchMentionWorkItems in lib/sources/ado-client.ts, the assignee JQL
+// in jira-client.ts), so a 'mention' reason on a tracker item always implies
+// assignment too — show both pills.
 function getReasonPills(item: Item): { label: string; variant: ReasonVariant }[] {
-  if (item.source === 'ado_workitem' && item.reason === 'mention') {
+  if (isTrackerSource(item.source) && item.reason === 'mention') {
     return [
       { label: REASON_LABEL.assigned, variant: REASON_VARIANT.assigned },
       { label: REASON_LABEL.mention, variant: REASON_VARIANT.mention },
@@ -146,6 +149,7 @@ function getOverflowPills(item: Item, keptVisible: boolean): { label: string; va
 export const SOURCE_ICON = {
   github_pr: Github,
   ado_workitem: ClipboardList,
+  jira_issue: SquareKanban,
   adhoc: MessageSquare,
 } as const;
 

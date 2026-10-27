@@ -42,6 +42,8 @@ describe('settings-repo', () => {
         'github.pat.isSet': 'true',
         'ado.pat': '',
         'ado.pat.isSet': 'true',
+        'jira.token': '',
+        'jira.token.isSet': 'false',
         'ado.org': 'myorg',
       });
     });

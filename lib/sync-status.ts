@@ -1,5 +1,7 @@
 import type Database from 'better-sqlite3';
-import { SOURCE_KEYS, type SourceKey } from './sources/types';
+import type { SourceKey } from './sources/types';
+import { configuredSources } from './sources/configured';
+import { getSetting } from './settings-repo';
 
 export type Source = SourceKey;
 export type SourceState = 'ok' | 'stale' | 'error' | 'partial';
@@ -46,8 +48,11 @@ export function getSourceStatus(db: Database.Database, source: Source, now: Date
   };
 }
 
+// Only the sources that are set up. A tracker you do not use has nothing to
+// report, and its old sync_log rows (from before you cleared its settings)
+// must not keep it red.
 export function getAllSourceStatuses(db: Database.Database, now: Date): SourceStatus[] {
-  return SOURCE_KEYS.map((source) => getSourceStatus(db, source, now));
+  return configuredSources((key) => getSetting(db, key)).map((source) => getSourceStatus(db, source, now));
 }
 
 export interface ErrorClassification {
