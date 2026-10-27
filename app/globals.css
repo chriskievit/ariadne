@@ -124,6 +124,32 @@
   }
 }
 
+/* Focus (/focus). The one authored motion on that surface: when the thread
+   moves to another item, the new title settles into place rather than
+   cutting in. It starts mostly visible, so a missed frame never hides the
+   item. It runs only on a switch, never on the first paint and never on a
+   background refresh (FocusView keys it to the Now item's id). */
+@keyframes focus-arrive {
+  from {
+    opacity: 0.35;
+    transform: translateY(0.5rem);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+.focus-arrive {
+  animation: focus-arrive 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.focus-surface ::selection {
+  background: hsl(var(--brand-gold) / 0.3);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

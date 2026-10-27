@@ -4,18 +4,20 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import SegmentedChoice, { type SegmentedOption } from '@/components/SegmentedChoice';
 
-type Mode = 'planning' | 'work';
+type Mode = 'planning' | 'work' | 'focus';
 
 const MODES: SegmentedOption<Mode>[] = [
   { value: 'planning', label: 'Planning' },
   { value: 'work', label: 'Work' },
+  { value: 'focus', label: 'Focus' },
 ];
 
-const MODE_PATH: Record<Mode, string> = { planning: '/', work: '/work' };
+const MODE_PATH: Record<Mode, string> = { planning: '/', work: '/work', focus: '/focus' };
 
 /**
- * The two faces of the same items: Planning ranks them, Work supervises the
- * agents running against them.
+ * The three faces of the same items: Planning ranks them, Work supervises
+ * the agents running against them, and Focus shows only the thread you are
+ * on and what is left of today.
  *
  * A route rather than client state, so the mode survives a reload and the
  * server can render each face's data directly. The switch is the house
@@ -42,7 +44,14 @@ export default function ModeSwitch() {
   // click missed, so you click again.
   const [requested, setRequested] = useState<Mode | null>(null);
 
-  const current: Mode | null = pathname === '/' ? 'planning' : pathname.startsWith('/work') ? 'work' : null;
+  const current: Mode | null =
+    pathname === '/'
+      ? 'planning'
+      : pathname.startsWith('/work')
+        ? 'work'
+        : pathname.startsWith('/focus')
+          ? 'focus'
+          : null;
 
   // The pathname is the truth again the moment it lands.
   useEffect(() => {

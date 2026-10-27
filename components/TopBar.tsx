@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { BarChart3, HelpCircle, Search, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useCommandPalette } from '@/components/CommandPaletteProvider';
 import { useKeymapHelp } from '@/components/KeymapHelpProvider';
@@ -20,6 +22,11 @@ export default function TopBar() {
   const { setOpen: setHelpOpen } = useKeymapHelp();
   const { runningTimer, refreshRunningTimer } = useRunningTimer();
   const [longRunNudgeHours, setLongRunNudgeHours] = useState(DEFAULT_LONG_RUN_NUDGE_HOURS);
+  // Focus is the quiet face: the running timer is already its largest
+  // reading, so the chip would only repeat it, and search is a way out of
+  // the very screen meant to keep you in. Both columns stay pinned (see
+  // below), so emptying them moves nothing else in the bar.
+  const quiet = usePathname().startsWith('/focus');
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +122,13 @@ export default function TopBar() {
           cannot fit five things that each want 150-200px. That is the one
           sanctioned exception and it was argued out at length -- see the
           Layout section in DESIGN.md before adding a third. */}
-      <div className="mx-auto grid h-16 max-w-6xl grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,20rem)_minmax(0,1fr)] items-center gap-4 px-6 sm:grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)]">
+      <div className={cn(
+          'mx-auto grid h-16 grid-cols-[minmax(0,1fr)_auto_auto_minmax(0,20rem)_minmax(0,1fr)] items-center gap-4 sm:grid-cols-[minmax(10.0625rem,1fr)_auto_auto_minmax(0,20rem)_minmax(10.0625rem,1fr)]',
+          // Focus runs wider than the other faces (it is read from across
+          // the desk), so the bar widens with it and its edges stay on the
+          // same lines as the content beneath.
+          quiet ? 'max-w-[100rem] px-6 sm:px-10' : 'max-w-6xl px-6'
+        )}>
         <Link
           href="/"
           className="group col-start-1 flex w-fit items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--brand-gold))] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -135,12 +148,14 @@ export default function TopBar() {
         </div>
 
         <div className="col-start-3">
+          {!quiet && (
           <RunningTimerChip
             runningTimer={runningTimer}
             onStop={handleStopTimer}
             onComplete={handleCompleteTimer}
             longRunNudgeHours={longRunNudgeHours}
           />
+          )}
         </div>
 
         {/* min-w-0 here and on the label below undo the flex/grid default of
@@ -154,6 +169,7 @@ export default function TopBar() {
             themselves) clipped inside the button's own box once the track
             shrinks past their combined width, instead of bleeding into the
             action icons' column to its right. */}
+        {!quiet && (
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -163,6 +179,7 @@ export default function TopBar() {
           <span className="min-w-0 flex-1 truncate text-left">Search or jump to</span>
           <kbd className="shrink-0 font-mono text-xs">⌘K</kbd>
         </button>
+        )}
 
         <div className="col-start-5 flex items-center justify-end gap-1">
           <Button type="button" variant="ghost" size="icon" asChild aria-label="Report">

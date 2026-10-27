@@ -52,6 +52,7 @@ export const KEYMAP: KeyBinding[] = [
   { keys: '⌘Z', description: 'Undo the last triage action', scope: 'global' },
   { keys: 'g d', description: 'Go to the dashboard', scope: 'global' },
   { keys: 'g s', description: 'Go to Settings', scope: 'global' },
+  { keys: 'g f', description: 'Go to Focus', scope: 'global' },
   { keys: 'R', description: 'Refresh', scope: 'global' },
   { keys: 'W', description: 'Wrap up the day', scope: 'global' },
   { keys: '?', description: 'Show this cheat sheet', scope: 'global' },

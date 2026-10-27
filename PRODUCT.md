@@ -198,8 +198,14 @@ work with opaque, ML-driven priority.
   (`ItemRow.tsx`, the requeue action) moves an in-progress item back to
   Signals (`setStatus(db, id, 'inbox')`,
   `app/api/items/[id]/requeue/route.ts`).
-- **Deliberately small surface.** Two faces (the ranked dashboard and the
-  Work mode watch floor at `/work`), a time report, and Settings. New
+- **Deliberately small surface.** Three faces (the ranked dashboard, the
+  Work mode watch floor at `/work`, and Focus at `/focus`), a time report,
+  and Settings. Focus is the quiet one: a second-screen view of the item
+  you are on, its timer, and what is left of today's plan, built from the
+  same Today and In-progress buckets Planning shows (`lib/focus.ts`), so
+  it adds no ranking of its own. Its one action is switching the timer to
+  another item on today's plan, the same stop-then-start Planning's Switch
+  makes. It never completes, parks, snoozes, or reorders. New
   features are scoped tightly; real tradeoffs (like plaintext token
   storage) are accepted explicitly rather than hidden.
 - **Keyboard-first is a durable principle, not just a roadmap feature.**
