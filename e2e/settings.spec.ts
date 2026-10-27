@@ -10,9 +10,10 @@ test('settings page groups fields into sections with per-source connection badge
 
   await expect(page.getByRole('heading', { name: 'GitHub' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Azure DevOps' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Jira' })).toBeVisible();
 
-  // The e2e database starts empty each run, so neither PAT is saved yet.
-  await expect(page.getByText('No token saved')).toHaveCount(2);
+  // The e2e database starts empty each run, so no token is saved yet.
+  await expect(page.getByText('No token saved')).toHaveCount(3);
 
   await expect(page.getByRole('button', { name: 'How Ariadne ranks things' })).toBeVisible();
 });
