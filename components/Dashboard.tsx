@@ -689,6 +689,7 @@ export default function Dashboard({ initialData, hasTokens }: { initialData: Das
       onOpenHelp={() => setHelpOpen(true)}
       onGoToDashboard={() => router.push('/')}
       onGoToSettings={() => router.push('/settings')}
+      onGoToFocus={() => router.push('/focus')}
       onPlanDay={openPlanDay}
       onSuggestDay={openSuggestDay}
       onQuickAdd={() => setQuickAddOpen(true)}

@@ -12,6 +12,7 @@ interface Props {
   onOpenHelp: () => void;
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
+  onGoToFocus: () => void;
   onPlanDay: () => void;
   onSuggestDay: () => void;
   onQuickAdd: () => void;
@@ -26,6 +27,7 @@ export default function GlobalKeymapProvider({
   onOpenHelp,
   onGoToDashboard,
   onGoToSettings,
+  onGoToFocus,
   onPlanDay,
   onSuggestDay,
   onQuickAdd,
@@ -76,6 +78,7 @@ export default function GlobalKeymapProvider({
         if (pendingGTimeout) clearTimeout(pendingGTimeout);
         if (e.key.toLowerCase() === 'd') onGoToDashboard();
         if (e.key.toLowerCase() === 's') onGoToSettings();
+        if (e.key.toLowerCase() === 'f') onGoToFocus();
         return;
       }
 
@@ -131,6 +134,7 @@ export default function GlobalKeymapProvider({
     onOpenHelp,
     onGoToDashboard,
     onGoToSettings,
+    onGoToFocus,
     onPlanDay,
     onSuggestDay,
     onQuickAdd,

@@ -26,6 +26,7 @@ interface Props {
   onSelectQuery?: (query: string) => void;
   onGoToDashboard: () => void;
   onGoToSettings: () => void;
+  onGoToFocus: () => void;
   onWrapUp?: () => void;
   onOpenScoringReference?: () => void;
   onOpenHelp: () => void;
@@ -50,6 +51,7 @@ export default function CommandPalette({
   onSelectQuery,
   onGoToDashboard,
   onGoToSettings,
+  onGoToFocus,
   onWrapUp,
   onOpenScoringReference,
   onOpenHelp,
@@ -126,6 +128,9 @@ export default function CommandPalette({
         <CommandGroup heading="Go to">
           <CommandItem value="go-dashboard" onSelect={() => select(onGoToDashboard)}>
             Dashboard
+          </CommandItem>
+          <CommandItem value="go-focus" onSelect={() => select(onGoToFocus)}>
+            Focus
           </CommandItem>
           <CommandItem value="go-settings" onSelect={() => select(onGoToSettings)}>
             Settings

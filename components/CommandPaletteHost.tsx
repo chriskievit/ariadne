@@ -88,6 +88,7 @@ export default function CommandPaletteHost() {
       onSelectQuery={dashboardActions?.onSelectQuery}
       onGoToDashboard={() => router.push('/')}
       onGoToSettings={() => router.push('/settings')}
+      onGoToFocus={() => router.push('/focus')}
       onWrapUp={dashboardActions?.onWrapUp}
       onOpenScoringReference={dashboardActions?.onOpenScoringReference}
       onOpenHelp={() => setHelpOpen(true)}
