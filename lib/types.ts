@@ -9,6 +9,10 @@ export type Reason =
   | 'approved_unmerged';
 export type PrStatus = 'draft' | 'ready_for_review' | 'changes_requested' | 'approved' | 'merged';
 export type Status = 'inbox' | 'in_progress' | 'done';
+// The tracker-neutral reading of an upstream state. Jira reports it directly
+// (statusCategory); for Azure DevOps it is derived from the free-text state
+// name in lib/sources/ado-state.ts. Null when the name maps to nothing known.
+export type StatusCategory = 'todo' | 'in_progress' | 'done';
 export type TriageState = 'none' | 'done';
 // Set by hand, ad-hoc items only. Distinct from UrgencyBand in lib/scoring.ts,
 // which is the band a score lands in and is derived, never set.
@@ -28,7 +32,10 @@ export interface Item {
   status: Status;
   createdAt: string;
   completedAt: string | null;
-  adoStatus: string | null;
+  // The tracker's own state name (ADO System.State, Jira status.name), shown as
+  // the status pill label. Null for GitHub and ad-hoc items.
+  upstreamStatus: string | null;
+  statusCategory: StatusCategory | null;
   prStatus: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations: boolean;
@@ -42,6 +49,14 @@ export interface Item {
   prioritySetAt: string | null;
 }
 
+// Widened to include 'jira_issue' in phase 4 (#100), when PRs start linking to Jira keys.
+export type LinkTargetSource = 'ado_workitem';
+
+export interface ItemLinkInput {
+  targetSource: LinkTargetSource;
+  externalId: string;
+}
+
 export interface NewSyncedItemInput {
   source: 'github_pr' | 'ado_workitem';
   externalId: string;
@@ -51,11 +66,12 @@ export interface NewSyncedItemInput {
   dueDate: string | null;
   sprintIteration: string | null;
   rawUpdatedAt: string | null;
-  adoStatus?: string | null;
+  upstreamStatus?: string | null;
+  statusCategory?: StatusCategory | null;
   prStatus?: PrStatus | null;
   repo: string | null;
   hasUnresolvedConversations?: boolean;
-  linkedAdoExternalIds?: string[];
+  links?: ItemLinkInput[];
 }
 
 export interface NewAdhocItemInput {

@@ -22,7 +22,7 @@ function item(overrides: Partial<Item> = {}): Item {
   return {
     id: 1, source: 'ado_workitem', externalId: '4318', title: 'Fix the pipeline', url: null,
     reason: 'assigned', category: null, dueDate: null, sprintIteration: null, rawUpdatedAt: null,
-    status: 'inbox', createdAt: '2026-09-21T10:00:00.000Z', completedAt: null, adoStatus: null,
+    status: 'inbox', createdAt: '2026-09-21T10:00:00.000Z', completedAt: null, upstreamStatus: null, statusCategory: null,
     prStatus: null, repo: 'pipelines', hasUnresolvedConversations: false, parked: false,
     todayDate: null, starred: false, snoozedUntil: null, triageState: 'none', wokeEarly: false,
     priority: null, prioritySetAt: null,

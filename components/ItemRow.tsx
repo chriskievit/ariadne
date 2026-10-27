@@ -103,7 +103,7 @@ const REASON_VARIANT: Record<Item['reason'], ReasonVariant> = {
 };
 
 // ADO mention detection only ever looks at items already assigned to the
-// user (see fetchMentionWorkItems in lib/ado-client.ts), so a 'mention'
+// user (see fetchMentionWorkItems in lib/sources/ado-client.ts), so a 'mention'
 // reason on an ado_workitem always implies assignment too — show both pills.
 function getReasonPills(item: Item): { label: string; variant: ReasonVariant }[] {
   if (item.source === 'ado_workitem' && item.reason === 'mention') {

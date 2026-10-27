@@ -5,6 +5,7 @@ import { setSetting } from './settings-repo';
 import { createAdhocItem, upsertSyncedItem, setStatus } from './items-repo';
 import { SETTINGS_KEYS } from './config';
 import { getSprintProgress } from './sprint';
+import { adoStateFields } from './sources/ado-state';
 
 let db: Database.Database;
 
@@ -27,7 +28,7 @@ describe('getSprintProgress', () => {
       sprintIteration: 'Sprint 42',
       rawUpdatedAt: null,
       repo: null,
-      adoStatus: 'Done',
+      ...adoStateFields('Done'),
     });
 
     const progress = getSprintProgress(db);
@@ -49,7 +50,7 @@ describe('getSprintProgress', () => {
         sprintIteration: 'Sprint 42',
         rawUpdatedAt: null,
         repo: null,
-        adoStatus,
+        ...adoStateFields(adoStatus),
       });
 
       expect(getSprintProgress(db).completedCount).toBe(1);
@@ -67,7 +68,7 @@ describe('getSprintProgress', () => {
       sprintIteration: 'Sprint 42',
       rawUpdatedAt: null,
       repo: null,
-      adoStatus: 'Active',
+      ...adoStateFields('Active'),
     });
     setStatus(db, item.id, 'done', '2026-07-01T00:00:00.000Z');
 

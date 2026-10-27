@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { Item, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
+import type { Item, ItemLinkInput, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
 import { canCarryPriority } from './scoring';
 
 function rowToItem(row: any): Item {
@@ -17,7 +17,8 @@ function rowToItem(row: any): Item {
     status: row.status,
     createdAt: row.created_at,
     completedAt: row.completed_at,
-    adoStatus: row.ado_status,
+    upstreamStatus: row.upstream_status ?? null,
+    statusCategory: row.status_category ?? null,
     prStatus: row.pr_status,
     repo: row.repo,
     hasUnresolvedConversations: !!row.has_unresolved_conversations,
@@ -32,10 +33,10 @@ function rowToItem(row: any): Item {
   };
 }
 
-function replaceItemLinks(db: Database.Database, prItemId: number, adoExternalIds: string[]): void {
+function replaceItemLinks(db: Database.Database, prItemId: number, links: ItemLinkInput[]): void {
   db.prepare('DELETE FROM item_links WHERE pr_item_id = ?').run(prItemId);
-  const insert = db.prepare('INSERT INTO item_links (pr_item_id, ado_external_id) VALUES (?, ?)');
-  for (const adoExternalId of adoExternalIds) insert.run(prItemId, adoExternalId);
+  const insert = db.prepare('INSERT OR IGNORE INTO item_links (pr_item_id, target_source, target_external_id) VALUES (?, ?, ?)');
+  for (const link of links) insert.run(prItemId, link.targetSource, link.externalId);
 }
 
 export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInput): Item {
@@ -45,8 +46,8 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
     .get(input.source, input.externalId) as { raw_updated_at: string | null; snoozed_until: string | null } | undefined;
 
   db.prepare(
-    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, ado_status, pr_status, repo, has_unresolved_conversations, status, created_at)
-     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @adoStatus, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
+    `INSERT INTO items (source, external_id, title, url, reason, due_date, sprint_iteration, raw_updated_at, upstream_status, status_category, pr_status, repo, has_unresolved_conversations, status, created_at)
+     VALUES (@source, @externalId, @title, @url, @reason, @dueDate, @sprintIteration, @rawUpdatedAt, @upstreamStatus, @statusCategory, @prStatus, @repo, @hasUnresolvedConversations, 'inbox', @now)
      ON CONFLICT(source, external_id) DO UPDATE SET
        title = excluded.title,
        url = excluded.url,
@@ -54,13 +55,15 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
        due_date = excluded.due_date,
        sprint_iteration = excluded.sprint_iteration,
        raw_updated_at = excluded.raw_updated_at,
-       ado_status = excluded.ado_status,
+       upstream_status = excluded.upstream_status,
+       status_category = excluded.status_category,
        pr_status = excluded.pr_status,
        repo = excluded.repo,
        has_unresolved_conversations = excluded.has_unresolved_conversations`
   ).run({
     ...input,
-    adoStatus: input.adoStatus ?? null,
+    upstreamStatus: input.upstreamStatus ?? null,
+    statusCategory: input.statusCategory ?? null,
     prStatus: input.prStatus ?? null,
     repo: input.repo ?? null,
     hasUnresolvedConversations: input.hasUnresolvedConversations ? 1 : 0,
@@ -80,8 +83,8 @@ export function upsertSyncedItem(db: Database.Database, input: NewSyncedItemInpu
     db.prepare('UPDATE items SET snoozed_until = NULL, woke_early = 1 WHERE id = ?').run(item.id);
   }
 
-  if (input.source === 'github_pr' && input.linkedAdoExternalIds) {
-    replaceItemLinks(db, item.id, input.linkedAdoExternalIds);
+  if (input.source === 'github_pr' && input.links) {
+    replaceItemLinks(db, item.id, input.links);
   }
 
   return wasSnoozed && activityChanged ? { ...item, snoozedUntil: null, wokeEarly: true } : item;

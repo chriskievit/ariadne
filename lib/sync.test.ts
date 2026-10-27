@@ -4,11 +4,11 @@ import { setSetting, getSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import { listItems, upsertSyncedItem, getItemById } from './items-repo';
 
-vi.mock('./github-client', () => ({ fetchGithubItems: vi.fn(), fetchMergedExternalIds: vi.fn() }));
-vi.mock('./ado-client', () => ({ fetchAdoData: vi.fn() }));
+vi.mock('./sources/github-client', () => ({ fetchGithubItems: vi.fn(), fetchMergedExternalIds: vi.fn() }));
+vi.mock('./sources/ado-client', () => ({ fetchAdoData: vi.fn() }));
 
-import { fetchGithubItems, fetchMergedExternalIds } from './github-client';
-import { fetchAdoData } from './ado-client';
+import { fetchGithubItems, fetchMergedExternalIds } from './sources/github-client';
+import { fetchAdoData } from './sources/ado-client';
 import { runSync } from './sync';
 
 let db: ReturnType<typeof openDb>;
