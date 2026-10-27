@@ -440,7 +440,7 @@ describe('fetchGithubItems linked ADO ids', () => {
     });
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
-    expect(result[0].linkedAdoExternalIds).toEqual(['41363']);
+    expect(result[0].links).toEqual([{ targetSource: 'ado_workitem', externalId: '41363' }]);
   });
 
   it('falls back to parsing the PR title when the detail fetch fails', async () => {
@@ -469,7 +469,7 @@ describe('fetchGithubItems linked ADO ids', () => {
     });
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
-    expect(result[0].linkedAdoExternalIds).toEqual(['77']);
+    expect(result[0].links).toEqual([{ targetSource: 'ado_workitem', externalId: '77' }]);
   });
 
   it('returns an empty array when the PR references no work item', async () => {
@@ -498,7 +498,7 @@ describe('fetchGithubItems linked ADO ids', () => {
     });
 
     const result = await fetchGithubItems({ pat: 'x', staleDays: 3 });
-    expect(result[0].linkedAdoExternalIds).toEqual([]);
+    expect(result[0].links).toEqual([]);
   });
 });
 

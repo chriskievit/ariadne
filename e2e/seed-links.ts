@@ -34,7 +34,7 @@ export function seedLinkedPair(suffix: string): { prItemId: number; adoItemId: n
       sprintIteration: null,
       rawUpdatedAt: new Date().toISOString(),
       repo: null,
-      linkedAdoExternalIds: [adoExternalId],
+      links: [{ targetSource: 'ado_workitem', externalId: adoExternalId }],
     });
 
     return { prItemId: prItem.id, adoItemId: adoItem.id, prTitle, adoTitle };

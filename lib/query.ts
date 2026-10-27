@@ -2,6 +2,7 @@ import { REASON_LABEL } from './scoring';
 import { DEFAULT_STALE_DAYS } from './config';
 import { isSnoozed } from './snooze';
 import { groupOf, type ObligationGroup } from './grouping';
+import { isTrackerSource } from './sources/tracker';
 import type { Item, Reason, Source } from './types';
 import type { ScoredItem } from './dashboard';
 
@@ -192,13 +193,15 @@ export function applyQuery(items: ScoredItem[], parsed: ParsedQuery, context: Qu
   });
 }
 
-export function stateOf(item: Pick<Item, 'source' | 'adoStatus' | 'prStatus'>): QueryState | null {
-  if (item.source === 'ado_workitem' && item.adoStatus) {
-    const s = item.adoStatus.toLowerCase();
+export function stateOf(item: Pick<Item, 'source' | 'upstreamStatus' | 'statusCategory' | 'prStatus'>): QueryState | null {
+  if (isTrackerSource(item.source) && item.upstreamStatus) {
+    // Blocked and review have no category of their own, so they stay label
+    // matches; the rest reads the tracker-neutral category.
+    const s = item.upstreamStatus.toLowerCase();
     if (/block/.test(s)) return 'blocked';
     if (/review/.test(s)) return 'review';
-    if (/active|committ|doing|progress/.test(s)) return 'progress';
-    if (/to ?do|new/.test(s)) return 'todo';
+    if (item.statusCategory === 'in_progress') return 'progress';
+    if (item.statusCategory === 'todo') return 'todo';
     return null;
   }
   if (item.source === 'github_pr' && item.prStatus) {

@@ -1,6 +1,7 @@
 import { openDb } from '../lib/db';
 import { upsertSyncedItem } from '../lib/items-repo';
 import { E2E_DB_PATH } from './db-path';
+import { adoStateFields } from '../lib/sources/ado-state';
 
 // A merged PR and a Done work item only ever reach this state through a real
 // sync against GitHub/ADO, which e2e tests can't do. Seed them straight into
@@ -43,7 +44,7 @@ export function seedSettledPair(suffix: string): {
       dueDate: null,
       sprintIteration: null,
       rawUpdatedAt: new Date().toISOString(),
-      adoStatus: 'Done',
+      ...adoStateFields('Done'),
       repo: null,
     });
 
