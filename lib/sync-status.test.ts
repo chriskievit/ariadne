@@ -73,6 +73,16 @@ describe('getAllSourceStatuses', () => {
     const statuses = getAllSourceStatuses(conn, new Date());
     expect(statuses.map((s) => s.source)).toEqual(['jira']);
   });
+
+  it('leaves out a source that is switched off', () => {
+    const conn = db();
+    setSetting(conn, SETTINGS_KEYS.githubPat, 'gh-pat');
+    setSetting(conn, SETTINGS_KEYS.jiraSite, 'acme.atlassian.net');
+    setSetting(conn, SETTINGS_KEYS.jiraEmail, 'me@acme.test');
+    setSetting(conn, SETTINGS_KEYS.jiraToken, 'tok');
+    setSetting(conn, SETTINGS_KEYS.githubEnabled, 'false');
+    expect(getAllSourceStatuses(conn, new Date()).map((s) => s.source)).toEqual(['jira']);
+  });
 });
 
 describe('classifyError', () => {

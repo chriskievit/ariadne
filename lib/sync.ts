@@ -3,6 +3,7 @@ import { upsertSyncedItem } from './items-repo';
 import { getSetting, setSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import { SOURCE_ADAPTERS } from './sources';
+import { isSourceEnabled } from './sources/configured';
 import type { SourceAdapter, SourceKey } from './sources/types';
 
 export interface SyncOutcome {
@@ -51,11 +52,12 @@ async function syncSource(db: Database.Database, adapter: SourceAdapter, ownsSpr
   }
 }
 
-// Only sources that are set up run. One that is not leaves no sync_log row,
-// so it never reads as failed: you may simply not use that tracker.
+// Only sources that are set up and switched on run. One that is not leaves
+// no sync_log row, so it never reads as failed: you may simply not use that
+// tracker, or not want it right now.
 export async function runSync(db: Database.Database): Promise<SyncOutcome[]> {
   const get = (key: string) => getSetting(db, key);
-  const configured = SOURCE_ADAPTERS.filter((adapter) => adapter.isConfigured(get));
-  const owner = sprintOwner(configured);
-  return Promise.all(configured.map((adapter) => syncSource(db, adapter, adapter.key === owner)));
+  const active = SOURCE_ADAPTERS.filter((adapter) => adapter.isConfigured(get) && isSourceEnabled(get, adapter.key));
+  const owner = sprintOwner(active);
+  return Promise.all(active.map((adapter) => syncSource(db, adapter, adapter.key === owner)));
 }

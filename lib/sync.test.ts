@@ -54,6 +54,20 @@ describe('runSync', () => {
     expect(sources.map((r) => r.source)).toEqual(['ado']);
   });
 
+  it('skips a source that is switched off, though it is set up', async () => {
+    setSetting(db, SETTINGS_KEYS.githubPat, 'gh-pat');
+    setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
+    setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
+    setSetting(db, SETTINGS_KEYS.adoProject, 'project');
+    setSetting(db, SETTINGS_KEYS.adoEnabled, 'false');
+    (fetchGithubItems as any).mockResolvedValue([]);
+    (fetchMergedExternalIds as any).mockResolvedValue(new Set());
+
+    const outcomes = await runSync(db);
+    expect(outcomes.map((o) => o.source)).toEqual(['github']);
+    expect(fetchAdoData).not.toHaveBeenCalled();
+  });
+
   it('continues the GitHub sync when ADO sync throws', async () => {
     setSetting(db, SETTINGS_KEYS.githubPat, 'gh-pat');
     setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');

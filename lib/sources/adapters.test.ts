@@ -8,7 +8,7 @@ vi.mock('./jira-client', () => ({ fetchJiraData: vi.fn(), MAX_ISSUES: 500 }));
 import { fetchAdoData } from './ado-client';
 import { fetchJiraData } from './jira-client';
 import { jiraAdapter } from './jira';
-import { normalizeJiraSite } from './configured';
+import { normalizeJiraSite, SOURCE_ITEM, isSourceEnabled, activeSources, hiddenItemSources } from './configured';
 import { adoAdapter } from './ado';
 import { githubAdapter } from './github';
 import { SOURCE_ADAPTERS } from './index';
@@ -41,6 +41,33 @@ describe('itemSource', () => {
     expect(githubAdapter.itemSource).toBe('github_pr');
     expect(adoAdapter.itemSource).toBe('ado_workitem');
     expect(jiraAdapter.itemSource).toBe('jira_issue');
+  });
+
+  it('agrees with SOURCE_ITEM, which items-repo reads instead of the adapters', () => {
+    for (const adapter of SOURCE_ADAPTERS) expect(SOURCE_ITEM[adapter.key]).toBe(adapter.itemSource);
+  });
+});
+
+describe('source switch', () => {
+  const github = { [SETTINGS_KEYS.githubPat]: 'p' };
+  const jira = { [SETTINGS_KEYS.jiraSite]: 'acme.atlassian.net', [SETTINGS_KEYS.jiraEmail]: 'me@acme.test', [SETTINGS_KEYS.jiraToken]: 't' };
+
+  it('is on unless it was switched off', () => {
+    expect(isSourceEnabled(getter({}), 'github')).toBe(true);
+    expect(isSourceEnabled(getter({ [SETTINGS_KEYS.githubEnabled]: 'true' }), 'github')).toBe(true);
+    expect(isSourceEnabled(getter({ [SETTINGS_KEYS.githubEnabled]: 'false' }), 'github')).toBe(false);
+  });
+
+  it('keeps a switched-off source out of the active ones, though it is still set up', () => {
+    expect(activeSources(getter({ ...github, ...jira }))).toEqual(['github', 'jira']);
+    expect(activeSources(getter({ ...github, ...jira, [SETTINGS_KEYS.jiraEnabled]: 'false' }))).toEqual(['github']);
+  });
+
+  it('hides the items of each switched-off source, set up or not', () => {
+    expect(hiddenItemSources(getter({}))).toEqual([]);
+    expect(
+      hiddenItemSources(getter({ [SETTINGS_KEYS.adoEnabled]: 'false', [SETTINGS_KEYS.jiraEnabled]: 'false' }))
+    ).toEqual(['ado_workitem', 'jira_issue']);
   });
 });
 

@@ -20,6 +20,8 @@ import {
   ItemHasLoggedTimeError,
 } from './items-repo';
 import { addPlanItem, getPlanItems } from './plans-repo';
+import { setSetting } from './settings-repo';
+import { SETTINGS_KEYS } from './config';
 import { startTimer, completeTimer, listLogsByItem } from './time-logs-repo';
 import { getLinksForItems } from './links-repo';
 import { createAgentSession, getAgentSessionById } from './agent-sessions-repo';
@@ -827,5 +829,32 @@ describe('priority', () => {
       expect(error).toBeInstanceOf(PriorityNotAllowedError);
       expect((error as Error).message).toMatch(/ad-hoc/i);
     }
+  });
+});
+
+describe('listItems', () => {
+  const synced = (source: 'github_pr' | 'jira_issue', externalId: string) =>
+    upsertSyncedItem(db, {
+      source,
+      externalId,
+      title: externalId,
+      url: `https://example.test/${externalId}`,
+      reason: 'assigned',
+      dueDate: null,
+      sprintIteration: null,
+      rawUpdatedAt: null,
+      repo: null,
+    });
+
+  it('leaves out the items of a switched-off source, and shows them again when it is back on', () => {
+    synced('github_pr', 'gh-1');
+    synced('jira_issue', 'PLAT-1');
+    createAdhocItem(db, { title: 'Write notes' });
+
+    setSetting(db, SETTINGS_KEYS.jiraEnabled, 'false');
+    expect(listItems(db).map((i) => i.source).sort()).toEqual(['adhoc', 'github_pr']);
+
+    setSetting(db, SETTINGS_KEYS.jiraEnabled, 'true');
+    expect(listItems(db)).toHaveLength(3);
   });
 });
