@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { openDb } from './db';
-import { getSetting } from './settings-repo';
+import { getSetting, setSetting } from './settings-repo';
 import { SETTINGS_KEYS } from './config';
 import type { SourceAdapter } from './sources/types';
 
@@ -47,6 +47,13 @@ describe('runSync sprint keys', () => {
     await runSync(db);
     expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Jira sprint');
     expect(getSetting(db, SETTINGS_KEYS.sprintEnd)).toBe('2026-09-14');
+  });
+
+  it('gives the sprint to Jira when Azure DevOps is switched off', async () => {
+    setSetting(db, SETTINGS_KEYS.adoEnabled, 'false');
+    adapters.list.push(stub('ado', 'ADO sprint'), stub('jira', 'Jira sprint'));
+    await runSync(db);
+    expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Jira sprint');
   });
 
   it('keeps the ADO sprint when both trackers are set up, so they never race', async () => {

@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS, DEFAULT_DENSITY, DEFAULT_JIRA_JQL } from '@/lib/config';
 import { normalizeJiraSite } from '@/lib/sources/configured';
+import { cn } from '@/lib/utils';
 import SettingsScoringLink from './SettingsScoringLink';
 import { formatMinutes } from '@/lib/format-duration';
 import type { WorkType } from '@/lib/calibration';
@@ -31,12 +32,62 @@ function ConnectionBadge({ connected }: { connected: boolean }) {
   return <Badge variant={connected ? 'success' : 'outline'}>{connected ? 'Token saved' : 'No token saved'}</Badge>;
 }
 
+// Switching a source off keeps its settings and its items: it stops syncing
+// and its items leave the overviews until it is switched back on.
+function SourceSwitch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`Use ${label}`}
+      onClick={() => onChange(!checked)}
+      className="ml-auto flex items-center gap-2 rounded-sm text-xs text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+    >
+      {checked ? 'On' : 'Off'}
+      <span
+        aria-hidden
+        className={cn(
+          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors',
+          checked ? 'border-primary bg-primary' : 'border-border bg-muted'
+        )}
+      >
+        <span
+          className={cn(
+            'inline-block size-3.5 rounded-full bg-background shadow-sm transition-transform',
+            checked ? 'translate-x-[18px]' : 'translate-x-0.5'
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
+function SourceOffNote() {
+  return (
+    <p className="text-xs text-muted-foreground">
+      Not synced, and its items are left out of your overviews. They come back when you switch it on.
+    </p>
+  );
+}
+
 // react-hook-form treats dots in a field `name` as a nested-path separator
 // (e.g. "ado.org" is stored as { ado: { org } }), so SETTINGS_KEYS' dotted
 // SQL key names can't be used directly as form field names. These local,
 // dot-free names are mapped to the real settings keys only when reading
 // initialSettings and when building the POST body.
 const settingsSchema = z.object({
+  githubEnabled: z.boolean(),
+  adoEnabled: z.boolean(),
+  jiraEnabled: z.boolean(),
   githubPat: z.string().optional(),
   adoPat: z.string().optional(),
   adoOrg: z.string().optional(),
@@ -72,6 +123,9 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
   const form = useForm<SettingsValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
+      githubEnabled: initialSettings[SETTINGS_KEYS.githubEnabled] !== 'false',
+      adoEnabled: initialSettings[SETTINGS_KEYS.adoEnabled] !== 'false',
+      jiraEnabled: initialSettings[SETTINGS_KEYS.jiraEnabled] !== 'false',
       githubPat: initialSettings[SETTINGS_KEYS.githubPat] ?? '',
       adoPat: initialSettings[SETTINGS_KEYS.adoPat] ?? '',
       adoOrg: initialSettings[SETTINGS_KEYS.adoOrg] ?? '',
@@ -87,9 +141,13 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
       density: (initialSettings[SETTINGS_KEYS.density] as 'comfortable' | 'compact' | undefined) ?? DEFAULT_DENSITY,
     },
   });
+  const [githubEnabled, adoEnabled, jiraEnabled] = form.watch(['githubEnabled', 'adoEnabled', 'jiraEnabled']);
 
   async function handleSubmit(values: SettingsValues) {
     const body: Record<string, string> = {
+      [SETTINGS_KEYS.githubEnabled]: String(values.githubEnabled),
+      [SETTINGS_KEYS.adoEnabled]: String(values.adoEnabled),
+      [SETTINGS_KEYS.jiraEnabled]: String(values.jiraEnabled),
       [SETTINGS_KEYS.adoOrg]: values.adoOrg ?? '',
       [SETTINGS_KEYS.adoProject]: values.adoProject ?? '',
       [SETTINGS_KEYS.adoTeam]: values.adoTeam ?? '',
@@ -140,7 +198,15 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium">GitHub</h3>
                   <ConnectionBadge connected={githubPatIsSet} />
+                  <FormField
+                    control={form.control}
+                    name="githubEnabled"
+                    render={({ field }) => (
+                      <SourceSwitch label="GitHub" checked={field.value} onChange={field.onChange} />
+                    )}
+                  />
                 </div>
+                {!githubEnabled && <SourceOffNote />}
                 <FormField
                   control={form.control}
                   name="githubPat"
@@ -165,7 +231,15 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium">Azure DevOps</h3>
                   <ConnectionBadge connected={adoPatIsSet} />
+                  <FormField
+                    control={form.control}
+                    name="adoEnabled"
+                    render={({ field }) => (
+                      <SourceSwitch label="Azure DevOps" checked={field.value} onChange={field.onChange} />
+                    )}
+                  />
                 </div>
+                {!adoEnabled && <SourceOffNote />}
                 <FormField
                   control={form.control}
                   name="adoPat"
@@ -229,7 +303,15 @@ export default function SettingsForm({ initialSettings, learnedDurations }: Prop
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-medium">Jira</h3>
                   <ConnectionBadge connected={jiraTokenIsSet} />
+                  <FormField
+                    control={form.control}
+                    name="jiraEnabled"
+                    render={({ field }) => (
+                      <SourceSwitch label="Jira" checked={field.value} onChange={field.onChange} />
+                    )}
+                  />
                 </div>
+                {!jiraEnabled && <SourceOffNote />}
                 <FormField
                   control={form.control}
                   name="jiraSite"

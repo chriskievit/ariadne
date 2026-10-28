@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
 import type { Item, ItemLinkInput, NewSyncedItemInput, NewAdhocItemInput, Priority, Source, Status } from './types';
 import { canCarryPriority } from './scoring';
+import { getSetting } from './settings-repo';
+import { hiddenItemSources } from './sources/configured';
 
 function rowToItem(row: any): Item {
   return {
@@ -110,8 +112,13 @@ export function createAdhocItem(db: Database.Database, input: NewAdhocItemInput)
   return rowToItem(db.prepare('SELECT * FROM items WHERE id = ?').get(result.lastInsertRowid));
 }
 
+// Every overview reads its items through here, so a source switched off in
+// Settings drops out of all of them at once. getItemById does not filter: an
+// action on an item you already hold a link to still works.
 export function listItems(db: Database.Database): Item[] {
-  return db.prepare('SELECT * FROM items ORDER BY created_at DESC').all().map(rowToItem);
+  const hidden = hiddenItemSources((key) => getSetting(db, key));
+  const where = hidden.length ? `WHERE source NOT IN (${hidden.map(() => '?').join(', ')})` : '';
+  return db.prepare(`SELECT * FROM items ${where} ORDER BY created_at DESC`).all(...hidden).map(rowToItem);
 }
 
 export function getItemById(db: Database.Database, id: number): Item | undefined {
