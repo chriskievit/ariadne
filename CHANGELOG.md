@@ -1,3 +1,22 @@
+# [1.8.0](https://github.com/chriskievit/ariadne/compare/v1.7.0...v1.8.0) (2026-10-27)
+
+
+### Bug Fixes
+
+* **deps:** resolve npm audit advisories in the lockfile ([#104](https://github.com/chriskievit/ariadne/issues/104)) ([a45efd3](https://github.com/chriskievit/ariadne/commit/a45efd31aad84bf5172409ae809f3f5746a954d3))
+* **work:** keep one agent session per ticket, and make the mode switch respond on click ([#91](https://github.com/chriskievit/ariadne/issues/91)) ([d0728de](https://github.com/chriskievit/ariadne/commit/d0728def9ed0c838a3a956e619d9f7e94199cae8))
+
+
+### Features
+
+* **focus:** add a quiet third face for the day's thread ([#103](https://github.com/chriskievit/ariadne/issues/103)) ([0c23533](https://github.com/chriskievit/ariadne/commit/0c23533a6ad69627d86942518ce6b44731c47fbc))
+* **work:** add the session pane, the branch diff, and a way to dismiss a session ([#92](https://github.com/chriskievit/ariadne/issues/92)) ([18b03b0](https://github.com/chriskievit/ariadne/commit/18b03b0e1770dafedd5f20fb44b21e10aaf946b1))
+* **work:** add the Work mode switch and the Watch Floor session rail ([#89](https://github.com/chriskievit/ariadne/issues/89)) ([b515950](https://github.com/chriskievit/ariadne/commit/b515950db6fe11a8b52c4a422717946a2df33bc7))
+* **work:** launch a tracked agent session from Open in Claude ([#94](https://github.com/chriskievit/ariadne/issues/94)) ([1d1b4b5](https://github.com/chriskievit/ariadne/commit/1d1b4b51b505a72775e335b4b2997bd43898f566))
+* **work:** launch Claude Code sessions into Warp and track them from hooks ([#88](https://github.com/chriskievit/ariadne/issues/88)) ([a98c971](https://github.com/chriskievit/ariadne/commit/a98c9717c0ae3c3ad51452290717b22e0f3ce77d))
+* **work:** teach Suggest about agent sessions ([#95](https://github.com/chriskievit/ariadne/issues/95)) ([f8c1737](https://github.com/chriskievit/ariadne/commit/f8c17371d4ae1afd308142607efc1fef00313997)), closes [rou#durations](https://github.com/rou/issues/durations)
+* **work:** wire agent sessions into the item lifecycle ([#93](https://github.com/chriskievit/ariadne/issues/93)) ([e4989e3](https://github.com/chriskievit/ariadne/commit/e4989e3784ce57831cdbb3334652456129af4e35)), closes [rou#defaults](https://github.com/rou/issues/defaults)
+
 # [1.7.0](https://github.com/chriskievit/ariadne/compare/v1.6.1...v1.7.0) (2026-09-03)
 
 
