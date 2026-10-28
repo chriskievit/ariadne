@@ -157,6 +157,7 @@ export default function SignalsBoard({
     all: withoutHiddenTriage.length,
     github_pr: withoutHiddenTriage.filter((i) => i.source === 'github_pr').length,
     ado_workitem: withoutHiddenTriage.filter((i) => i.source === 'ado_workitem').length,
+    jira_issue: withoutHiddenTriage.filter((i) => i.source === 'jira_issue').length,
     adhoc: withoutHiddenTriage.filter((i) => i.source === 'adhoc').length,
   };
 

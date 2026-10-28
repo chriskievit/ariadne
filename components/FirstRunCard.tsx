@@ -14,7 +14,7 @@ export default function FirstRunCard({ onAddClick }: Props) {
       <CardContent className="space-y-3 pt-6">
         <h2 className="text-base font-semibold">Nothing synced yet</h2>
         <p className="text-sm text-muted-foreground">
-          Ariadne reads GitHub and Azure DevOps with read-only tokens you provide. It never writes to either.
+          Ariadne reads GitHub, Azure DevOps and Jira with read-only tokens you provide. It never writes to any of them.
         </p>
         <p className="text-xs text-muted-foreground">
           Tokens are stored in plaintext in your local database — the same trust model as a{' '}

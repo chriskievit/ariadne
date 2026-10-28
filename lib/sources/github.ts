@@ -1,6 +1,7 @@
 import { fetchGithubItems, fetchMergedExternalIds, type GithubConfig } from './github-client';
 import { getOpenGithubPrCandidates, setPrStatus } from '../items-repo';
 import { SETTINGS_KEYS, DEFAULT_STALE_DAYS } from '../config';
+import { SOURCE_CONFIGURED } from './configured';
 import type { SettingGetter, SourceAdapter } from './types';
 
 function githubConfig(get: SettingGetter): GithubConfig {
@@ -12,8 +13,7 @@ function githubConfig(get: SettingGetter): GithubConfig {
 export const githubAdapter: SourceAdapter = {
   key: 'github',
   itemSource: 'github_pr',
-  notConfiguredError: 'GitHub PAT not configured',
-  isConfigured: (get) => !!get(SETTINGS_KEYS.githubPat),
+  isConfigured: SOURCE_CONFIGURED.github,
   async sync(get) {
     return { items: await fetchGithubItems(githubConfig(get)) };
   },

@@ -3,6 +3,7 @@ import { getSetting } from './settings-repo';
 import { listItems } from './items-repo';
 import { SETTINGS_KEYS } from './config';
 import { adoCountsAsSprintDone } from './sources/ado-state';
+import type { Item } from './types';
 
 export interface SprintProgress {
   name: string | null;
@@ -13,8 +14,11 @@ export interface SprintProgress {
   lastSyncedAt: string | null;
 }
 
-function isComplete(item: { source: string; status: string; upstreamStatus: string | null }): boolean {
+function isComplete(item: Pick<Item, 'source' | 'status' | 'upstreamStatus' | 'statusCategory'>): boolean {
   if (item.source === 'ado_workitem') return adoCountsAsSprintDone(item.upstreamStatus);
+  // Jira files every finished state, Won't Do included, under done; for the
+  // sprint count that is right, since none of them is left to do.
+  if (item.source === 'jira_issue') return item.statusCategory === 'done';
   return item.status === 'done';
 }
 

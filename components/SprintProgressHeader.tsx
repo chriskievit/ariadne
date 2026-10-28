@@ -19,7 +19,11 @@ interface Props {
   onShowNeedsYouInSignals: () => void;
 }
 
-const SOURCE_LABEL: Record<SourceStatus['source'], string> = { github: 'GitHub', ado: 'Azure DevOps' };
+const SOURCE_LABEL: Record<SourceStatus['source'], string> = {
+  github: 'GitHub',
+  ado: 'Azure DevOps',
+  jira: 'Jira',
+};
 
 const STATE_ICON = { ok: CircleCheck, stale: CircleAlert, error: CircleX, partial: CircleAlert } as const;
 const STATE_TEXT_CLASS = {

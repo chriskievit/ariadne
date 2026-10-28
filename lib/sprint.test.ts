@@ -145,4 +145,28 @@ describe('getSprintProgress', () => {
   it('reports lastSyncedAt as null when there is no sync history', () => {
     expect(getSprintProgress(db).lastSyncedAt).toBeNull();
   });
+
+  it('counts a Jira issue as complete on its done category, matching the sprint name exactly', () => {
+    const jira = (key: string, statusCategory: 'todo' | 'in_progress' | 'done') =>
+      upsertSyncedItem(db, {
+        source: 'jira_issue',
+        externalId: key,
+        title: key,
+        url: null,
+        reason: 'assigned',
+        dueDate: null,
+        sprintIteration: 'Sprint 42',
+        rawUpdatedAt: null,
+        upstreamStatus: statusCategory,
+        statusCategory,
+        repo: null,
+      });
+    jira('PLAT-1', 'done');
+    jira('PLAT-2', 'in_progress');
+    jira('PLAT-3', 'todo');
+
+    const progress = getSprintProgress(db);
+    expect(progress.totalCount).toBe(3);
+    expect(progress.completedCount).toBe(1);
+  });
 });

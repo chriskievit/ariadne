@@ -3,7 +3,7 @@ import type { NewSyncedItemInput, Source } from '../types';
 
 // Pure on purpose: lib/sync-status.ts imports SOURCE_KEYS, and that module is
 // imported by client components. The adapters themselves live in index.ts.
-export const SOURCE_KEYS = ['github', 'ado'] as const;
+export const SOURCE_KEYS = ['github', 'ado', 'jira'] as const;
 export type SourceKey = (typeof SOURCE_KEYS)[number];
 
 export type SettingGetter = (key: string) => string | null;
@@ -26,9 +26,8 @@ export interface SourceAdapter {
   // The sync key and the item source are different vocabularies ('github' vs
   // 'github_pr'); phase 3 needs this map to find a source's items.
   itemSource: Source;
-  // Written to sync_log when the adapter is not configured, so the sync
-  // status explains why nothing came in.
-  notConfiguredError: string;
+  // A source that is not set up is skipped without a trace: no sync_log row,
+  // no sync status, so a Jira-only setup never shows Azure DevOps as failed.
   isConfigured(get: SettingGetter): boolean;
   sync(get: SettingGetter): Promise<SourceSyncResult>;
   // Runs after the fetched items are upserted, for state the fetch itself

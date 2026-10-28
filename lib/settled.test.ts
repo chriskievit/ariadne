@@ -69,4 +69,16 @@ describe('settledOutcome', () => {
     // as a future tracker would send it.
     expect(settledOutcome({ source: 'ado_workitem', prStatus: null, upstreamStatus: 'Shipped', statusCategory: 'done' })).toBe('finished');
   });
+
+  it('settles a Jira issue on its done category', () => {
+    expect(settledOutcome({ source: 'jira_issue', prStatus: null, upstreamStatus: 'Done', statusCategory: 'done' })).toBe('finished');
+    expect(settledOutcome({ source: 'jira_issue', prStatus: null, upstreamStatus: 'In Review', statusCategory: 'in_progress' })).toBeNull();
+  });
+
+  it.each(["Won't Do", 'Wont Fix', 'Cancelled', 'Duplicate', 'Rejected'])(
+    'treats a Jira issue closed as %s as gone, not finished',
+    (upstreamStatus) => {
+      expect(settledOutcome({ source: 'jira_issue', prStatus: null, upstreamStatus, statusCategory: 'done' })).toBe('gone');
+    }
+  );
 });

@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { SETTINGS_KEYS } from './config';
 
-const SECRET_SETTINGS_KEYS: readonly string[] = [SETTINGS_KEYS.githubPat, SETTINGS_KEYS.adoPat];
+const SECRET_SETTINGS_KEYS: readonly string[] = [SETTINGS_KEYS.githubPat, SETTINGS_KEYS.adoPat, SETTINGS_KEYS.jiraToken];
 
 export function getSetting(db: Database.Database, key: string): string | null {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;

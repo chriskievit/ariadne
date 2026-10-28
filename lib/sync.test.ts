@@ -40,17 +40,18 @@ describe('runSync', () => {
     expect(listItems(db)).toHaveLength(2);
   });
 
-  it('continues the ADO sync when GitHub sync fails', async () => {
+  it('skips a source that is not set up, without an error or a sync_log row', async () => {
     setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
     setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
     setSetting(db, SETTINGS_KEYS.adoProject, 'project');
     (fetchAdoData as any).mockResolvedValue({ items: [], iteration: null });
 
     const outcomes = await runSync(db);
-    const github = outcomes.find((o) => o.source === 'github')!;
-    const ado = outcomes.find((o) => o.source === 'ado')!;
-    expect(github.error).toBe('GitHub PAT not configured');
-    expect(ado.error).toBeNull();
+    expect(outcomes.map((o) => o.source)).toEqual(['ado']);
+    expect(outcomes[0].error).toBeNull();
+    expect(fetchGithubItems).not.toHaveBeenCalled();
+    const sources = db.prepare('SELECT DISTINCT source FROM sync_log').all() as { source: string }[];
+    expect(sources.map((r) => r.source)).toEqual(['ado']);
   });
 
   it('continues the GitHub sync when ADO sync throws', async () => {
@@ -157,7 +158,11 @@ describe('runSync', () => {
     expect(fetchMergedExternalIds).not.toHaveBeenCalled();
   });
 
-  it('writes a sync_log row per source on every run', async () => {
+  it('writes a sync_log row per configured source on every run', async () => {
+    setSetting(db, SETTINGS_KEYS.githubPat, 'gh-pat');
+    setSetting(db, SETTINGS_KEYS.adoPat, 'ado-pat');
+    setSetting(db, SETTINGS_KEYS.adoOrg, 'org');
+    setSetting(db, SETTINGS_KEYS.adoProject, 'project');
     (fetchGithubItems as any).mockResolvedValue([]);
     (fetchAdoData as any).mockResolvedValue({ items: [], iteration: null });
 

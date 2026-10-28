@@ -7,12 +7,12 @@ import type { SourceAdapter } from './sources/types';
 // A fake adapter list, so the test can use a source that is not ADO. The real
 // adapters would pull in the HTTP clients.
 const sprint = { name: 'Other sprint', startDate: '2026-09-01', endDate: '2026-09-14' };
-const stub = (key: 'github' | 'ado'): SourceAdapter => ({
+const ITEM_SOURCE = { github: 'github_pr', ado: 'ado_workitem', jira: 'jira_issue' } as const;
+const stub = (key: 'github' | 'ado' | 'jira', name = sprint.name): SourceAdapter => ({
   key,
-  itemSource: key === 'ado' ? 'ado_workitem' : 'github_pr',
-  notConfiguredError: 'not configured',
+  itemSource: ITEM_SOURCE[key],
   isConfigured: () => true,
-  sync: async () => ({ items: [], sprint }),
+  sync: async () => ({ items: [], sprint: { ...sprint, name } }),
 });
 
 const adapters = vi.hoisted(() => ({ list: [] as SourceAdapter[] }));
@@ -40,5 +40,18 @@ describe('runSync sprint keys', () => {
     adapters.list.push(stub('ado'));
     await runSync(db);
     expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Other sprint');
+  });
+
+  it('stores the Jira sprint when Jira is the only tracker set up', async () => {
+    adapters.list.push(stub('github'), stub('jira', 'Jira sprint'));
+    await runSync(db);
+    expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('Jira sprint');
+    expect(getSetting(db, SETTINGS_KEYS.sprintEnd)).toBe('2026-09-14');
+  });
+
+  it('keeps the ADO sprint when both trackers are set up, so they never race', async () => {
+    adapters.list.push(stub('ado', 'ADO sprint'), stub('jira', 'Jira sprint'));
+    await runSync(db);
+    expect(getSetting(db, SETTINGS_KEYS.sprintName)).toBe('ADO sprint');
   });
 });

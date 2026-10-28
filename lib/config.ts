@@ -4,6 +4,10 @@ export const SETTINGS_KEYS = {
   adoOrg: 'ado.org',
   adoProject: 'ado.project',
   adoTeam: 'ado.team',
+  jiraSite: 'jira.site',
+  jiraEmail: 'jira.email',
+  jiraToken: 'jira.token',
+  jiraJql: 'jira.jql',
   staleDays: 'github.staleDays',
   sprintName: 'sprint.name',
   sprintStart: 'sprint.start',
@@ -21,6 +25,10 @@ export const SETTINGS_KEYS = {
 } as const;
 
 export const DEFAULT_STALE_DAYS = 3;
+
+// Done is not excluded on purpose: the sprint done count and the settled
+// check both need to see an issue go done. The sprint already bounds the set.
+export const DEFAULT_JIRA_JQL = 'assignee = currentUser() AND sprint in openSprints()';
 export const NEEDS_ATTENTION_THRESHOLD = 25;
 export const DEFAULT_CAPACITY_MINUTES = 360; // 6h, per the wireframe's default
 export const DEFAULT_LONG_RUN_NUDGE_HOURS = 2;

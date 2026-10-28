@@ -50,6 +50,7 @@ interface FocusData {
 const SOURCE_NAME: Record<ScoredItem['source'], string> = {
   github_pr: 'GitHub',
   ado_workitem: 'Azure DevOps',
+  jira_issue: 'Jira',
   adhoc: 'Ad-hoc',
 };
 

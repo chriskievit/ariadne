@@ -46,7 +46,7 @@ describe('getTimeReport', () => {
     logTime(ado.id, '2026-07-02T09:00:00.000Z', 1.5);
 
     const report = getTimeReport(db, '2026-07-01', '2026-07-02');
-    expect(report.totalsBySource).toEqual({ github_pr: 2, ado_workitem: 1.5, adhoc: 0 });
+    expect(report.totalsBySource).toEqual({ github_pr: 2, ado_workitem: 1.5, jira_issue: 0, adhoc: 0 });
   });
 
   it('excludes an item completed outside the range even if it has an in-range time log', () => {
@@ -93,8 +93,8 @@ describe('getTimeReport', () => {
 
     const report = getTimeReport(db, '2026-07-01', '2026-07-02');
     expect(report.dailySeries).toEqual([
-      { date: '2026-07-01', github_pr: 2, ado_workitem: 1, adhoc: 0 },
-      { date: '2026-07-02', github_pr: 3, ado_workitem: 0, adhoc: 0 },
+      { date: '2026-07-01', github_pr: 2, ado_workitem: 1, jira_issue: 0, adhoc: 0 },
+      { date: '2026-07-02', github_pr: 3, ado_workitem: 0, jira_issue: 0, adhoc: 0 },
     ]);
   });
 
@@ -112,7 +112,7 @@ describe('getTimeReport', () => {
 
   it('returns all-zero totals and an empty dailySeries when nothing matches', () => {
     const report = getTimeReport(db, '2026-07-01', '2026-07-02');
-    expect(report.totalsBySource).toEqual({ github_pr: 0, ado_workitem: 0, adhoc: 0 });
+    expect(report.totalsBySource).toEqual({ github_pr: 0, ado_workitem: 0, jira_issue: 0, adhoc: 0 });
     expect(report.dailySeries).toEqual([]);
   });
 });

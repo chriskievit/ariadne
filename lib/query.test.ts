@@ -110,6 +110,16 @@ describe('applyQuery', () => {
     expect(result.map((i) => i.id)).toEqual([1]);
   });
 
+  it('filters by source:jira, and reads a Jira state from its category', () => {
+    const items = [
+      item({ id: 1, source: 'jira_issue', upstreamStatus: 'In Progress', statusCategory: 'in_progress' }),
+      item({ id: 2, source: 'ado_workitem' }),
+    ];
+    expect(parseQuery('source:jira').errors).toEqual([]);
+    expect(applyQuery(items, parseQuery('source:jira'), context).map((i) => i.id)).toEqual([1]);
+    expect(applyQuery(items, parseQuery('state:progress'), context).map((i) => i.id)).toEqual([1]);
+  });
+
   it('filters by score comparator', () => {
     const items = [item({ id: 1, score: 60 }), item({ id: 2, score: 10 })];
     expect(applyQuery(items, parseQuery('score:>50'), context).map((i) => i.id)).toEqual([1]);

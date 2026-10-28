@@ -27,12 +27,16 @@ import type { Source } from '@/lib/types';
 const SOURCE_LABELS: Record<Source, string> = {
   github_pr: 'GitHub',
   ado_workitem: 'Azure DevOps',
+  jira_issue: 'Jira',
   adhoc: 'Ad-hoc',
 };
 
 const SOURCE_COLORS: Record<Source, string> = {
   github_pr: 'hsl(var(--chart-1))',
   ado_workitem: 'hsl(var(--chart-2))',
+  // chart-4 and chart-5 sit near the background in dark mode; this neutral
+  // reads in both themes and leaves the hues to the older sources.
+  jira_issue: 'hsl(var(--muted-foreground))',
   adhoc: 'hsl(var(--chart-3))',
 };
 

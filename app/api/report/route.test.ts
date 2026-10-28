@@ -34,7 +34,7 @@ describe('/api/report', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.totalsBySource.github_pr).toBe(2);
-    expect(body.dailySeries).toEqual([{ date: '2026-07-01', github_pr: 2, ado_workitem: 0, adhoc: 0 }]);
+    expect(body.dailySeries).toEqual([{ date: '2026-07-01', github_pr: 2, ado_workitem: 0, jira_issue: 0, adhoc: 0 }]);
   });
 
   it('returns 400 when start or end is missing', async () => {
