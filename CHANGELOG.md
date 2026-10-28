@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/chriskievit/ariadne/compare/v1.9.0...v1.10.0) (2026-10-28)
+
+
+### Features
+
+* **settings:** switch each source on or off ([#106](https://github.com/chriskievit/ariadne/issues/106)) ([041a0e3](https://github.com/chriskievit/ariadne/commit/041a0e3668be33d9ee2d046b948bdd224a4fd093)), closes [#98](https://github.com/chriskievit/ariadne/issues/98)
+
 # [1.9.0](https://github.com/chriskievit/ariadne/compare/v1.8.0...v1.9.0) (2026-10-28)
 
 
