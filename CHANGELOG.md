@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/chriskievit/ariadne/compare/v1.8.0...v1.9.0) (2026-10-28)
+
+
+### Features
+
+* **sources:** sync Jira Cloud issues ([#105](https://github.com/chriskievit/ariadne/issues/105)) ([117cdd0](https://github.com/chriskievit/ariadne/commit/117cdd03c2ca7399279795438e9c64b1b2bc3c6a)), closes [#98](https://github.com/chriskievit/ariadne/issues/98)
+
 # [1.8.0](https://github.com/chriskievit/ariadne/compare/v1.7.0...v1.8.0) (2026-10-27)
 
 
